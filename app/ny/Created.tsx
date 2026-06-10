@@ -18,6 +18,9 @@ export function Created({
   };
   onBoard: () => void;
 }) {
+  const base =
+    process.env.NEXT_PUBLIC_BASE_URL ??
+    (typeof window !== "undefined" ? window.location.origin : "");
   return (
     <main className="center-screen">
       <div className="card card-pad stack center" style={{ maxWidth: 480, width: "100%" }}>
@@ -40,6 +43,10 @@ export function Created({
           <Link href={`/kontroll?code=${result.control_code}`} className="btn btn-block">
             {no.landing.controlCta}
           </Link>
+          <CopyLink
+            label="📣 Del følge-lenke (publikum)"
+            value={`${base}/live/${result.id}`}
+          />
         </div>
       </div>
     </main>
@@ -81,6 +88,26 @@ function CodeBlock({
         {value}
       </div>
       <div className="faint" style={{ fontSize: ".72rem" }}>{copied ? "Kopiert!" : "trykk for å kopiere"}</div>
+    </button>
+  );
+}
+
+function CopyLink({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className="btn btn-block"
+      onClick={() =>
+        navigator.clipboard?.writeText(value).then(
+          () => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1600);
+          },
+          () => {},
+        )
+      }
+    >
+      {copied ? "Lenke kopiert!" : label}
     </button>
   );
 }

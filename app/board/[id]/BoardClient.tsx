@@ -13,10 +13,28 @@ import { Standings } from "./Standings";
 import { Bracket } from "./Bracket";
 import { NowPlaying } from "./NowPlaying";
 import { Champion } from "./Champion";
+import { BoardTimer } from "./BoardTimer";
+import { SoundToggle } from "@/lib/client/SoundToggle";
+import { events } from "@/lib/realtime";
+import { playDing } from "@/lib/client/sound";
 import type { Match } from "@/lib/types";
 
-export function BoardClient({ id }: { id: string }) {
-  const { state, error } = useTournament(id);
+export function BoardClient({
+  id,
+  spectator = false,
+}: {
+  id: string;
+  spectator?: boolean;
+}) {
+  const [flash, setFlash] = useState(false);
+  const { state, error } = useTournament(id, 15_000, (event) => {
+    // Celebrate a freshly entered result: chime + a brief board pulse.
+    if (event === events.matchUpdated) {
+      playDing();
+      setFlash(true);
+      setTimeout(() => setFlash(false), 700);
+    }
+  });
   // auto-rotate between standings and bracket when both exist
   const [panel, setPanel] = useState<"standings" | "bracket">("standings");
 
@@ -58,27 +76,36 @@ export function BoardClient({ id }: { id: string }) {
 
   const live = liveMatches(matches);
   const next = upcoming(matches, 6);
-  const joinUrl = `${baseUrl}/kontroll?code=${tournament.control_code}`;
+  // The on-screen QR is the READ-ONLY spectator link — anyone in the room can
+  // scan it safely. Referees join by typing the control code (shown as text).
+  const followUrl = `${baseUrl}/live/${tournament.id}`;
 
   // which right-hand panel
   const showBracket =
     hasBracket && (!hasLeague || panel === "bracket" || tournament.status === "playoff");
 
   return (
-    <main className="board">
+    <main className={`board${flash ? " board-flash" : ""}`}>
+      <SoundToggle />
       <header className="board-head">
         <div>
           <h1 className="board-title">{tournament.title || no.brand}</h1>
           {tournament.sport_label && (
             <div className="board-sport">{tournament.sport_label}</div>
           )}
+          <BoardTimer timer={tournament.timer} />
         </div>
         <div className="row" style={{ alignItems: "center", gap: 18 }}>
-          <div className="board-code-card">
-            <div className="board-code-label">{no.board.controlCode}</div>
-            <div className="board-code">{tournament.control_code}</div>
+          {!spectator && (
+            <div className="board-code-card">
+              <div className="board-code-label">{no.board.controlCode}</div>
+              <div className="board-code">{tournament.control_code}</div>
+            </div>
+          )}
+          <div className="board-qr">
+            <QRCode value={followUrl} size={104} />
+            <div className="board-qr-label">{no.board.follow}</div>
           </div>
-          <QRCode value={joinUrl} size={104} />
         </div>
       </header>
 

@@ -9,7 +9,11 @@ import type { StateDTO } from "@/lib/dto";
 /** Fetch the full tournament state and keep it fresh: refetch on any realtime
  * event (broadcasts are hints, not data — spec §4.4) and on a slow poll as a
  * reconnect backstop. */
-export function useTournament(id: string, pollMs = 15_000) {
+export function useTournament(
+  id: string,
+  pollMs = 15_000,
+  onEvent?: (event: string, payload: Record<string, unknown>) => void,
+) {
   const [state, setState] = useState<StateDTO | null>(null);
   const [error, setError] = useState(false);
   const inFlight = useRef(false);
@@ -33,9 +37,14 @@ export function useTournament(id: string, pollMs = 15_000) {
     refetch();
   }, [refetch]);
 
-  // Realtime hint → refetch authoritative state.
-  useChannel(id ? channels.tournament(id) : null, () => {
+  // Realtime hint → refetch authoritative state (+ notify caller, e.g. sounds).
+  const onEventRef = useRef(onEvent);
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  });
+  useChannel(id ? channels.tournament(id) : null, (event, payload) => {
     refetch();
+    onEventRef.current?.(event, payload);
   });
 
   // Poll backstop (covers a missed broadcast / reconnect).

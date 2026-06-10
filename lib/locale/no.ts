@@ -74,8 +74,14 @@ export const no = {
     s4HowMany: "Hvor mange lag?",
     s4Generate: "Opprett",
     s4GenerateHint: "Lager nummererte lag du kan gi navn etterpå.",
-    s4Bulk: "Lim inn flere (ett navn per linje)",
+    s4Bulk: "Lim inn lagnavn (ett per linje)",
     s4BulkApply: "Legg til alle",
+    s4Draw: "🎲 Trekk lag fra deltakerliste",
+    s4DrawTeams: "Antall lag",
+    s4DrawDo: "Trekk lag",
+    s4DrawHint:
+      "Lim inn alle deltakerne (ett navn per linje) – de fordeles tilfeldig og jevnt på lagene. Fint for gymtimen!",
+    s4Members: (n: number) => `${n} spillere`,
     s4Min: "Minst 2 lag.",
     s4Count: (n: number) => `${n} lag`,
 
@@ -103,6 +109,7 @@ export const no = {
   board: {
     lobby: "Venter på start",
     controlCode: "Kontrollkode",
+    follow: "Følg live",
     scan: "Skann for å registrere resultater",
     nowPlaying: "Nå spiller",
     nextUp: "Neste",

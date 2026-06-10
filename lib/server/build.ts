@@ -23,7 +23,12 @@ export interface CreateInput {
   scoring: ScoringConfig;
   parallelism: Parallelism;
   config: TournamentConfig;
-  teams: { name: string; colour: string; logo_url?: string | null }[];
+  teams: {
+    name: string;
+    colour: string;
+    logo_url?: string | null;
+    members?: string[];
+  }[];
   courts: { name: string }[];
 }
 
@@ -109,6 +114,7 @@ export async function createTournament(
         name: tm.name,
         colour: tm.colour,
         logo_url: tm.logo_url ?? null,
+        members: Array.isArray(tm.members) ? tm.members : [],
         seed: i + 1,
         sort_order: i,
       })),

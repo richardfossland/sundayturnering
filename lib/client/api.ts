@@ -99,6 +99,19 @@ export const api = {
       organiserCode,
     });
   },
+  timer(
+    tournamentId: string,
+    organiserCode: string,
+    action: "start" | "add" | "stop",
+    durationSec?: number,
+  ) {
+    return post<{ timer: unknown }>("/api/organiser/timer", {
+      tournamentId,
+      organiserCode,
+      action,
+      durationSec,
+    });
+  },
 
   async uploadLogo(file: File): Promise<string> {
     const fd = new FormData();

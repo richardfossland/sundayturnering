@@ -24,6 +24,7 @@ export interface TournamentDTO {
   config: Tournament["config"];
   status: Tournament["status"];
   version: number;
+  timer: Tournament["timer"];
 }
 
 export function toTournamentDTO(t: Tournament): TournamentDTO {
@@ -39,6 +40,7 @@ export function toTournamentDTO(t: Tournament): TournamentDTO {
     config: t.config,
     status: t.status,
     version: t.version,
+    timer: t.timer ?? null,
   };
 }
 

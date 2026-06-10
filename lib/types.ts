@@ -2,6 +2,13 @@
 // these are the shapes the service-role client reads/writes and the API serves.
 
 export type Format = "league" | "league_playoff" | "cup";
+
+/** Optional board countdown timer (spec extension). endsAt is an ISO instant. */
+export interface TimerState {
+  endsAt: string | null;
+  durationSec: number;
+  running: boolean;
+}
 export type ScoringProfileKey = "simple" | "sets" | "winner";
 export type Parallelism = "sequential" | "parallel";
 export type TournamentStatus = "setup" | "league" | "playoff" | "finished";
@@ -54,6 +61,7 @@ export interface Tournament {
   config: TournamentConfig;
   status: TournamentStatus;
   version: number;
+  timer: TimerState | null;
   created_at: string;
 }
 
@@ -72,6 +80,7 @@ export interface Team {
   logo_url: string | null;
   seed: number | null;
   sort_order: number;
+  members: string[];
 }
 
 export interface Match {

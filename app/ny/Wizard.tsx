@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/client/api";
 import { no } from "@/lib/locale/no";
@@ -11,6 +11,11 @@ import {
   isEmblem,
   EMBLEM_COUNT,
 } from "@/lib/emblems";
+import {
+  templates,
+  type Template,
+  type TemplateData,
+} from "@/lib/client/templates";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import {
   roundRobinMatchCount,
@@ -28,6 +33,7 @@ interface DraftTeam {
   name: string;
   colour: string;
   logo_url: string | null;
+  members: string[];
 }
 
 const TOTAL = 7;
@@ -55,6 +61,59 @@ export function Wizard() {
   const [teams, setTeams] = useState<DraftTeam[]>([]);
   const [bulk, setBulk] = useState("");
   const [count, setCount] = useState(8);
+  const [draw, setDraw] = useState(""); // player names for the random draw
+  const [drawTeamCount, setDrawTeamCount] = useState(4);
+  const [tmpls, setTmpls] = useState<Template[]>([]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read saved templates post-mount
+    setTmpls(templates.list());
+  }, []);
+
+  function currentTemplateData(): TemplateData {
+    return {
+      title,
+      sport,
+      format,
+      scoring,
+      parallelism,
+      courtCount,
+      courtNames,
+      playoffSize,
+      teams: validTeams.map((t) => ({
+        name: t.name.trim(),
+        colour: t.colour,
+        members: t.members,
+      })),
+    };
+  }
+  function saveTemplate() {
+    const name = window.prompt("Navn på mal", title || sport || "Mal");
+    if (!name?.trim()) return;
+    setTmpls(templates.save(name.trim(), currentTemplateData()));
+  }
+  function loadTemplate(t: Template) {
+    const d = t.data;
+    setTitle(d.title);
+    setSport(d.sport);
+    setFormat(d.format);
+    setScoring(d.scoring);
+    setParallelism(d.parallelism);
+    setCourtCount(d.courtCount);
+    setCourtNames(d.courtNames);
+    setPlayoffSize(d.playoffSize);
+    setCount(d.teams.length || 8);
+    setTeams(
+      rollEmblems(
+        d.teams.map((tm) => ({
+          name: tm.name,
+          colour: tm.colour,
+          logo_url: null,
+          members: tm.members ?? [],
+        })),
+      ),
+    );
+  }
 
   // steps shown — skip step 6 unless league_playoff
   const showPlayoff = format === "league_playoff";
@@ -72,8 +131,34 @@ export function Wizard() {
   function addTeam() {
     setTeams((t) => [
       ...t,
-      { name: "", colour: paletteColour(t.length), logo_url: nextEmblem(t) },
+      { name: "", colour: paletteColour(t.length), logo_url: nextEmblem(t), members: [] },
     ]);
+  }
+  /** Random draw: split a pasted name list into `n` balanced teams (gym class). */
+  function drawTeams(n: number) {
+    const names = draw
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (names.length < n) return;
+    // Fisher–Yates shuffle, then deal round-robin for balance.
+    const shuffled = [...names];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const buckets: string[][] = Array.from({ length: n }, () => []);
+    shuffled.forEach((name, i) => buckets[i % n].push(name));
+    const emblems = allEmblemsShuffled();
+    setTeams(
+      buckets.map((members, i) => ({
+        name: `Lag ${i + 1}`,
+        colour: paletteColour(i),
+        logo_url: emblems[i % emblems.length],
+        members,
+      })),
+    );
+    setCount(n);
   }
   /** Set the list to exactly `n` teams: keep names/colours and any uploaded
    * logos; reshuffle a distinct random emblem onto every other team (numbered
@@ -87,6 +172,7 @@ export function Wizard() {
         colour: prev[i]?.colour ?? paletteColour(i),
         // drop old emblems so they re-roll; keep uploaded logos
         logo_url: isEmblem(prev[i]?.logo_url) ? null : (prev[i]?.logo_url ?? null),
+        members: prev[i]?.members ?? [],
       }));
       return rollEmblems(list);
     });
@@ -104,6 +190,7 @@ export function Wizard() {
           name,
           colour: paletteColour(t.length + i),
           logo_url: pool[i] ?? emblemDataUri(Math.floor(Math.random() * EMBLEM_COUNT)),
+          members: [],
         })),
       ];
     });
@@ -141,6 +228,7 @@ export function Wizard() {
           name: t.name.trim(),
           colour: t.colour,
           logo_url: t.logo_url,
+          members: t.members,
         })),
         courts:
           parallelism === "parallel"
@@ -176,6 +264,29 @@ export function Wizard() {
         <div className="stack" style={{ minHeight: 260 }}>
           {step === 1 && (
             <Step title={no.wizard.s1Title}>
+              {tmpls.length > 0 && (
+                <div className="panel stack" style={{ gap: 8 }}>
+                  <span className="label">📁 Maler</span>
+                  <div className="chips">
+                    {tmpls.map((t) => (
+                      <span key={t.id} className="chip" style={{ cursor: "pointer" }} onClick={() => loadTemplate(t)}>
+                        {t.name}
+                        <span
+                          role="button"
+                          aria-label="Slett mal"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTmpls(templates.remove(t.id));
+                          }}
+                          style={{ marginLeft: 8, opacity: 0.6 }}
+                        >
+                          ✕
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="field">
                 <label className="label">{no.wizard.s1Name}</label>
                 <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={no.wizard.s1NamePlaceholder} autoFocus />
@@ -275,22 +386,50 @@ export function Wizard() {
                   {no.wizard.s4GenerateHint}
                 </span>
               </div>
-              <div className="stack" style={{ gap: 8, maxHeight: 280, overflow: "auto" }}>
+              <div className="stack" style={{ gap: 8, maxHeight: 320, overflow: "auto" }}>
                 {teams.map((t, i) => (
-                  <div className="row" key={i}>
-                    <input type="color" value={t.colour} onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, colour: e.target.value } : x))}
-                      style={{ width: 42, height: 42, border: "none", borderRadius: 10, background: "none" }} aria-label="farge" />
-                    <input className="input grow" value={t.name} placeholder={no.wizard.s4Name}
-                      onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
-                    <LogoUpload
-                      url={t.logo_url}
-                      onUrl={(u) => setTeams(teams.map((x, j) => j === i ? { ...x, logo_url: u } : x))}
-                    />
-                    <button className="btn btn-ghost" onClick={() => setTeams(teams.filter((_, j) => j !== i))}>✕</button>
+                  <div className="panel" key={i} style={{ padding: 10 }}>
+                    <div className="row">
+                      <input type="color" value={t.colour} onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, colour: e.target.value } : x))}
+                        style={{ width: 42, height: 42, border: "none", borderRadius: 10, background: "none" }} aria-label="farge" />
+                      <input className="input grow" value={t.name} placeholder={no.wizard.s4Name}
+                        onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                      <LogoUpload
+                        url={t.logo_url}
+                        onUrl={(u) => setTeams(teams.map((x, j) => j === i ? { ...x, logo_url: u } : x))}
+                      />
+                      <button className="btn btn-ghost" onClick={() => setTeams(teams.filter((_, j) => j !== i))}>✕</button>
+                    </div>
+                    {t.members.length > 0 && (
+                      <div className="chips" style={{ marginTop: 8 }}>
+                        {t.members.map((m, mi) => (
+                          <span className="chip" key={mi} style={{ fontSize: ".78rem", cursor: "default" }}>
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
               <button className="btn btn-ghost btn-block" onClick={addTeam}>+ {no.wizard.s4Add}</button>
+              <details>
+                <summary className="muted" style={{ cursor: "pointer", fontSize: ".9rem" }}>{no.wizard.s4Draw}</summary>
+                <div className="stack" style={{ marginTop: 8 }}>
+                  <textarea className="textarea" value={draw} onChange={(e) => setDraw(e.target.value)} placeholder={"Ola\nKari\nPer\nNora\n…"} />
+                  <div className="row">
+                    <span className="label">{no.wizard.s4DrawTeams}</span>
+                    <input className="input" type="number" min={2} max={16} style={{ width: 80 }}
+                      value={drawTeamCount}
+                      onChange={(e) => setDrawTeamCount(Math.max(2, Math.min(16, Number(e.target.value) || 2)))} />
+                    <button className="btn btn-gold grow" onClick={() => drawTeams(drawTeamCount)}
+                      disabled={draw.split("\n").filter((s) => s.trim()).length < drawTeamCount}>
+                      🎲 {no.wizard.s4DrawDo}
+                    </button>
+                  </div>
+                  <span className="faint" style={{ fontSize: ".82rem" }}>{no.wizard.s4DrawHint}</span>
+                </div>
+              </details>
               <details>
                 <summary className="muted" style={{ cursor: "pointer", fontSize: ".9rem" }}>{no.wizard.s4Bulk}</summary>
                 <div className="stack" style={{ marginTop: 8 }}>
@@ -356,6 +495,9 @@ export function Wizard() {
                 parallelism={parallelism} courtCount={courtCount}
                 teamCount={validTeams.length} playoff={showPlayoff ? maxPlayoff : 0}
               />
+              <button className="btn btn-block" onClick={saveTemplate} disabled={validTeams.length < 2}>
+                💾 Lagre som mal
+              </button>
             </Step>
           )}
         </div>

@@ -19,6 +19,7 @@ function team(id: string, name: string): Team {
     logo_url: null,
     seed: null,
     sort_order: 0,
+    members: [],
   };
 }
 

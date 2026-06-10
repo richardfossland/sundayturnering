@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { no } from "@/lib/locale/no";
 import { initials } from "@/lib/client/view";
+import { playFanfare } from "@/lib/client/sound";
+import { Confetti } from "./Confetti";
 import type { Team } from "@/lib/types";
 import type { StateDTO } from "@/lib/dto";
 
@@ -24,8 +27,13 @@ export function Champion({ state }: { state: StateDTO }) {
 
   const champ: Team | undefined = championId ? byId.get(championId) : undefined;
 
+  useEffect(() => {
+    playFanfare();
+  }, []);
+
   return (
     <main className="champion">
+      <Confetti />
       <div className="champion-inner">
         <div className="champion-eyebrow">🏆 {no.board.champion}</div>
         {champ?.logo_url ? (
@@ -40,6 +48,15 @@ export function Champion({ state }: { state: StateDTO }) {
           </div>
         )}
         <h1 className="champion-name">{champ?.name ?? "—"}</h1>
+        <a
+          className="btn"
+          href={`/resultat/${state.tournament.id}`}
+          target="_blank"
+          rel="noopener"
+          style={{ marginTop: 24 }}
+        >
+          🏅 Resultater &amp; diplom
+        </a>
       </div>
     </main>
   );

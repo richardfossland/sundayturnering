@@ -126,6 +126,9 @@ function Side({
       )}
       <span className="versus-name">{team?.name ?? no.board.tbd}</span>
       {score != null && <span className="versus-score">{score}</span>}
+      {team && team.members.length > 0 && (
+        <span className="versus-roster">{team.members.join(" · ")}</span>
+      )}
     </div>
   );
 }

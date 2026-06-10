@@ -29,6 +29,9 @@ export async function POST(req: Request) {
         name: t.name.trim(),
         colour: t.colour || "#888888",
         logo_url: t.logo_url ?? null,
+        members: Array.isArray(t.members)
+          ? t.members.map((m) => String(m).trim()).filter(Boolean).slice(0, 40)
+          : [],
       })),
       courts: Array.isArray(body.courts) ? body.courts : [],
     });

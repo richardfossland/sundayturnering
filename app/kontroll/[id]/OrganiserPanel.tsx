@@ -72,6 +72,15 @@ export function OrganiserPanel({
         <button className="btn btn-ghost" onClick={() => setOpenPanel(false)}>✕</button>
       </div>
 
+      <a
+        className="btn btn-block"
+        href={`/resultat/${tournament.id}`}
+        target="_blank"
+        rel="noopener"
+      >
+        🏅 Resultater &amp; diplom
+      </a>
+
       <div className="field">
         <label className="label">{no.control.organiserCode}</label>
         <input
@@ -111,6 +120,35 @@ export function OrganiserPanel({
             {no.control.finish}
           </button>
         )}
+      </div>
+
+      <div className="divider" />
+      <div className="label">Kamp-timer (vises på tavla)</div>
+      <div className="btn-row">
+        {[5, 8, 10, 15].map((min) => (
+          <button
+            key={min}
+            className="btn"
+            disabled={busy || !code}
+            onClick={() => guard(() => api.timer(tournament.id, code, "start", min * 60))}
+          >
+            {min} min
+          </button>
+        ))}
+        <button
+          className="btn btn-ghost"
+          disabled={busy || !code}
+          onClick={() => guard(() => api.timer(tournament.id, code, "add"))}
+        >
+          +1 min
+        </button>
+        <button
+          className="btn btn-ghost"
+          disabled={busy || !code}
+          onClick={() => guard(() => api.timer(tournament.id, code, "stop"))}
+        >
+          Stopp
+        </button>
       </div>
 
       {doneMatches.length > 0 && (
