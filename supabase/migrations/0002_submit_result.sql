@@ -4,19 +4,19 @@
 -- same version → exactly one wins; the loser gets 'version_conflict' and must
 -- refetch. The row lock (FOR UPDATE) serialises concurrent callers.
 
-create or replace function public.submit_match_result(
+create or replace function turnering.submit_match_result(
   p_match_id         uuid,
   p_expected_version int,
   p_result           jsonb,
   p_winner_team_id   uuid,
   p_status           text
-) returns public.matches
+) returns turnering.matches
 language plpgsql
 as $$
 declare
-  m public.matches;
+  m turnering.matches;
 begin
-  select * into m from public.matches where id = p_match_id for update;
+  select * into m from turnering.matches where id = p_match_id for update;
   if not found then
     raise exception 'match_not_found' using errcode = 'P0002';
   end if;
@@ -25,7 +25,7 @@ begin
     raise exception 'version_conflict' using errcode = 'P0001';
   end if;
 
-  update public.matches
+  update turnering.matches
      set result         = p_result,
          winner_team_id = p_winner_team_id,
          status         = p_status,
@@ -37,3 +37,5 @@ begin
   return m;
 end;
 $$;
+
+grant execute on function turnering.submit_match_result(uuid, int, jsonb, uuid, text) to service_role;

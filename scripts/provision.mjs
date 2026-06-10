@@ -79,11 +79,15 @@ async function main() {
     });
   }
 
-  // Fetch API keys.
+  // Fetch API keys — handle both legacy (anon/service_role) and new
+  // (publishable/secret) naming.
   const keys = await api(`/projects/${ref}/api-keys`);
-  const anon = keys.find((k) => k.name === "anon")?.api_key;
-  const service = keys.find((k) => k.name === "service_role")?.api_key;
+  const keyVal = (k) => k?.api_key ?? k?.api_key_secret ?? k?.secret ?? k?.value;
+  const anon = keyVal(keys.find((k) => k.name === "anon" || k.type === "publishable" || k.name === "publishable"));
+  const service = keyVal(keys.find((k) => k.name === "service_role" || k.type === "secret" || k.name === "secret"));
   const url = `https://${ref}.supabase.co`;
+  if (!anon || !service)
+    console.warn("⚠ Could not auto-detect keys; raw response:", JSON.stringify(keys).slice(0, 400));
 
   const env = [
     `NEXT_PUBLIC_SUPABASE_URL=${url}`,
