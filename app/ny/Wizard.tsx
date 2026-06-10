@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/client/api";
 import { no } from "@/lib/locale/no";
 import { paletteColour } from "@/lib/palette";
+import {
+  allEmblemsShuffled,
+  emblemDataUri,
+  isEmblem,
+  EMBLEM_COUNT,
+} from "@/lib/emblems";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import {
   roundRobinMatchCount,
@@ -64,34 +70,43 @@ export function Wizard() {
   }
 
   function addTeam() {
-    setTeams((t) => [...t, { name: "", colour: paletteColour(t.length), logo_url: null }]);
+    setTeams((t) => [
+      ...t,
+      { name: "", colour: paletteColour(t.length), logo_url: nextEmblem(t) },
+    ]);
   }
-  /** Set the list to exactly `n` teams: keep names/colours/logos you already
-   * have, fill the rest with numbered defaults ("Lag X") to rename later. */
+  /** Set the list to exactly `n` teams: keep names/colours and any uploaded
+   * logos; reshuffle a distinct random emblem onto every other team (numbered
+   * "Lag X" defaults to rename later). */
   function setTeamCount(n: number) {
     const clamped = Math.max(2, Math.min(32, Math.floor(n) || 0));
     setCount(clamped);
-    setTeams((prev) =>
-      Array.from({ length: clamped }, (_, i) => ({
+    setTeams((prev) => {
+      const list: DraftTeam[] = Array.from({ length: clamped }, (_, i) => ({
         name: prev[i]?.name?.trim() ? prev[i].name : `Lag ${i + 1}`,
         colour: prev[i]?.colour ?? paletteColour(i),
-        logo_url: prev[i]?.logo_url ?? null,
-      })),
-    );
+        // drop old emblems so they re-roll; keep uploaded logos
+        logo_url: isEmblem(prev[i]?.logo_url) ? null : (prev[i]?.logo_url ?? null),
+      }));
+      return rollEmblems(list);
+    });
   }
   function applyBulk() {
     const names = bulk
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean);
-    setTeams((t) => [
-      ...t,
-      ...names.map((name, i) => ({
-        name,
-        colour: paletteColour(t.length + i),
-        logo_url: null,
-      })),
-    ]);
+    setTeams((t) => {
+      const pool = emblemPool(t);
+      return [
+        ...t,
+        ...names.map((name, i) => ({
+          name,
+          colour: paletteColour(t.length + i),
+          logo_url: pool[i] ?? emblemDataUri(Math.floor(Math.random() * EMBLEM_COUNT)),
+        })),
+      ];
+    });
     setBulk("");
   }
 
@@ -358,6 +373,26 @@ export function Wizard() {
         </div>
       </div>
     </main>
+  );
+}
+
+// ---- team emblems (distinct, random, no duplicates within a tournament) ----
+function emblemPool(teams: DraftTeam[]): string[] {
+  const used = new Set(teams.map((t) => t.logo_url).filter(Boolean) as string[]);
+  return allEmblemsShuffled().filter((u) => !used.has(u));
+}
+function nextEmblem(teams: DraftTeam[]): string {
+  return emblemPool(teams)[0] ?? emblemDataUri(Math.floor(Math.random() * EMBLEM_COUNT));
+}
+/** Give every team without a logo a distinct emblem (uploaded logos kept). */
+function rollEmblems(list: DraftTeam[]): DraftTeam[] {
+  const used = new Set(list.map((t) => t.logo_url).filter(Boolean) as string[]);
+  const pool = allEmblemsShuffled().filter((u) => !used.has(u));
+  let p = 0;
+  return list.map((t) =>
+    t.logo_url
+      ? t
+      : { ...t, logo_url: pool[p++] ?? emblemDataUri(Math.floor(Math.random() * EMBLEM_COUNT)) },
   );
 }
 
