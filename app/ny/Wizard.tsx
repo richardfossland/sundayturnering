@@ -48,6 +48,7 @@ export function Wizard() {
   const [playoffSize, setPlayoffSize] = useState<2 | 4 | 8>(4);
   const [teams, setTeams] = useState<DraftTeam[]>([]);
   const [bulk, setBulk] = useState("");
+  const [count, setCount] = useState(8);
 
   // steps shown — skip step 6 unless league_playoff
   const showPlayoff = format === "league_playoff";
@@ -64,6 +65,19 @@ export function Wizard() {
 
   function addTeam() {
     setTeams((t) => [...t, { name: "", colour: paletteColour(t.length), logo_url: null }]);
+  }
+  /** Set the list to exactly `n` teams: keep names/colours/logos you already
+   * have, fill the rest with numbered defaults ("Lag X") to rename later. */
+  function setTeamCount(n: number) {
+    const clamped = Math.max(2, Math.min(32, Math.floor(n) || 0));
+    setCount(clamped);
+    setTeams((prev) =>
+      Array.from({ length: clamped }, (_, i) => ({
+        name: prev[i]?.name?.trim() ? prev[i].name : `Lag ${i + 1}`,
+        colour: prev[i]?.colour ?? paletteColour(i),
+        logo_url: prev[i]?.logo_url ?? null,
+      })),
+    );
   }
   function applyBulk() {
     const names = bulk
@@ -217,6 +231,35 @@ export function Wizard() {
 
           {step === 4 && (
             <Step title={no.wizard.s4Title}>
+              <div className="panel stack" style={{ gap: 10 }}>
+                <label className="label">{no.wizard.s4HowMany}</label>
+                <div className="row">
+                  <input
+                    className="input"
+                    type="number"
+                    min={2}
+                    max={32}
+                    inputMode="numeric"
+                    style={{ width: 96 }}
+                    value={count}
+                    onChange={(e) => setCount(Math.max(0, Number(e.target.value) || 0))}
+                    onKeyDown={(e) => e.key === "Enter" && setTeamCount(count)}
+                  />
+                  <button className="btn btn-gold" onClick={() => setTeamCount(count)}>
+                    {no.wizard.s4Generate}
+                  </button>
+                </div>
+                <div className="chips">
+                  {[4, 6, 8, 10, 12, 16].map((n) => (
+                    <button key={n} className="chip" onClick={() => setTeamCount(n)}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <span className="faint" style={{ fontSize: ".82rem" }}>
+                  {no.wizard.s4GenerateHint}
+                </span>
+              </div>
               <div className="stack" style={{ gap: 8, maxHeight: 280, overflow: "auto" }}>
                 {teams.map((t, i) => (
                   <div className="row" key={i}>
