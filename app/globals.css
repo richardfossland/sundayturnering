@@ -4,16 +4,23 @@
    Sport-neutral: an atmospheric dark arena ground, gold as the hero accent,
    team colours doing the real work. Must read at 3–5 m on a projector. */
 
+/* ============ theme tokens ============
+   :root is the DARK theme (default). The no-flash script in layout.tsx resolves
+   the stored/system preference and sets data-theme="dark|light" on <html> before
+   paint, so the light overrides below are all that's needed. Surfaces are
+   referenced through semantic tokens (--s-* raised, --k-* sunken) so they flip. */
 :root {
   --gold: #ebb84b;
   --gold-light: #f6dd97;
   --gold-deep: #c9982f;
   --gold-grad: linear-gradient(135deg, #f6dd97 0%, #ebb84b 45%, #d4a23a 100%);
 
+  --on-gold: #14171e; /* dark text on gold/accent — fixed in both themes */
+
   --ink: #0f1218;
-  --ink-2: #161b24;
-  --ink-3: #1d232f;
-  --ink-soft: #283040;
+  --ink-2: #161b24; /* card gradient top */
+  --ink-3: #1d232f; /* card gradient bottom */
+  --ink-soft: #283040; /* toast / logo placeholder */
   --ink-line: rgba(255, 255, 255, 0.08);
   --ink-line-strong: rgba(255, 255, 255, 0.16);
 
@@ -21,6 +28,25 @@
   --txt: #f3efe6;
   --txt-dim: #9aa0ad;
   --txt-faint: #6b7280;
+
+  /* page ground (body radial stops) */
+  --ground-a: #232c3c;
+  --ground-b: #161c27;
+  --page: #0f1218;
+  --grid-line: rgba(255, 255, 255, 0.03);
+
+  /* raised surfaces (lighter than ground) */
+  --s-025: rgba(255, 255, 255, 0.025);
+  --s-03: rgba(255, 255, 255, 0.03);
+  --s-04: rgba(255, 255, 255, 0.04);
+  --s-05: rgba(255, 255, 255, 0.05);
+  --s-08: rgba(255, 255, 255, 0.08);
+  --s-hover: rgba(255, 255, 255, 0.1);
+  /* sunken surfaces (darker than ground) */
+  --k-22: rgba(0, 0, 0, 0.22);
+  --k-28: rgba(0, 0, 0, 0.28);
+  --k-30: rgba(0, 0, 0, 0.3);
+  --scrim: rgba(0, 0, 0, 0.6);
 
   --win: #4fbf7b;
   --live: #4fbf7b;
@@ -43,6 +69,38 @@
   --shadow-gold: 0 14px 48px -14px rgba(235, 184, 75, 0.4);
 }
 
+:root[data-theme="light"] {
+  --ink-2: #ffffff; /* card surfaces */
+  --ink-3: #fbf8f1;
+  --ink-soft: #e7e1d4;
+  --ink-line: rgba(20, 24, 33, 0.1);
+  --ink-line-strong: rgba(20, 24, 33, 0.18);
+
+  --txt: #1b2130;
+  --txt-dim: #586172;
+  --txt-faint: #8a91a1;
+
+  --ground-a: #ffffff;
+  --ground-b: #f6f1e8;
+  --page: #ece6d9;
+  --grid-line: rgba(20, 24, 33, 0.045);
+
+  --s-025: rgba(20, 24, 33, 0.025);
+  --s-03: rgba(20, 24, 33, 0.035);
+  --s-04: rgba(20, 24, 33, 0.05);
+  --s-05: rgba(20, 24, 33, 0.06);
+  --s-08: rgba(20, 24, 33, 0.085);
+  --s-hover: rgba(20, 24, 33, 0.07);
+  --k-22: rgba(20, 24, 33, 0.04);
+  --k-28: #ffffff;
+  --k-30: rgba(20, 24, 33, 0.05);
+  --scrim: rgba(20, 24, 33, 0.42);
+
+  --shadow-1: 0 2px 10px rgba(20, 24, 33, 0.1);
+  --shadow-2: 0 24px 60px -30px rgba(20, 24, 33, 0.26);
+  --shadow-gold: 0 14px 40px -16px rgba(235, 184, 75, 0.55);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -60,11 +118,14 @@ body {
   position: relative;
   background: radial-gradient(
     150% 100% at 50% -20%,
-    #232c3c 0%,
-    #161c27 44%,
-    var(--ink) 80%
+    var(--ground-a) 0%,
+    var(--ground-b) 44%,
+    var(--page) 80%
   );
   overflow-x: hidden;
+  transition:
+    background 0.3s var(--ease),
+    color 0.3s var(--ease);
 }
 /* faint stadium-grid texture */
 body::before {
@@ -74,15 +135,15 @@ body::before {
   z-index: -2;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 64px 64px;
   -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, #000 20%, transparent 78%);
   mask-image: radial-gradient(120% 90% at 50% 0%, #000 20%, transparent 78%);
 }
 ::selection {
   background: var(--gold);
-  color: var(--ink);
+  color: var(--on-gold);
 }
 a {
   color: inherit;
@@ -177,7 +238,7 @@ textarea {
   background: var(--gold-grad);
   display: grid;
   place-items: center;
-  color: var(--ink);
+  color: var(--on-gold);
   font-weight: 900;
   box-shadow: var(--shadow-gold);
 }
@@ -193,7 +254,7 @@ textarea {
   padding: 28px;
 }
 .panel {
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--s-025);
   border: 1px solid var(--ink-line);
   border-radius: var(--radius-sm);
   padding: 16px;
@@ -203,7 +264,7 @@ textarea {
 .btn {
   appearance: none;
   border: 1px solid var(--ink-line-strong);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--s-05);
   color: var(--txt);
   padding: 12px 20px;
   border-radius: 12px;
@@ -216,7 +277,7 @@ textarea {
     border-color 0.18s var(--ease);
 }
 .btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--s-hover);
   border-color: var(--ink-line-strong);
 }
 .btn:active {
@@ -229,7 +290,7 @@ textarea {
 .btn-gold {
   background: var(--gold-grad);
   border-color: transparent;
-  color: var(--ink);
+  color: var(--on-gold);
   font-weight: 800;
   box-shadow: var(--shadow-gold);
 }
@@ -278,7 +339,7 @@ textarea {
 .select,
 .textarea {
   width: 100%;
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--k-28);
   border: 1px solid var(--ink-line-strong);
   border-radius: 11px;
   padding: 13px 15px;
@@ -320,7 +381,7 @@ textarea {
   padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid var(--ink-line-strong);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--s-04);
   cursor: pointer;
   font-weight: 600;
   font-size: 0.92rem;
@@ -328,7 +389,7 @@ textarea {
 }
 .chip[data-on="true"] {
   background: var(--gold-grad);
-  color: var(--ink);
+  color: var(--on-gold);
   border-color: transparent;
 }
 
@@ -342,7 +403,7 @@ textarea {
   padding: 18px;
   border-radius: 14px;
   border: 1.5px solid var(--ink-line);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--s-03);
   cursor: pointer;
   transition: all 0.16s var(--ease);
 }
@@ -385,7 +446,7 @@ textarea {
   color: var(--txt-dim);
 }
 .pill-gold {
-  color: var(--ink);
+  color: var(--on-gold);
   background: var(--gold-grad);
   border-color: transparent;
 }
@@ -471,7 +532,7 @@ textarea {
 .scrim {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--scrim);
   backdrop-filter: blur(4px);
   display: grid;
   place-items: center;
@@ -551,7 +612,7 @@ textarea {
   text-align: center;
   padding: 14px 20px;
   border-radius: 16px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--k-30);
   border: 1px solid var(--ink-line-strong);
 }
 .board-code-label {
@@ -664,7 +725,7 @@ textarea {
   gap: 14px;
 }
 .court-card {
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--k-22);
   border: 1px solid var(--ink-line);
   border-radius: 14px;
   padding: 14px 18px;
@@ -690,7 +751,7 @@ textarea {
   gap: 12px;
   padding: 10px 14px;
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--s-025);
   border: 1px solid var(--ink-line);
   font-size: clamp(0.92rem, 1.3vw, 1.1rem);
 }
@@ -774,7 +835,7 @@ textarea {
   margin-bottom: 4px;
 }
 .bx {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--s-03);
   border: 1px solid var(--ink-line);
   border-radius: 11px;
   overflow: hidden;
@@ -865,14 +926,14 @@ textarea {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: linear-gradient(var(--ink) 70%, transparent);
+  background: linear-gradient(var(--page) 70%, transparent);
   padding: 10px 0 14px;
   margin-bottom: 6px;
 }
 .tabs {
   display: flex;
   gap: 6px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--k-30);
   padding: 5px;
   border-radius: 12px;
 }
@@ -889,7 +950,7 @@ textarea {
   background: transparent;
 }
 .tab[data-on="true"] {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--s-08);
   color: var(--txt);
 }
 .match-card {
@@ -898,7 +959,7 @@ textarea {
   gap: 12px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--s-03);
   border: 1px solid var(--ink-line);
   cursor: pointer;
   transition: border-color 0.15s var(--ease);
@@ -942,7 +1003,7 @@ textarea {
   font-size: 1.6rem;
   font-weight: 700;
   border: 1px solid var(--ink-line-strong);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--s-05);
   cursor: pointer;
 }
 .stepper-val {
@@ -975,7 +1036,7 @@ textarea {
   padding: 26px 14px;
   border-radius: 16px;
   border: 1.5px solid var(--ink-line-strong);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--s-04);
   cursor: pointer;
   font-weight: 800;
   font-size: 1.1rem;
@@ -994,7 +1055,7 @@ textarea {
 .spin {
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border: 2px solid var(--ink-line-strong);
   border-top-color: var(--gold);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
@@ -1008,4 +1069,44 @@ textarea {
   text-align: center;
   padding: 48px 20px;
   color: var(--txt-faint);
+}
+
+/* ============ theme toggle ============ */
+.theme-toggle {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 80;
+  opacity: 0.75;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border: 1px solid var(--ink-line-strong);
+  background: var(--s-05);
+  backdrop-filter: blur(8px);
+  color: var(--txt);
+  box-shadow: var(--shadow-1);
+  transition:
+    background 0.18s var(--ease),
+    transform 0.12s var(--ease),
+    border-color 0.18s var(--ease);
+}
+.theme-toggle:hover {
+  background: var(--s-hover);
+  opacity: 1;
+}
+.theme-toggle:active {
+  transform: scale(0.94);
+}
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+@media print {
+  .theme-toggle {
+    display: none;
+  }
 }

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated deploy artifacts — never lint these.
+    ".open-next/**",
+    ".wrangler/**",
   ]),
 ]);
 
