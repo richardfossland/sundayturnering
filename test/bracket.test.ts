@@ -84,6 +84,28 @@ describe("buildBracket", () => {
     expect(final.round).toBe(b.rounds);
   });
 
+  it("2 teams → a single final, no byes, 1 round", () => {
+    const b = buildBracket(seeds(2));
+    expect(b.rounds).toBe(1);
+    expect(b.matches).toHaveLength(1);
+    expect(b.matches[0]).toMatchObject({ homeId: "s1", awayId: "s2", status: "scheduled" });
+    expect(b.links).toHaveLength(0);
+  });
+
+  it("3 teams → size-4 bracket, exactly one bye (to s1), no double-null match", () => {
+    const b = buildBracket(seeds(3));
+    expect(b.rounds).toBe(2);
+    const byes = b.matches.filter((m) => m.status === "bye");
+    expect(byes).toHaveLength(1);
+    expect(byes[0].winnerId).toBe("s1");
+    // No match may have BOTH sides null (would be an unplayable phantom).
+    for (const m of b.matches)
+      expect(m.homeId === null && m.awayId === null).toBe(false);
+    // s1's bye pre-fills the final; the other side waits on s2 vs s3.
+    const final = b.matches.find((m) => m.round === 2 && m.slot === 0)!;
+    expect(final.homeId === "s1" || final.awayId === "s1").toBe(true);
+  });
+
   it("8-seed bracket: every winner flows to a distinct next slot", () => {
     const b = buildBracket(seeds(8));
     expect(b.rounds).toBe(3);

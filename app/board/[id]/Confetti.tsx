@@ -10,8 +10,14 @@ export function Confetti() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const W = (canvas.width = window.innerWidth);
-    const H = (canvas.height = window.innerHeight);
+    let W = (canvas.width = window.innerWidth);
+    let H = (canvas.height = window.innerHeight);
+    const onResize = () => {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    };
+    window.addEventListener("resize", onResize);
+
     const colors = ["#ebb84b", "#e0524b", "#2e7cf6", "#36b37e", "#9b59d0", "#f6dd97", "#e8853a"];
     const parts = Array.from({ length: 170 }, () => ({
       x: Math.random() * W,
@@ -24,8 +30,10 @@ export function Confetti() {
       vr: -0.2 + Math.random() * 0.4,
     }));
     let raf = 0;
-    let frame = 0;
-    const draw = () => {
+    let start = -1;
+    const DURATION = 9500; // ms — refresh-rate independent
+    const draw = (ts: number) => {
+      if (start < 0) start = ts;
       ctx.clearRect(0, 0, W, H);
       for (const p of parts) {
         p.y += p.vy;
@@ -42,11 +50,13 @@ export function Confetti() {
         ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.6);
         ctx.restore();
       }
-      frame++;
-      if (frame < 620) raf = requestAnimationFrame(draw);
+      if (ts - start < DURATION) raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+    };
   }, []);
   return <canvas ref={ref} className="confetti" aria-hidden="true" />;
 }

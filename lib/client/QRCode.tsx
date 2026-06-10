@@ -26,11 +26,22 @@ export function QRCode({ value, size = 200 }: { value: string; size?: number }) 
       <div
         style={{
           width: size,
-          height: size,
+          minHeight: size,
           borderRadius: 12,
           background: "var(--ink-soft)",
+          display: "grid",
+          placeItems: "center",
+          padding: 8,
+          fontFamily: "var(--mono)",
+          fontSize: 10,
+          lineHeight: 1.3,
+          wordBreak: "break-all",
+          textAlign: "center",
+          color: "var(--txt-dim)",
         }}
-      />
+      >
+        {value.replace(/^https?:\/\//, "")}
+      </div>
     );
   return (
     // eslint-disable-next-line @next/next/no-img-element -- data-URL QR; next/image cannot optimise it

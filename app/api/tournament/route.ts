@@ -14,26 +14,40 @@ export async function POST(req: Request) {
     return fail(400, "ugyldig_format");
   if (!Array.isArray(body.teams) || body.teams.length < 2)
     return fail(400, "minst_to_lag");
+  // Upper bound: 64 teams already implies ~2016 league matches — well past any
+  // real classroom event, and a guard against an accidental/DoS huge schedule.
+  if (body.teams.length > 64) return fail(400, "for_mange_lag");
   if (body.teams.some((t) => !t.name?.trim()))
     return fail(400, "lag_mangler_navn");
 
+  // Sanitise structural config so a malformed payload can't build a broken
+  // bracket or oversized schedule.
+  const allowedPlayoff = new Set([0, 2, 4, 8, 16]);
+  const rawPlayoff = Number(body.config?.playoffSize);
+  const playoffSize = (allowedPlayoff.has(rawPlayoff) ? rawPlayoff : 0) as
+    | 0
+    | 2
+    | 4
+    | 8
+    | 16;
+
   try {
     const result = await createTournament({
-      title: (body.title ?? "").trim(),
-      sport_label: (body.sport_label ?? "").trim(),
+      title: (body.title ?? "").trim().slice(0, 80),
+      sport_label: (body.sport_label ?? "").trim().slice(0, 40),
       format: body.format,
       scoring: body.scoring,
       parallelism: body.parallelism === "parallel" ? "parallel" : "sequential",
-      config: body.config ?? { playoffSize: 0, roundRobinDouble: false },
+      config: { playoffSize, roundRobinDouble: !!body.config?.roundRobinDouble },
       teams: body.teams.map((t) => ({
-        name: t.name.trim(),
+        name: t.name.trim().slice(0, 60),
         colour: t.colour || "#888888",
         logo_url: t.logo_url ?? null,
         members: Array.isArray(t.members)
           ? t.members.map((m) => String(m).trim()).filter(Boolean).slice(0, 40)
           : [],
       })),
-      courts: Array.isArray(body.courts) ? body.courts : [],
+      courts: (Array.isArray(body.courts) ? body.courts : []).slice(0, 32),
     });
     return ok(result);
   } catch (e) {

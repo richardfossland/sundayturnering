@@ -12,7 +12,7 @@ export function useChannel(topic: string | null, onEvent: Handler) {
   const handlerRef = useRef(onEvent);
   useEffect(() => {
     handlerRef.current = onEvent;
-  });
+  }, [onEvent]);
 
   useEffect(() => {
     if (!topic) return;

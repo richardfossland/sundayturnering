@@ -42,6 +42,9 @@ export function usePresence(
     });
 
     return () => {
+      // Untrack before removing so other devices drop us immediately instead of
+      // waiting for the presence record to expire (~no ghost entries).
+      channel.untrack().catch(() => {});
       supabase.removeChannel(channel);
     };
   }, [tournamentId, self?.deviceId, self?.name]); // eslint-disable-line react-hooks/exhaustive-deps

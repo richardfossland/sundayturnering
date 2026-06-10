@@ -1432,3 +1432,29 @@ textarea {
     display: none;
   }
 }
+
+/* one-time "tap for sound" prompt on the board */
+.sound-hint {
+  position: fixed;
+  bottom: 18px;
+  right: 66px;
+  z-index: 81;
+  border: 1px solid var(--ink-line-strong);
+  background: var(--gold-grad);
+  color: var(--on-gold);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 9px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--shadow-gold);
+  animation: hintpulse 1.8s var(--ease) infinite;
+}
+@keyframes hintpulse {
+  50% { transform: scale(1.04); }
+}
+@media print {
+  .sound-hint {
+    display: none;
+  }
+}

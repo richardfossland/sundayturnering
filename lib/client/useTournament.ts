@@ -41,7 +41,7 @@ export function useTournament(
   const onEventRef = useRef(onEvent);
   useEffect(() => {
     onEventRef.current = onEvent;
-  });
+  }, [onEvent]);
   useChannel(id ? channels.tournament(id) : null, (event, payload) => {
     refetch();
     onEventRef.current?.(event, payload);

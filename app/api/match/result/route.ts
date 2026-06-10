@@ -24,6 +24,9 @@ export async function POST(req: Request) {
   const m = await getMatch(body.matchId);
   if (!m) return fail(404, "finnes_ikke");
   if (m.status === "bye") return fail(409, "kan_ikke_endre_bye");
+  // A finished match is edited via the organiser override (which re-propagates
+  // the bracket); the plain result route must not overwrite/re-propagate it.
+  if (m.status === "done") return fail(409, "kamp_ferdig");
   if (!m.home_team_id || !m.away_team_id) return fail(409, "kamp_ikke_klar");
 
   const t = await getTournament(m.tournament_id);

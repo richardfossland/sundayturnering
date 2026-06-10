@@ -96,12 +96,8 @@ export async function getState(t: Tournament): Promise<StateDTO> {
   return { tournament: toTournamentDTO(t), teams, courts, matches, standings };
 }
 
-/** Bump the structural version (board cache-busting + structure broadcast). */
+/** Bump the structural version (board cache-busting + structure broadcast).
+ * Atomic increment via RPC so concurrent structural changes don't lose bumps. */
 export async function bumpVersion(tournamentId: string): Promise<void> {
-  const t = await getTournament(tournamentId);
-  if (!t) return;
-  await db()
-    .from("tournaments")
-    .update({ version: t.version + 1 })
-    .eq("id", tournamentId);
+  await db().rpc("bump_version", { p_id: tournamentId });
 }

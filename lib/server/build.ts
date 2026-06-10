@@ -87,6 +87,24 @@ export async function createTournament(
   if (terr || !trow) throw new Error(terr?.message ?? "insert tournament failed");
   const t = trow as Tournament;
 
+  try {
+    return await buildRest(sb, t, input, control_code, board_code, organiser_code);
+  } catch (e) {
+    // A later insert failed → don't leave a half-built tournament. Deleting the
+    // row cascades to courts/teams/matches/bracket_links.
+    await sb.from("tournaments").delete().eq("id", t.id);
+    throw e;
+  }
+}
+
+async function buildRest(
+  sb: ReturnType<typeof db>,
+  t: Tournament,
+  input: CreateInput,
+  control_code: string,
+  board_code: string,
+  organiser_code: string,
+): Promise<CreateResult> {
   // --- courts (parallel only) ---
   let courtIds: string[] = [];
   if (input.parallelism === "parallel" && input.courts.length > 0) {

@@ -59,7 +59,13 @@ async function main() {
   const first = await post("/api/match/result", { matchId: m.id, expectedVersion: m.result_version, result: { home: 1, away: 0 } });
   check("first submit wins", first.status === 200);
   const stale = await post("/api/match/result", { matchId: m.id, expectedVersion: m.result_version, result: { home: 0, away: 1 } });
-  check("stale submit rejected (409 konflikt)", stale.status === 409 && stale.json.error === "konflikt", JSON.stringify(stale.json));
+  // Second submit must be rejected (409): the first made the match 'done', so it
+  // is refused as kamp_ferdig (or konflikt on a true same-instant version race).
+  check(
+    "second submit rejected (409, no silent overwrite)",
+    stale.status === 409 && ["kamp_ferdig", "konflikt"].includes(stale.json.error),
+    JSON.stringify(stale.json),
+  );
 
   // Cup: 5 teams → byes to top seeds, champion resolves.
   const cup = await post("/api/dev/seed", { teams: 5, format: "cup" });

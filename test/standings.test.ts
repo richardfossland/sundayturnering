@@ -85,6 +85,27 @@ describe("computeStandings", () => {
     expect(s.every((r) => r.points === 3)).toBe(true);
   });
 
+  it("two-way tie decided by head-to-head (level on points, diff & goals)", () => {
+    // a and b each finish on 6 pts, +1 diff, 2 goals for. a beat b 1–0
+    // head-to-head, so a must rank above b. c and d trail on 3 pts.
+    const four = [team("a", "Alfa"), team("b", "Bravo"), team("c", "Charlie"), team("d", "Delta")];
+    const matches = [
+      match("a", "b", 1, 0), // a beats b (the decider)
+      match("a", "d", 0, 1), // a loses to d
+      match("a", "c", 1, 0),
+      match("b", "d", 1, 0),
+      match("b", "c", 1, 0),
+      match("c", "d", 1, 0),
+    ];
+    const s = computeStandings(four, matches, cfg);
+    const a = s.find((r) => r.team_id === "a")!;
+    const b = s.find((r) => r.team_id === "b")!;
+    expect(a.points).toBe(6);
+    expect(b.points).toBe(6);
+    expect(a.diff).toBe(b.diff);
+    expect(a.rank).toBeLessThan(b.rank); // head-to-head: a above b
+  });
+
   it("ignores byes (away null) in the table", () => {
     const matches = [match("a", null, 0, 0), match("b", "c", 2, 0)];
     const s = computeStandings(teams, matches, cfg);

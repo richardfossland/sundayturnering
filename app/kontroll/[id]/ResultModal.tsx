@@ -54,6 +54,15 @@ export function ResultModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.id]);
 
+  // Keep the optimistic-concurrency version in step with the freshest match the
+  // parent re-fetches (the modal is always rendered with the latest match). If
+  // it changed under us, a submit will still correctly 409; tracking it here
+  // avoids a stale-version false conflict from an unrelated refetch.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror prop into guard
+    setVersion(match.result_version);
+  }, [match.result_version]);
+
   async function forceTake() {
     try {
       const { match: m } = await api.lock(match.id, deviceId, deviceName, "force");

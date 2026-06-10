@@ -23,10 +23,14 @@ export async function POST(req: Request) {
     timer = null;
   } else if (body?.action === "add") {
     const cur = t.timer;
-    const base = cur?.endsAt ? Math.max(now, Date.parse(cur.endsAt)) : now;
+    const parsed = cur?.endsAt ? Date.parse(cur.endsAt) : NaN;
+    // Guard a malformed/absent endsAt (Date.parse → NaN would crash toISOString);
+    // "add" with no running timer just starts a default 5-minute clock.
+    const running = cur?.running && Number.isFinite(parsed);
+    const base = running ? Math.max(now, parsed) : now;
     timer = {
       endsAt: new Date(base + 60_000).toISOString(),
-      durationSec: (cur?.durationSec ?? 0) + 60,
+      durationSec: (running ? (cur!.durationSec ?? 0) : 240) + 60,
       running: true,
     };
   } else {
