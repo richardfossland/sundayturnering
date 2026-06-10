@@ -1374,3 +1374,61 @@ textarea {
     border-color: #e0c885;
   }
 }
+
+/* ============ board view switcher + home ============ */
+.board-views {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--k-30);
+  padding: 4px;
+  border-radius: 11px;
+  border: 1px solid var(--ink-line);
+}
+.board-views button {
+  border: none;
+  background: transparent;
+  color: var(--txt-dim);
+  font-weight: 700;
+  font-size: clamp(0.78rem, 1.1vw, 0.95rem);
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+.board-views button[data-on="true"] {
+  background: var(--gold-grad);
+  color: var(--on-gold);
+}
+.board-views button:hover:not([data-on="true"]) {
+  color: var(--txt);
+  background: var(--s-05);
+}
+.board-home {
+  position: fixed;
+  bottom: 66px;
+  left: 16px;
+  z-index: 80;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border: 1px solid var(--ink-line-strong);
+  background: var(--s-05);
+  backdrop-filter: blur(8px);
+  color: var(--txt);
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0.72;
+  transition: opacity 0.15s var(--ease), background 0.15s var(--ease);
+}
+.board-home:hover {
+  opacity: 1;
+  background: var(--s-hover);
+}
+@media print {
+  .board-home {
+    display: none;
+  }
+}

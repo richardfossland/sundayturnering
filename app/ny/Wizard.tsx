@@ -62,7 +62,6 @@ export function Wizard() {
   const [bulk, setBulk] = useState("");
   const [count, setCount] = useState(8);
   const [draw, setDraw] = useState(""); // player names for the random draw
-  const [drawTeamCount, setDrawTeamCount] = useState(4);
   const [tmpls, setTmpls] = useState<Template[]>([]);
 
   useEffect(() => {
@@ -134,13 +133,12 @@ export function Wizard() {
       { name: "", colour: paletteColour(t.length), logo_url: nextEmblem(t), members: [] },
     ]);
   }
-  /** Random draw: split a pasted name list into `n` balanced teams (gym class). */
-  function drawTeams(n: number) {
-    const names = draw
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (names.length < n) return;
+  /** Random draw: split the pasted name list into balanced teams (gym class).
+   * Uses the shared team count, clamped to the number of players. */
+  function drawTeams(requested: number) {
+    const names = parseNames(draw);
+    if (names.length < 2) return;
+    const n = Math.max(2, Math.min(requested, names.length));
     // Fisher–Yates shuffle, then deal round-robin for balance.
     const shuffled = [...names];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -178,10 +176,7 @@ export function Wizard() {
     });
   }
   function applyBulk() {
-    const names = bulk
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const names = parseNames(bulk);
     setTeams((t) => {
       const pool = emblemPool(t);
       return [
@@ -419,15 +414,20 @@ export function Wizard() {
                   <textarea className="textarea" value={draw} onChange={(e) => setDraw(e.target.value)} placeholder={"Ola\nKari\nPer\nNora\n…"} />
                   <div className="row">
                     <span className="label">{no.wizard.s4DrawTeams}</span>
-                    <input className="input" type="number" min={2} max={16} style={{ width: 80 }}
-                      value={drawTeamCount}
-                      onChange={(e) => setDrawTeamCount(Math.max(2, Math.min(16, Number(e.target.value) || 2)))} />
-                    <button className="btn btn-gold grow" onClick={() => drawTeams(drawTeamCount)}
-                      disabled={draw.split("\n").filter((s) => s.trim()).length < drawTeamCount}>
+                    <input className="input" type="number" min={2} max={24} style={{ width: 80 }}
+                      value={count}
+                      onChange={(e) => setCount(Math.max(2, Math.min(24, Number(e.target.value) || 2)))} />
+                    <button className="btn btn-gold grow" onClick={() => drawTeams(count)}
+                      disabled={parseNames(draw).length < 2}>
                       🎲 {no.wizard.s4DrawDo}
                     </button>
                   </div>
-                  <span className="faint" style={{ fontSize: ".82rem" }}>{no.wizard.s4DrawHint}</span>
+                  <span className="faint" style={{ fontSize: ".82rem" }}>
+                    {parseNames(draw).length > 0
+                      ? `${parseNames(draw).length} deltakere → ${Math.min(count, parseNames(draw).length)} lag. `
+                      : ""}
+                    {no.wizard.s4DrawHint}
+                  </span>
                 </div>
               </details>
               <details>
@@ -516,6 +516,26 @@ export function Wizard() {
       </div>
     </main>
   );
+}
+
+/** Clean a pasted multi-line list into names: strips "- [ ]" / "- [x]" task
+ * markers, bullets and numbering, trims, drops blanks, de-dupes. */
+function parseNames(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of text.split("\n")) {
+    const name = raw
+      .replace(/^\s*[-*•–—]?\s*\[[ xX]?\]\s*/, "")
+      .replace(/^\s*[-*•–—]\s*/, "")
+      .replace(/^\s*\d+[.)]\s*/, "")
+      .trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
 }
 
 // ---- team emblems (distinct, random, no duplicates within a tournament) ----

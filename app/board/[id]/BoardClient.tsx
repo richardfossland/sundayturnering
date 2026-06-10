@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useTournament } from "@/lib/client/useTournament";
 import { QRCode } from "@/lib/client/QRCode";
@@ -35,20 +36,27 @@ export function BoardClient({
       setTimeout(() => setFlash(false), 700);
     }
   });
-  // auto-rotate between standings and bracket when both exist
+  // Right panel: auto-rotates standings↔bracket, but the user can take manual
+  // control (pauses the rotation) via the on-board view switcher.
   const [panel, setPanel] = useState<"standings" | "bracket">("standings");
+  const [manual, setManual] = useState(false);
 
   const hasBracket = !!state?.matches.some((m) => m.phase === "playoff");
   const hasLeague = state?.tournament.format !== "cup";
 
   useEffect(() => {
-    if (!hasBracket || !hasLeague) return;
+    if (!hasBracket || !hasLeague || manual) return;
     const t = setInterval(
       () => setPanel((p) => (p === "standings" ? "bracket" : "standings")),
       9000,
     );
     return () => clearInterval(t);
-  }, [hasBracket, hasLeague]);
+  }, [hasBracket, hasLeague, manual]);
+
+  function pick(p: "standings" | "bracket") {
+    setManual(true);
+    setPanel(p);
+  }
 
   const baseUrl =
     process.env.NEXT_PUBLIC_BASE_URL ??
@@ -81,12 +89,19 @@ export function BoardClient({
   const followUrl = `${baseUrl}/live/${tournament.id}`;
 
   // which right-hand panel
-  const showBracket =
-    hasBracket && (!hasLeague || panel === "bracket" || tournament.status === "playoff");
+  const canSwitch = hasBracket && hasLeague;
+  const showBracket = canSwitch
+    ? panel === "bracket"
+    : hasBracket && (!hasLeague || tournament.status === "playoff");
 
   return (
     <main className={`board${flash ? " board-flash" : ""}`}>
       <SoundToggle />
+      {!spectator && (
+        <Link className="board-home" href="/" aria-label="Hjem" title="Hjem">
+          ⌂
+        </Link>
+      )}
       <header className="board-head">
         <div>
           <h1 className="board-title">{tournament.title || no.brand}</h1>
@@ -133,20 +148,34 @@ export function BoardClient({
         </section>
 
         <section className="card card-pad" style={{ minHeight: 0, overflow: "auto" }}>
+          <div className="spread" style={{ marginBottom: 4 }}>
+            <div className="section-title" style={{ marginBottom: 0 }}>
+              {showBracket ? no.board.bracket : no.board.standings}
+            </div>
+            {canSwitch && (
+              <div className="board-views">
+                <button data-on={!showBracket} onClick={() => pick("standings")}>
+                  {no.board.standings}
+                </button>
+                <button data-on={showBracket} onClick={() => pick("bracket")}>
+                  {no.board.bracket}
+                </button>
+                {manual && (
+                  <button onClick={() => setManual(false)} title="Auto-veksling">
+                    ⟳
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           {showBracket ? (
-            <>
-              <div className="section-title">{no.board.bracket}</div>
-              <Bracket matches={matches} teams={teams} scoring={tournament.scoring} />
-            </>
+            <Bracket matches={matches} teams={teams} scoring={tournament.scoring} />
           ) : (
-            <>
-              <div className="section-title">{no.board.standings}</div>
-              <Standings
-                standings={standings}
-                teams={teams}
-                showDraw={tournament.scoring.profile === "simple" && tournament.scoring.allowDraw}
-              />
-            </>
+            <Standings
+              standings={standings}
+              teams={teams}
+              showDraw={tournament.scoring.profile === "simple" && tournament.scoring.allowDraw}
+            />
           )}
         </section>
       </div>
