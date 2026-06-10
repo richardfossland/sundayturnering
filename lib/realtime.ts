@@ -3,9 +3,13 @@
 // the source of truth (spec §4 step 4). Event volume is low.
 
 export const channels = {
-  // One channel per tournament carries everything: board + all control devices
-  // attach here. Presence on this channel tracks attached control devices.
+  // Broadcast channel: board + all control devices subscribe here for refetch
+  // hints (match_updated / structure / lock_changed).
   tournament: (tournamentId: string) => `t:${tournamentId}`,
+  // Presence lives on its OWN channel — a Supabase channel can't take new
+  // callbacks once subscribed, and the broadcast channel is already subscribed,
+  // so presence must not share that topic.
+  presence: (tournamentId: string) => `t:${tournamentId}:presence`,
 };
 
 export const events = {

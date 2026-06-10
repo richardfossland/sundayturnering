@@ -22,7 +22,7 @@ export function usePresence(
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
 
     const supabase = createClient();
-    const channel = supabase.channel(channels.tournament(tournamentId), {
+    const channel = supabase.channel(channels.presence(tournamentId), {
       config: { presence: { key: self.deviceId } },
     });
 

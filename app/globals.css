@@ -14,6 +14,7 @@
   --gold-light: #f6dd97;
   --gold-deep: #c9982f;
   --gold-grad: linear-gradient(135deg, #f6dd97 0%, #ebb84b 45%, #d4a23a 100%);
+  --gold-ink: var(--gold); /* gold used as TEXT — readable per theme */
 
   --on-gold: #14171e; /* dark text on gold/accent — fixed in both themes */
 
@@ -70,15 +71,17 @@
 }
 
 :root[data-theme="light"] {
+  --gold-ink: #8c6a0e; /* deep gold — readable on light surfaces */
+
   --ink-2: #ffffff; /* card surfaces */
   --ink-3: #fbf8f1;
   --ink-soft: #e7e1d4;
-  --ink-line: rgba(20, 24, 33, 0.1);
-  --ink-line-strong: rgba(20, 24, 33, 0.18);
+  --ink-line: rgba(20, 24, 33, 0.12);
+  --ink-line-strong: rgba(20, 24, 33, 0.22);
 
-  --txt: #1b2130;
-  --txt-dim: #586172;
-  --txt-faint: #8a91a1;
+  --txt: #161b27;
+  --txt-dim: #4f586a;
+  --txt-faint: #6b7384;
 
   --ground-a: #ffffff;
   --ground-b: #f6f1e8;
@@ -109,23 +112,35 @@
 html {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-}
-body {
-  font-family: var(--body);
-  color: var(--txt);
-  line-height: 1.5;
-  min-height: 100dvh;
-  position: relative;
-  background: radial-gradient(
+  -webkit-tap-highlight-color: transparent;
+  /* Solid colour + gradient on the ROOT element: the root background paints the
+     whole viewport canvas regardless of scroll, and the solid colour is a
+     guaranteed fallback so the page can never flash/render white (the gradient
+     alone left a transparent body that exposed the white canvas on some
+     browsers — that was the "light text on white" bug). */
+  background-color: var(--page);
+  background-image: radial-gradient(
     150% 100% at 50% -20%,
     var(--ground-a) 0%,
     var(--ground-b) 44%,
     var(--page) 80%
   );
+  background-repeat: no-repeat;
+  transition: background-color 0.3s var(--ease);
+}
+body {
+  font-family: var(--body);
+  color: var(--txt);
+  background-color: transparent;
+  line-height: 1.5;
+  min-height: 100dvh;
+  position: relative;
   overflow-x: hidden;
-  transition:
-    background 0.3s var(--ease),
-    color 0.3s var(--ease);
+  transition: color 0.3s var(--ease);
+}
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 /* faint stadium-grid texture */
 body::before {
@@ -351,7 +366,7 @@ textarea {
 .select:focus,
 .textarea:focus {
   outline: none;
-  border-color: var(--gold);
+  border-color: var(--gold-ink);
 }
 .input::placeholder,
 .textarea::placeholder {
@@ -411,7 +426,7 @@ textarea {
   border-color: var(--ink-line-strong);
 }
 .opt[data-on="true"] {
-  border-color: var(--gold);
+  border-color: var(--gold-ink);
   background: rgba(235, 184, 75, 0.08);
   box-shadow: 0 0 0 1px var(--gold) inset;
 }
@@ -574,7 +589,7 @@ textarea {
   margin: 18px 0 10px;
 }
 .landing h1 .accent {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 .landing-sub {
   color: var(--txt-dim);
@@ -601,7 +616,7 @@ textarea {
   line-height: 1;
 }
 .board-sport {
-  color: var(--gold);
+  color: var(--gold-ink);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -626,7 +641,7 @@ textarea {
   font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 800;
   letter-spacing: 0.14em;
-  color: var(--gold);
+  color: var(--gold-ink);
   line-height: 1.1;
 }
 .board-body {
@@ -657,7 +672,7 @@ textarea {
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-ink);
   font-size: clamp(0.8rem, 1.4vw, 1.05rem);
   margin-bottom: 18px;
 }
@@ -705,7 +720,7 @@ textarea {
   font-weight: 900;
   font-size: clamp(2.4rem, 6vw, 5rem);
   line-height: 1;
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 .versus-mid {
   color: var(--txt-faint);
@@ -734,7 +749,7 @@ textarea {
   font-size: 0.76rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-ink);
   font-weight: 700;
   margin-bottom: 8px;
 }
@@ -761,7 +776,7 @@ textarea {
 }
 .next-court {
   margin-left: auto;
-  color: var(--gold);
+  color: var(--gold-ink);
   font-weight: 700;
   font-size: 0.85em;
 }
@@ -801,7 +816,7 @@ textarea {
 }
 .standings td.pts {
   font-weight: 800;
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 .standings tr.cut td {
   border-bottom: 2px solid var(--gold);
@@ -855,7 +870,7 @@ textarea {
   font-weight: 700;
 }
 .bx-row.win .bx-score {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 .bx-score {
   margin-left: auto;
@@ -887,7 +902,7 @@ textarea {
 .champion-eyebrow {
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-ink);
   font-weight: 800;
   margin-bottom: 22px;
 }
@@ -987,7 +1002,7 @@ textarea {
 .match-result {
   font-family: var(--mono);
   font-weight: 700;
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 /* result entry */
@@ -1042,7 +1057,7 @@ textarea {
   font-size: 1.1rem;
 }
 .bigchoice button[data-on="true"] {
-  border-color: var(--gold);
+  border-color: var(--gold-ink);
   background: rgba(235, 184, 75, 0.12);
 }
 
@@ -1056,7 +1071,7 @@ textarea {
   width: 18px;
   height: 18px;
   border: 2px solid var(--ink-line-strong);
-  border-top-color: var(--gold);
+  border-top-color: var(--gold-ink);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
