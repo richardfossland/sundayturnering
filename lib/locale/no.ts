@@ -125,6 +125,18 @@ export const no = {
     quarterfinal: "Kvartfinale",
     tbd: "Avventer",
     th: { rank: "#", team: "Lag", p: "K", w: "S", d: "U", l: "T", diff: "±", pts: "P" },
+    codesBtn: "Koder og lenker",
+    codesTitle: "Koder og lenker",
+    codesControl: "Dommere · kontroll",
+    codesControlHint:
+      "Skann QR-koden eller tast kontrollkoden på /kontroll for å registrere resultater.",
+    codesFollow: "Publikum · følg live",
+    codesFollowHint: "Skrivebeskyttet visning — trygg å dele med alle i salen.",
+    codesBoard: "Tavlekode",
+    codesBoardHint:
+      "Åpne tavla på en annen skjerm: gå til /tavle og tast tavlekoden.",
+    codesCopy: "Kopier lenke",
+    codesCopied: "Lenke kopiert!",
   },
 
   // control

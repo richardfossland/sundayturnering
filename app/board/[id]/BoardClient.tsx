@@ -15,6 +15,7 @@ import { Bracket } from "./Bracket";
 import { NowPlaying } from "./NowPlaying";
 import { Champion } from "./Champion";
 import { BoardTimer } from "./BoardTimer";
+import { CodesOverlay } from "./CodesOverlay";
 import { SoundToggle } from "@/lib/client/SoundToggle";
 import { events } from "@/lib/realtime";
 import { playDing } from "@/lib/client/sound";
@@ -40,6 +41,7 @@ export function BoardClient({
   // control (pauses the rotation) via the on-board view switcher.
   const [panel, setPanel] = useState<"standings" | "bracket">("standings");
   const [manual, setManual] = useState(false);
+  const [showCodes, setShowCodes] = useState(false);
 
   const hasBracket = !!state?.matches.some((m) => m.phase === "playoff");
   const hasLeague = state?.tournament.format !== "cup";
@@ -98,9 +100,26 @@ export function BoardClient({
     <main className={`board${flash ? " board-flash" : ""}`}>
       <SoundToggle />
       {!spectator && (
-        <Link className="board-home" href="/" aria-label="Hjem" title="Hjem">
-          ⌂
-        </Link>
+        <>
+          <Link className="board-home" href="/" aria-label="Hjem" title="Hjem">
+            ⌂
+          </Link>
+          <button
+            className="board-home board-codes-fab"
+            onClick={() => setShowCodes(true)}
+            aria-label={no.board.codesBtn}
+            title={no.board.codesBtn}
+          >
+            ⚿
+          </button>
+        </>
+      )}
+      {showCodes && !spectator && (
+        <CodesOverlay
+          tournament={tournament}
+          baseUrl={baseUrl}
+          onClose={() => setShowCodes(false)}
+        />
       )}
       <header className="board-head">
         <div>
@@ -110,18 +129,30 @@ export function BoardClient({
           )}
           <BoardTimer timer={tournament.timer} />
         </div>
-        <div className="row" style={{ alignItems: "center", gap: 18 }}>
-          {!spectator && (
+        {spectator ? (
+          <div className="row" style={{ alignItems: "center", gap: 18 }}>
+            <div className="board-qr">
+              <QRCode value={followUrl} size={104} />
+              <div className="board-qr-label">{no.board.follow}</div>
+            </div>
+          </div>
+        ) : (
+          <button
+            className="row board-codes-open"
+            style={{ alignItems: "center", gap: 18 }}
+            onClick={() => setShowCodes(true)}
+            title={no.board.codesBtn}
+          >
             <div className="board-code-card">
               <div className="board-code-label">{no.board.controlCode}</div>
               <div className="board-code">{tournament.control_code}</div>
             </div>
-          )}
-          <div className="board-qr">
-            <QRCode value={followUrl} size={104} />
-            <div className="board-qr-label">{no.board.follow}</div>
-          </div>
-        </div>
+            <div className="board-qr">
+              <QRCode value={followUrl} size={104} />
+              <div className="board-qr-label">{no.board.follow}</div>
+            </div>
+          </button>
+        )}
       </header>
 
       <div className="board-body">
