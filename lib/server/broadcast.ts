@@ -1,5 +1,8 @@
 import "server-only";
 
+import { channels, events } from "@/lib/realtime";
+import type { ReactionKind, ReactionPayload } from "@/lib/realtime";
+
 // Server-side Supabase Realtime broadcast via the REST endpoint — lets a
 // stateless Route Handler push an event to a channel without opening a
 // websocket. Clients subscribed to `topic` receive it.
@@ -35,4 +38,23 @@ export async function broadcast(
   } catch (err) {
     console.warn("[broadcast] error", topic, event, err);
   }
+}
+
+/** Push an EPHEMERAL spectator reaction onto the tournament channel. Reactions
+ * are normally sent client-side (no server round-trip), but exposing the typed
+ * server emitter keeps the `reaction` event a first-class part of the broadcast
+ * surface and lets a future server-driven cheer (e.g. an auto goal-horn on a
+ * winning result) reuse the exact same wire shape. NEVER writes to the DB and
+ * never touches the authoritative result path. */
+export function broadcastReaction(
+  tournamentId: string,
+  kind: ReactionKind,
+  n = 1,
+): Promise<void> {
+  const payload: ReactionPayload = { kind, n };
+  return broadcast(
+    channels.tournament(tournamentId),
+    events.reaction,
+    payload as unknown as Record<string, unknown>,
+  );
 }
