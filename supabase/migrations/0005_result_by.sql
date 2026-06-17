@@ -6,11 +6,13 @@
 alter table turnering.matches
   add column if not exists result_by text;
 
--- Replace the result RPC with a 6-arg version that also stamps result_by. We
--- drop the old 5-arg overload first so only one function remains (otherwise
--- `create or replace` with a new arg list would leave a stale overload behind).
-drop function if exists turnering.submit_match_result(uuid, int, jsonb, uuid, text);
-
+-- Add a 6-arg overload of the result RPC that also stamps result_by. We do NOT
+-- drop the old 5-arg version here: keeping both overloads side by side means the
+-- currently-deployed Worker (which calls the 5-arg form) keeps working until the
+-- new code is deployed — zero downtime. Postgres resolves the two by argument
+-- count, and supabase-js calls them by named params, so there is no ambiguity.
+-- Once the new code is live you may optionally clean up the old one:
+--   drop function if exists turnering.submit_match_result(uuid, int, jsonb, uuid, text);
 create or replace function turnering.submit_match_result(
   p_match_id         uuid,
   p_expected_version int,

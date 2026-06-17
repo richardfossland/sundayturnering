@@ -117,9 +117,13 @@ export function Wizard() {
     );
   }
 
-  // steps shown — skip step 6 unless a playoff/group format
+  // steps shown — step 6 hosts knockout options (playoff size / groups / bronze)
   const isGroup = format === "group_playoff";
+  const isCup = format === "cup";
   const showPlayoff = format === "league_playoff" || isGroup;
+  // Cup has no league phase but still has a knockout → show step 6 for the
+  // bronze-final toggle.
+  const showStep6 = showPlayoff || isCup;
 
   function setProfile(p: ScoringProfileKey) {
     setScoring(defaultScoringConfig(p));
@@ -201,12 +205,12 @@ export function Wizard() {
 
   function next() {
     let n = step + 1;
-    if (n === 6 && !showPlayoff) n = 7; // skip playoff step
+    if (n === 6 && !showStep6) n = 7; // skip step 6 (league-only)
     setStep(Math.min(n, TOTAL));
   }
   function back() {
     let n = step - 1;
-    if (n === 6 && !showPlayoff) n = 5;
+    if (n === 6 && !showStep6) n = 5;
     setStep(Math.max(n, 1));
   }
 
@@ -222,7 +226,7 @@ export function Wizard() {
         config: {
           playoffSize: showPlayoff && !isGroup ? (Math.min(playoffSize, validTeams.length) as 2 | 4 | 8) : 0,
           roundRobinDouble: false,
-          thirdPlace: showPlayoff ? thirdPlace : false,
+          thirdPlace: showStep6 ? thirdPlace : false,
           ...(isGroup ? { groupCount, advancePerGroup } : {}),
         },
         teams: validTeams.map((t) => ({
@@ -256,11 +260,11 @@ export function Wizard() {
             {no.wizard.title}
           </span>
           <span className="faint" style={{ fontSize: ".82rem" }}>
-            {no.wizard.step(stepNumberLabel(step, showPlayoff), showPlayoff ? 7 : 6)}
+            {no.wizard.step(stepNumberLabel(step, showStep6), showStep6 ? 7 : 6)}
           </span>
         </div>
 
-        <Progress step={step} showPlayoff={showPlayoff} />
+        <Progress step={step} showPlayoff={showStep6} />
 
         <div className="stack" style={{ minHeight: 260 }}>
           {step === 1 && (
@@ -479,9 +483,9 @@ export function Wizard() {
             </Step>
           )}
 
-          {step === 6 && showPlayoff && (
+          {step === 6 && showStep6 && (
             <Step title={no.wizard.s6Title}>
-              {isGroup ? (
+              {isCup ? null : isGroup ? (
                 <>
                   <div className="field">
                     <label className="label">{no.wizard.groupCount}</label>
