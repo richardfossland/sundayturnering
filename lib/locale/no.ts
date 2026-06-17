@@ -6,10 +6,23 @@ export const no = {
   // landing
   landing: {
     createCta: "Lag ny turnering",
+    quickCta: "⚡ Hurtigkamp (1v1)",
     boardCta: "Åpne tavle",
     controlCta: "Bli med (kontroll)",
     blurb:
       "Kahoot-stil turneringsstyring for skole og arrangement. Én skjerm viser tavla, telefonene registrerer resultater.",
+  },
+
+  // quick 1v1 match
+  hurtig: {
+    title: "Hurtigkamp",
+    blurb: "Én kamp, to lag, i gang på sekunder. Ingen oppsett.",
+    home: "Lag 1",
+    away: "Lag 2",
+    score: "Med poeng",
+    winner: "Bare vinner",
+    start: "Start kampen",
+    starting: "Starter …",
   },
 
   // pairing
@@ -56,6 +69,10 @@ export const no = {
         name: "Cup",
         blurb: "Rett på utslagsspill. Taper du, er du ute.",
       },
+      group_playoff: {
+        name: "Gruppespill",
+        blurb: "Lagene deles i grupper, så går de beste til sluttspill.",
+      },
     },
 
     s3Title: "Poengtelling",
@@ -96,6 +113,11 @@ export const no = {
     s6Title: "Sluttspill",
     playoffSize: "Hvor mange lag går videre?",
     playoffCapped: (n: number) => `Maks ${n} (antall lag)`,
+    groupCount: "Antall grupper",
+    advancePerGroup: "Videre fra hver gruppe",
+    thirdPlace: "Spill om 3.-plass (bronsefinale)",
+    groupPreview: (groups: number, per: number) =>
+      `${groups} grupper · ${per} videre fra hver → ${groups * per} i sluttspill`,
 
     s7Title: "Oppsummering",
     summaryFormat: "Format",
@@ -123,8 +145,11 @@ export const no = {
     final: "Finale",
     semifinal: "Semifinale",
     quarterfinal: "Kvartfinale",
+    bronze: "Bronsefinale",
+    group: "Gruppe",
+    groups: "Grupper",
     tbd: "Avventer",
-    th: { rank: "#", team: "Lag", p: "K", w: "S", d: "U", l: "T", diff: "±", pts: "P" },
+    th: { rank: "#", team: "Lag", p: "K", w: "S", d: "U", l: "T", diff: "±", pts: "P", form: "Form" },
     codesBtn: "Koder og lenker",
     codesTitle: "Koder og lenker",
     codesControl: "Dommere · kontroll",
@@ -160,6 +185,30 @@ export const no = {
     awayWon: "Bortelag vant",
     addSet: "Legg til sett",
     removeSet: "Fjern",
+    reset: "Nullstill",
+    setsTally: (h: number, a: number) => `Sett: ${h}–${a}`,
+    bestOf: (n: number) => `Best av ${n}`,
+    matchPoint: "Avgjørende sett",
+
+    // special results (walkover / abandoned / disqualification)
+    special: "Spesialresultat",
+    specialWalkover: "Walkover (W.O.)",
+    specialDq: "Diskvalifisert",
+    specialAbandoned: "Avbrutt / annullert",
+    specialPickWinner: "Hvilket lag gikk videre?",
+    specialAbandonedHint: "Kampen telles ikke i tabellen.",
+    specialBack: "← Vanlig resultat",
+    pickTeam: "Velg lag",
+
+    // referee match controls
+    startMatch: "Start kamp",
+    matchTimer: "Kamp-timer",
+    timerStop: "Stopp",
+    nextMatch: "Din neste kamp",
+    connected: "Tilkoblet",
+    editJustSaved: "Endre",
+    editWindowGone: "Tidsvinduet er utløpt — be arrangøren om å endre.",
+
     organiser: "Arrangør",
     organiserCode: "Arrangørkode",
     organiserHint: "Kreves for å endre struktur, overstyre og avansere.",
@@ -225,4 +274,18 @@ export const narr = {
 
   championHeadline: (team: string) => `${team} vinner turneringen! 🏆`,
   championDetail: "Gratulerer til vinneren – og takk for kampen, alle sammen!",
+} as const;
+
+// Awards / superlatives copy (sport-agnostic). Energetic, never mocking.
+export const aw = {
+  title: "Utmerkelser",
+  teamOfNight: "Kveldens lag",
+  mostWins: "Flest seire",
+  biggestWin: "Største seier",
+  highestScoring: "Mest målrike kamp",
+  bestAttack: "Skarpest angrep",
+  bestDefense: "Tettest forsvar",
+  wins: (n: number) => `${n} ${n === 1 ? "seier" : "seire"}`,
+  scored: (n: number) => `${n} scoret`,
+  conceded: (n: number) => `${n} sluppet inn`,
 } as const;

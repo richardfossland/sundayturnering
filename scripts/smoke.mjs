@@ -73,6 +73,54 @@ async function main() {
   const byes = cs.matches.filter((x) => x.status === "bye");
   check("5-team cup has 3 byes", byes.length === 3, `got ${byes.length}`);
 
+  // Special results: walkover counts as a played win; abandoned is voided.
+  const wo = await post("/api/dev/seed", { teams: 2, format: "league" });
+  const { json: ws } = await get(`/api/tournament/${wo.json.id}`);
+  const wm = ws.matches.find((x) => x.away_team_id);
+  const woRes = await post("/api/match/result", {
+    matchId: wm.id, expectedVersion: wm.result_version,
+    result: { special: "walkover", winner: "home" },
+  });
+  check("walkover accepted", woRes.status === 200, JSON.stringify(woRes.json));
+  const { json: wsA } = await get(`/api/tournament/${wo.json.id}`);
+  const woHome = wsA.standings.find((s) => s.team_id === wm.home_team_id);
+  check("walkover → winner gets a played win (3 pts)", !!woHome && woHome.played === 1 && woHome.won === 1 && woHome.points === 3, JSON.stringify(woHome));
+
+  const ab = await post("/api/dev/seed", { teams: 2, format: "league" });
+  const { json: abs } = await get(`/api/tournament/${ab.json.id}`);
+  const abm = abs.matches.find((x) => x.away_team_id);
+  const abRes = await post("/api/match/result", { matchId: abm.id, expectedVersion: abm.result_version, result: { special: "abandoned" } });
+  check("abandoned accepted", abRes.status === 200, JSON.stringify(abRes.json));
+  const { json: abA } = await get(`/api/tournament/${ab.json.id}`);
+  check("abandoned → voided (0 played)", abA.standings.every((s) => s.played === 0));
+
+  // Self-correct grace window: same device fixes its own result; others 403.
+  const sc = await post("/api/dev/seed", { teams: 2, format: "league" });
+  const { json: scs } = await get(`/api/tournament/${sc.json.id}`);
+  const scm = scs.matches.find((x) => x.away_team_id);
+  const dev = "dev-smoke";
+  const r1 = await post("/api/match/result", { matchId: scm.id, expectedVersion: scm.result_version, result: { home: 1, away: 0 }, deviceId: dev, deviceName: "Smoke" });
+  check("result saved with device id", r1.status === 200, JSON.stringify(r1.json));
+  const ver = r1.json.match?.result_version;
+  const wrong = await post("/api/match/correct", { matchId: scm.id, expectedVersion: ver, result: { home: 0, away: 1 }, deviceId: "other" });
+  check("self-correct rejected for a different device (403)", wrong.status === 403, JSON.stringify(wrong.json));
+  const corr = await post("/api/match/correct", { matchId: scm.id, expectedVersion: ver, result: { home: 0, away: 2 }, deviceId: dev, deviceName: "Smoke" });
+  check("self-correct accepted in window", corr.status === 200, JSON.stringify(corr.json));
+
+  // Group stage + playoff + bronze final.
+  const gp = await post("/api/dev/seed", { teams: 4, format: "group_playoff", groupCount: 2, advancePerGroup: 2, thirdPlace: true });
+  const { json: gs } = await get(`/api/tournament/${gp.json.id}`);
+  check("group stage exposes 2 group tables", (gs.groupStandings || []).length === 2, JSON.stringify((gs.groupStandings || []).length));
+  for (const m of gs.matches.filter((x) => x.away_team_id && x.phase === "league")) {
+    await post("/api/match/result", { matchId: m.id, expectedVersion: m.result_version, result: { home: 2, away: 0 } });
+  }
+  const adv = await post("/api/organiser/advance", { tournamentId: gp.json.id, organiserCode: gp.json.organiser_code });
+  check("group → playoff advance ok", adv.status === 200, JSON.stringify(adv.json));
+  const { json: gp2 } = await get(`/api/tournament/${gp.json.id}`);
+  const playoff = gp2.matches.filter((m) => m.phase === "playoff");
+  check("bracket built from group qualifiers (semis+final+bronze = 4)", playoff.length === 4, `got ${playoff.length}`);
+  check("bronze final present", playoff.some((m) => m.bracket_slot === 1));
+
   done();
 }
 function done() {

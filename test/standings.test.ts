@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { computeStandings } from "@/lib/tournament/standings";
+import {
+  computeStandings,
+  computeGroupStandings,
+} from "@/lib/tournament/standings";
 import type { Match, ScoringConfig, Team } from "@/lib/types";
 
 const cfg: ScoringConfig = {
@@ -20,6 +23,7 @@ function team(id: string, name: string): Team {
     seed: null,
     sort_order: 0,
     members: [],
+    group_no: null,
   };
 }
 
@@ -31,6 +35,7 @@ function match(home: string, away: string | null, h: number, a: number): Match {
     phase: "league",
     round: 1,
     bracket_slot: null,
+    group_no: null,
     court_id: null,
     queue_order: 0,
     home_team_id: home,
@@ -39,6 +44,7 @@ function match(home: string, away: string | null, h: number, a: number): Match {
     result: away === null ? null : { home: h, away: a },
     winner_team_id: null,
     locked_by: null,
+    result_by: null,
     result_version: 1,
     updated_at: "",
   };
@@ -123,5 +129,63 @@ describe("computeStandings", () => {
     expect(s[1].inPlayoff).toBe(true);
     expect(s[2].inPlayoff).toBe(false);
     expect(s.map((r) => r.rank)).toEqual([1, 2, 3]);
+  });
+});
+
+describe("computeStandings — special results", () => {
+  const teams = [team("a", "Alfa"), team("b", "Bravo")];
+
+  function special(home: string, away: string, result: Match["result"]): Match {
+    return { ...match(home, away, 0, 0), result };
+  }
+
+  it("counts a walkover as a played win for the awarded team", () => {
+    const s = computeStandings(
+      teams,
+      [special("a", "b", { special: "walkover", winner: "home" })],
+      cfg,
+    );
+    expect(s.find((r) => r.team_id === "a")!).toMatchObject({
+      played: 1,
+      won: 1,
+      points: 3,
+    });
+    expect(s.find((r) => r.team_id === "b")!).toMatchObject({
+      played: 1,
+      lost: 1,
+      points: 0,
+    });
+  });
+
+  it("voids an abandoned match (not counted, no points)", () => {
+    const s = computeStandings(teams, [special("a", "b", { special: "abandoned" })], cfg);
+    expect(s.find((r) => r.team_id === "a")!.played).toBe(0);
+    expect(s.find((r) => r.team_id === "b")!.played).toBe(0);
+  });
+});
+
+describe("computeGroupStandings", () => {
+  function inGroup(id: string, name: string, group: number): Team {
+    return { ...team(id, name), group_no: group };
+  }
+  function gm(home: string, away: string, h: number, a: number, group: number): Match {
+    return { ...match(home, away, h, a), group_no: group };
+  }
+
+  it("computes independent per-group tables with the per-group cut", () => {
+    const teams = [
+      inGroup("a", "Alfa", 0),
+      inGroup("b", "Bravo", 0),
+      inGroup("c", "Charlie", 1),
+      inGroup("d", "Delta", 1),
+    ];
+    const matches = [gm("a", "b", 3, 0, 0), gm("c", "d", 1, 2, 1)];
+    const groups = computeGroupStandings(teams, matches, cfg, 1);
+
+    expect(groups.map((g) => g.group_no)).toEqual([0, 1]);
+    expect(groups[0].rows[0].team_id).toBe("a"); // Alfa won group 0
+    expect(groups[0].rows[0].inPlayoff).toBe(true);
+    expect(groups[0].rows[1].inPlayoff).toBe(false);
+    expect(groups[1].rows[0].team_id).toBe("d"); // Delta won group 1
   });
 });

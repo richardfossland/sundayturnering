@@ -3,6 +3,7 @@
 import { no } from "@/lib/locale/no";
 import { initials } from "@/lib/client/view";
 import { resolve } from "@/lib/tournament/scoring";
+import { BoardTimer } from "./BoardTimer";
 import type { Court, Match, ScoringConfig, Team } from "@/lib/types";
 
 // "Now playing": one big card (sequential) or a per-court grid (parallel).
@@ -45,7 +46,10 @@ export function NowPlaying({
             const m = live.find((lm) => lm.court_id === c.id);
             return (
               <div className="court-card" key={c.id}>
-                <div className="court-name">{c.name}</div>
+                <div className="court-head">
+                  <span className="court-name">{c.name}</span>
+                  <BoardTimer timer={c.timer} compact />
+                </div>
                 {m ? (
                   <Versus m={m} teams={teams} scoring={scoring} compact />
                 ) : (

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   );
   const t = await authOrganiser(body?.tournamentId, body?.organiserCode);
   if (!t) return fail(403, "feil_arrangorkode");
-  if (t.format !== "league_playoff")
+  if (t.format !== "league_playoff" && t.format !== "group_playoff")
     return fail(400, "ikke_sluttspillformat");
   if (t.status === "playoff" || t.status === "finished")
     return fail(409, "allerede_avansert");

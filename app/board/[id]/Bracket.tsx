@@ -3,6 +3,7 @@
 import { no } from "@/lib/locale/no";
 import { bracketRoundLabel } from "@/lib/client/view";
 import { resolve } from "@/lib/tournament/scoring";
+import { BRONZE_SLOT } from "@/lib/tournament/bracket";
 import type { Match, ScoringConfig, Team } from "@/lib/types";
 
 export function Bracket({
@@ -19,26 +20,41 @@ export function Bracket({
     return <div className="empty">{no.board.noMatches}</div>;
 
   const totalRounds = Math.max(...playoff.map((m) => m.round));
+  // The bronze final shares the last round but sits at a distinct slot — pull it
+  // out so it renders under its own label instead of beside the final.
+  const bronze = playoff.find(
+    (m) => m.round === totalRounds && m.bracket_slot === BRONZE_SLOT,
+  );
+  const main = playoff.filter((m) => m !== bronze);
+
   const rounds: Match[][] = [];
   for (let r = 1; r <= totalRounds; r++)
     rounds.push(
-      playoff
+      main
         .filter((m) => m.round === r)
         .sort((a, b) => (a.bracket_slot ?? 0) - (b.bracket_slot ?? 0)),
     );
 
   return (
-    <div className="bracket">
-      {rounds.map((col, i) => (
-        <div className="bracket-round" key={i}>
-          <div className="bracket-round-label">
-            {bracketRoundLabel(i + 1, totalRounds)}
+    <div className="stack" style={{ gap: 14 }}>
+      <div className="bracket">
+        {rounds.map((col, i) => (
+          <div className="bracket-round" key={i}>
+            <div className="bracket-round-label">
+              {bracketRoundLabel(i + 1, totalRounds)}
+            </div>
+            {col.map((m) => (
+              <BracketMatch key={m.id} m={m} teams={teams} scoring={scoring} />
+            ))}
           </div>
-          {col.map((m) => (
-            <BracketMatch key={m.id} m={m} teams={teams} scoring={scoring} />
-          ))}
+        ))}
+      </div>
+      {bronze && (
+        <div className="bracket-round bronze-final">
+          <div className="bracket-round-label">{no.board.bronze}</div>
+          <BracketMatch m={bronze} teams={teams} scoring={scoring} />
         </div>
-      ))}
+      )}
     </div>
   );
 }

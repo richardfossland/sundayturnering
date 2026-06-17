@@ -751,7 +751,20 @@ textarea {
   text-transform: uppercase;
   color: var(--gold-ink);
   font-weight: 700;
+}
+.court-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
+}
+/* compact per-court timer chip */
+.board-timer-sm {
+  margin-top: 0;
+  font-size: 0.95rem;
+  padding: 2px 9px;
+  border-radius: 8px;
 }
 
 /* next up */
@@ -849,6 +862,103 @@ textarea {
   text-align: center;
   margin-bottom: 4px;
 }
+/* bronze final: set apart from the main bracket, warm accent */
+.bronze-final {
+  align-self: flex-start;
+  max-width: 240px;
+  border-top: 1px dashed var(--ink-line);
+  padding-top: 10px;
+}
+.bronze-final .bracket-round-label {
+  color: #c08a3e;
+}
+/* right-panel swap (standings ↔ bracket ↔ groups) */
+.panel-swap {
+  animation: panelfade 0.4s ease;
+}
+@keyframes panelfade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel-swap {
+    animation: none;
+  }
+}
+
+/* group-stage table heading */
+.group-head {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--gold-ink);
+}
+
+/* form guide dots */
+.form-col {
+  white-space: nowrap;
+}
+.form-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.form-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.form-dot[data-r="W"] {
+  background: var(--win, #4fbf7b);
+}
+.form-dot[data-r="D"] {
+  background: var(--txt-faint);
+  opacity: 0.7;
+}
+.form-dot[data-r="L"] {
+  background: var(--danger, #d2554d);
+}
+
+/* awards / superlatives grid (results page) */
+.awards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.award-card {
+  border: 1px solid var(--ink-line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: var(--s-03);
+}
+.award-card .award-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  font-weight: 700;
+}
+.award-card .award-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  margin-top: 4px;
+}
+.award-card .award-detail {
+  font-size: 0.9rem;
+  color: var(--txt-dim, var(--txt-faint));
+  margin-top: 2px;
+}
 .bx {
   background: var(--s-03);
   border: 1px solid var(--ink-line);
@@ -868,6 +978,7 @@ textarea {
 .bx-row.win {
   background: rgba(235, 184, 75, 0.1);
   font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--gold-ink);
 }
 .bx-row.win .bx-score {
   color: var(--gold-ink);
@@ -999,35 +1110,201 @@ textarea {
   color: var(--txt-faint);
   text-align: right;
 }
+.match-card[data-disabled="true"] {
+  cursor: default;
+  opacity: 0.62;
+}
+.match-card[data-disabled="true"]:hover {
+  border-color: var(--ink-line);
+}
 .match-result {
   font-family: var(--mono);
   font-weight: 700;
   color: var(--gold-ink);
 }
 
+/* small button variant (referee inline actions / timer) */
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  border-radius: 10px;
+}
+
+/* referee timer bar */
+.timer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--k-30, var(--s-04));
+  border: 1px solid var(--ink-line);
+}
+.timer-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--txt-faint);
+}
+.timer-left {
+  font-variant-numeric: tabular-nums;
+  color: var(--gold-ink);
+}
+.timer-left[data-low="true"] {
+  color: var(--danger, #d2554d);
+}
+
+/* next-match hint */
+.next-hint {
+  font-size: 0.85rem;
+  color: var(--txt-faint);
+  padding: 2px 2px;
+}
+.next-hint strong {
+  color: var(--txt);
+}
+
+/* connected-device roster */
+.roster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.roster-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--s-04);
+  border: 1px solid var(--ink-line);
+}
+
 /* result entry */
 .stepper {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 .stepper button {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  font-size: 1.6rem;
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  font-size: 1.9rem;
   font-weight: 700;
+  line-height: 1;
   border: 1px solid var(--ink-line-strong);
   background: var(--s-05);
   cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.08s ease, background 0.12s ease;
+}
+.stepper button:active {
+  transform: scale(0.92);
+  background: var(--s-08, var(--s-05));
 }
 .stepper-val {
-  font-family: var(--display);
-  font-weight: 900;
-  font-size: 2.4rem;
+  /* Body font (not the Playfair display face) so "0" never reads as "O". */
+  font-family: var(--body);
+  font-weight: 800;
+  font-size: 2.6rem;
   min-width: 56px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* live mini-scoreboard above the steppers (simple profile) */
+.scoreboard {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px;
+  border-radius: 16px;
+  background: var(--k-04, var(--s-04));
+  border: 1px solid var(--ink-line);
+}
+.scoreboard .sb-team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  min-width: 0;
+}
+.scoreboard .sb-team .team-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.scoreboard .sb-score {
+  font-family: var(--body);
+  font-weight: 800;
+  font-size: 3rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.scoreboard .sb-sep {
+  font-weight: 700;
+  color: var(--txt-faint, var(--warn));
+  opacity: 0.6;
+}
+
+/* quick result chips (common scorelines / reset) */
+.quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.quick-chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-line-strong);
+  background: var(--s-04);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.quick-chip[data-on="true"] {
+  border-color: var(--gold-ink);
+  background: rgba(235, 184, 75, 0.14);
+}
+
+/* special-result (walkover / abandoned / DQ) affordance */
+.special-box {
+  border-top: 1px dashed var(--ink-line);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+.special-toggle {
+  background: none;
+  border: none;
+  color: var(--txt-faint, var(--warn));
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 0;
+}
+.special-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.special-grid .special-kind {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.special-grid .special-kind > span {
+  font-weight: 600;
+  font-size: 0.92rem;
 }
 .set-row {
   display: grid;

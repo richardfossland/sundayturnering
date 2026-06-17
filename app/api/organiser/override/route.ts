@@ -1,7 +1,7 @@
 import { ok, fail, readJson } from "@/lib/server/http";
 import { authOrganiser } from "@/lib/server/auth";
 import { db, getMatch } from "@/lib/server/store";
-import { propagateWinner } from "@/lib/server/playoff";
+import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
 import { channels, events } from "@/lib/realtime";
 import {
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   const err = validateResult(t.scoring.profile, body.result, t.scoring);
   if (err) return fail(422, "ugyldig_resultat", { detail: err });
   const result = canonicaliseResult(t.scoring.profile, body.result);
-  const { winner } = resolve(t.scoring.profile, result);
+  const { winner } = resolve(t.scoring.profile, result, t.scoring);
   const winnerTeamId =
     winner === "home" ? m.home_team_id : winner === "away" ? m.away_team_id : null;
 
@@ -43,11 +43,12 @@ export async function POST(req: Request) {
       status: "done",
       result_version: m.result_version + 1,
       locked_by: null,
+      result_by: null, // organiser correction is not a referee self-save
     })
     .eq("id", m.id);
 
   const saved = await getMatch(m.id);
-  if (saved?.phase === "playoff") await propagateWinner(saved);
+  if (saved?.phase === "playoff") await propagateResult(saved);
 
   await broadcast(channels.tournament(t.id), events.matchUpdated, {
     matchId: m.id,

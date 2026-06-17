@@ -4,6 +4,7 @@ import {
   seedOrder,
   buildBracket,
   advanceBracket,
+  BRONZE_SLOT,
 } from "@/lib/tournament/bracket";
 
 function seeds(n: number): string[] {
@@ -115,5 +116,43 @@ describe("buildBracket", () => {
       .filter((l) => l.fromRound === 1)
       .map((l) => `${l.toSlot}${l.toSide}`);
     expect(new Set(targets).size).toBe(4); // no two winners collide
+  });
+
+  it("opts are optional → existing winner-only links default to 'winner'", () => {
+    const b = buildBracket(seeds(4));
+    expect(b.links.every((l) => l.feed === "winner")).toBe(true);
+    expect(b.matches.some((m) => m.slot === BRONZE_SLOT && m.round === b.rounds)).toBe(false);
+  });
+});
+
+describe("buildBracket — bronze final", () => {
+  it("adds a bronze match fed by both semifinal losers", () => {
+    const b = buildBracket(seeds(4), { thirdPlace: true });
+    // 2 semis (r1) + final (r2,s0) + bronze (r2, BRONZE_SLOT)
+    expect(b.matches).toHaveLength(4);
+    const bronze = b.matches.find(
+      (m) => m.round === b.rounds && m.slot === BRONZE_SLOT,
+    )!;
+    expect(bronze).toBeTruthy();
+    const loserLinks = b.links.filter((l) => l.feed === "loser");
+    expect(loserLinks).toHaveLength(2);
+    // both loser-links target the bronze match, opposite sides
+    expect(loserLinks.every((l) => l.toRound === b.rounds && l.toSlot === BRONZE_SLOT)).toBe(true);
+    expect(loserLinks.map((l) => l.toSide).sort()).toEqual(["away", "home"]);
+    // bronze has no outgoing link (it never finishes the tournament)
+    expect(b.links.some((l) => l.fromRound === b.rounds && l.fromSlot === BRONZE_SLOT)).toBe(false);
+  });
+
+  it("is ignored for a 2-team bracket (no semifinals)", () => {
+    const b = buildBracket(seeds(2), { thirdPlace: true });
+    expect(b.matches).toHaveLength(1);
+    expect(b.links.some((l) => l.feed === "loser")).toBe(false);
+  });
+
+  it("is skipped when a semifinal is a bye (3 teams)", () => {
+    const b = buildBracket(seeds(3), { thirdPlace: true });
+    // one semifinal is a bye → no real bronze contestant pair
+    expect(b.links.some((l) => l.feed === "loser")).toBe(false);
+    expect(b.matches.some((m) => m.slot === BRONZE_SLOT && m.round === b.rounds)).toBe(false);
   });
 });

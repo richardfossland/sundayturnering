@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createServiceClient } from "@/lib/supabase/service";
-import { computeStandings } from "@/lib/tournament/standings";
+import { computeStandings, computeGroupStandings } from "@/lib/tournament/standings";
 import { toTournamentDTO, type StateDTO } from "@/lib/dto";
 import type { Court, Match, Team, Tournament } from "@/lib/types";
 
@@ -93,7 +93,23 @@ export async function getState(t: Tournament): Promise<StateDTO> {
     t.scoring,
     t.config?.playoffSize ?? 0,
   );
-  return { tournament: toTournamentDTO(t), teams, courts, matches, standings };
+  const groupStandings =
+    t.format === "group_playoff"
+      ? computeGroupStandings(
+          teams,
+          matches,
+          t.scoring,
+          t.config?.advancePerGroup ?? 2,
+        )
+      : undefined;
+  return {
+    tournament: toTournamentDTO(t),
+    teams,
+    courts,
+    matches,
+    standings,
+    groupStandings,
+  };
 }
 
 /** Bump the structural version (board cache-busting + structure broadcast).

@@ -7,6 +7,7 @@ import {
 } from "@/lib/codes";
 import { generateRoundRobin } from "@/lib/tournament/roundRobin";
 import { buildBracket } from "@/lib/tournament/bracket";
+import { splitIntoGroups } from "@/lib/tournament/groups";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import type {
   Format,
@@ -61,10 +62,18 @@ export async function createTournament(
   const organiser_code = generateWordCode();
 
   const scoring = sanitiseScoring(input.scoring);
+  const hasPlayoff =
+    input.format === "league_playoff" || input.format === "group_playoff";
   const config: TournamentConfig = {
-    playoffSize:
-      input.format === "league_playoff" ? input.config.playoffSize : 0,
+    playoffSize: hasPlayoff ? input.config.playoffSize : 0,
     roundRobinDouble: !!input.config.roundRobinDouble,
+    thirdPlace: !!input.config.thirdPlace,
+    ...(input.format === "group_playoff"
+      ? {
+          groupCount: clampInt(input.config.groupCount, 2, 8, 2),
+          advancePerGroup: clampInt(input.config.advancePerGroup, 1, 4, 2),
+        }
+      : {}),
   };
   const status = input.format === "cup" ? "playoff" : "league";
 
@@ -145,12 +154,21 @@ async function buildRest(
 
   // --- schedule ---
   if (input.format === "cup") {
-    await buildCupMatches(t.id, teamIds, courtIds);
+    await buildCupMatches(t.id, teamIds, courtIds, {
+      thirdPlace: t.config.thirdPlace,
+    });
+  } else if (input.format === "group_playoff") {
+    await buildGroupMatches(t, teamIds, courtIds);
   } else {
     await buildLeagueMatches(t, teamIds, courtIds);
   }
 
   return { id: t.id, control_code, board_code, organiser_code };
+}
+
+function clampInt(v: unknown, lo: number, hi: number, dflt: number): number {
+  const n = typeof v === "number" && Number.isFinite(v) ? Math.floor(v) : dflt;
+  return Math.max(lo, Math.min(hi, n));
 }
 
 function sanitiseScoring(s: ScoringConfig): ScoringConfig {
@@ -195,14 +213,66 @@ async function buildLeagueMatches(
   if (rows.length) await db().from("matches").insert(rows);
 }
 
-/** Build a seeded single-elim bracket and persist matches + winner-flow links. */
+/** Build the group stage: split seeded teams into balanced groups, persist each
+ * team's group_no, then a round-robin WITHIN each group (phase 'league'). The
+ * knockout bracket is built later, at advance time, from the group standings. */
+async function buildGroupMatches(
+  t: Tournament,
+  teamIds: string[],
+  courtIds: string[],
+): Promise<void> {
+  const sb = db();
+  const groupCount = t.config.groupCount ?? 2;
+  const groups = splitIntoGroups(teamIds, groupCount);
+
+  // Persist group membership on each team.
+  const updates: PromiseLike<unknown>[] = [];
+  groups.forEach((ids, g) => {
+    for (const id of ids)
+      updates.push(sb.from("teams").update({ group_no: g }).eq("id", id));
+  });
+  await Promise.all(updates);
+
+  // Round-robin within each group; queue_order stays globally monotonic.
+  let queue = 0;
+  const rows: object[] = [];
+  groups.forEach((ids, g) => {
+    const pairings = generateRoundRobin(ids, {
+      double: t.config.roundRobinDouble,
+      courtCount: t.parallelism === "parallel" ? courtIds.length : 0,
+    });
+    for (const p of pairings) {
+      rows.push({
+        tournament_id: t.id,
+        phase: "league" as const,
+        round: p.round,
+        group_no: g,
+        bracket_slot: null,
+        court_id:
+          p.courtIndex !== null && courtIds[p.courtIndex]
+            ? courtIds[p.courtIndex]
+            : null,
+        queue_order: queue++,
+        home_team_id: p.homeId,
+        away_team_id: p.awayId,
+        status: p.awayId === null ? "bye" : "scheduled",
+        winner_team_id: p.awayId === null ? p.homeId : null,
+      });
+    }
+  });
+  if (rows.length) await sb.from("matches").insert(rows);
+}
+
+/** Build a seeded single-elim bracket and persist matches + winner-flow links
+ * (plus loser-flow links into the bronze final when `opts.thirdPlace`). */
 export async function buildCupMatches(
   tournamentId: string,
   seededTeamIds: string[],
   courtIds: string[],
+  opts?: { thirdPlace?: boolean },
 ): Promise<void> {
   const sb = db();
-  const bracket = buildBracket(seededTeamIds);
+  const bracket = buildBracket(seededTeamIds, { thirdPlace: opts?.thirdPlace });
 
   // Insert matches; remember (round,slot) → queue_order so we can map ids back.
   let queue = 0;
@@ -243,6 +313,7 @@ export async function buildCupMatches(
         from_match_id: from,
         to_match_id: to,
         to_slot: l.toSide,
+        feed: l.feed,
       };
     })
     .filter(Boolean);

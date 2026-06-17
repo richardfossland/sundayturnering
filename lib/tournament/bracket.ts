@@ -20,7 +20,11 @@ export interface BuiltLink {
   toRound: number;
   toSlot: number;
   toSide: "home" | "away";
+  feed: "winner" | "loser";
 }
+
+/** Bronze final occupies the final round at a slot beyond the final itself. */
+export const BRONZE_SLOT = 1;
 
 export interface BuiltBracket {
   matches: BuiltMatch[];
@@ -53,8 +57,12 @@ export function seedOrder(size: number): number[] {
 
 /** Build a single-elimination bracket from seeded team ids (index 0 = seed 1).
  * Byes (seed > N) are assigned to the top seeds and pre-resolved + propagated
- * into round 2. */
-export function buildBracket(seeds: string[]): BuiltBracket {
+ * into round 2. With `opts.thirdPlace`, a bronze final is added (fed by the two
+ * semifinal losers) when the bracket has real semifinals. */
+export function buildBracket(
+  seeds: string[],
+  opts?: { thirdPlace?: boolean },
+): BuiltBracket {
   const n = seeds.length;
   if (n < 2) return { matches: [], links: [], rounds: 0 };
 
@@ -114,7 +122,43 @@ export function buildBracket(seeds: string[]): BuiltBracket {
         toRound: r + 1,
         toSlot: Math.floor(slot / 2),
         toSide: slot % 2 === 0 ? "home" : "away",
+        feed: "winner",
       });
+    }
+  }
+
+  // Bronze final: the two semifinal (penultimate round) losers play for 3rd.
+  // Only meaningful when both semifinals are REAL matches (not a bye).
+  if (opts?.thirdPlace && rounds >= 2) {
+    const semis = matches.filter((m) => m.round === rounds - 1);
+    const bothReal = semis.length === 2 && semis.every((m) => m.status !== "bye");
+    if (bothReal) {
+      matches.push({
+        round: rounds,
+        slot: BRONZE_SLOT,
+        homeId: null,
+        awayId: null,
+        status: "scheduled",
+        winnerId: null,
+      });
+      links.push(
+        {
+          fromRound: rounds - 1,
+          fromSlot: 0,
+          toRound: rounds,
+          toSlot: BRONZE_SLOT,
+          toSide: "home",
+          feed: "loser",
+        },
+        {
+          fromRound: rounds - 1,
+          fromSlot: 1,
+          toRound: rounds,
+          toSlot: BRONZE_SLOT,
+          toSide: "away",
+          feed: "loser",
+        },
+      );
     }
   }
 
@@ -148,7 +192,8 @@ export function advanceBracket(
 ): BuiltBracket {
   const matches = bracket.matches.map((m) => ({ ...m }));
   const link = bracket.links.find(
-    (l) => l.fromRound === fromRound && l.fromSlot === fromSlot,
+    (l) =>
+      l.fromRound === fromRound && l.fromSlot === fromSlot && l.feed !== "loser",
   );
   if (!link) return { ...bracket, matches };
   const target = matches.find(

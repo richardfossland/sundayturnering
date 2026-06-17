@@ -7,7 +7,7 @@ import type {
   StandingRow,
   Team,
 } from "@/lib/types";
-import { leaguePoints, resolve } from "@/lib/tournament/scoring";
+import { isVoid, leaguePoints, resolve } from "@/lib/tournament/scoring";
 
 interface Acc extends StandingRow {
   name: string;
@@ -45,14 +45,15 @@ export function computeStandings(
       m.phase === "league" &&
       m.status === "done" &&
       m.result != null &&
-      m.away_team_id != null, // byes don't count toward the table
+      m.away_team_id != null && // byes don't count toward the table
+      !isVoid(m.result), // abandoned/annulled matches are voided
   );
 
   for (const m of leagueDone) {
     const home = acc.get(m.home_team_id!);
     const away = acc.get(m.away_team_id!);
     if (!home || !away) continue;
-    const { winner, homeScore, awayScore } = resolve(profile, m.result!);
+    const { winner, homeScore, awayScore } = resolve(profile, m.result!, cfg);
     const pts = leaguePoints(m.result!, profile, cfg);
 
     home.played++;
@@ -77,6 +78,19 @@ export function computeStandings(
   }
 
   for (const r of acc.values()) r.diff = r.scoreFor - r.scoreAgainst;
+
+  // Form guide: each team's results in chronological (queue) order.
+  const formMap = new Map<string, ("W" | "D" | "L")[]>();
+  const push = (id: string, v: "W" | "D" | "L") => {
+    const arr = formMap.get(id) ?? [];
+    arr.push(v);
+    formMap.set(id, arr);
+  };
+  for (const m of [...leagueDone].sort((a, b) => a.queue_order - b.queue_order)) {
+    const { winner } = resolve(profile, m.result!, cfg);
+    push(m.home_team_id!, winner === "draw" ? "D" : winner === "home" ? "W" : "L");
+    push(m.away_team_id!, winner === "draw" ? "D" : winner === "away" ? "W" : "L");
+  }
 
   const rows = [...acc.values()];
   rows.sort((a, b) => {
@@ -107,8 +121,40 @@ export function computeStandings(
       diff: r.diff,
       rank: r.rank,
       inPlayoff: r.inPlayoff,
+      form: (formMap.get(r.team_id) ?? []).slice(-5),
     }),
   );
+}
+
+export interface GroupStanding {
+  group_no: number;
+  rows: StandingRow[];
+}
+
+/** Per-group standings for the group_playoff format. Runs the same reducer
+ * (incl. head-to-head + tiebreaks) restricted to each group's teams + matches,
+ * marking the top `advancePerGroup` of each group as inPlayoff. */
+export function computeGroupStandings(
+  teams: Team[],
+  matches: Match[],
+  cfg: ScoringConfig,
+  advancePerGroup: number,
+): GroupStanding[] {
+  const groupNos = [
+    ...new Set(
+      teams.map((t) => t.group_no).filter((g): g is number => g != null),
+    ),
+  ].sort((a, b) => a - b);
+
+  return groupNos.map((g) => ({
+    group_no: g,
+    rows: computeStandings(
+      teams.filter((t) => t.group_no === g),
+      matches.filter((m) => m.group_no === g),
+      cfg,
+      advancePerGroup,
+    ),
+  }));
 }
 
 /** Head-to-head points between exactly two teams (positive → a ahead). */

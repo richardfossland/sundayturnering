@@ -13,6 +13,7 @@ function team(id: string, name: string, seed?: number): Team {
     seed: seed ?? null,
     sort_order: 0,
     members: [],
+    group_no: null,
   };
 }
 function standing(team_id: string, rank: number, played = 1): StandingRow {
@@ -38,6 +39,7 @@ function pmatch(round: number, home: string | null, away: string | null, winner:
     phase: "playoff",
     round,
     bracket_slot: 0,
+    group_no: null,
     court_id: null,
     queue_order: 0,
     home_team_id: home,
@@ -46,6 +48,7 @@ function pmatch(round: number, home: string | null, away: string | null, winner:
     result: null,
     winner_team_id: winner,
     locked_by: null,
+    result_by: null,
     result_version: winner ? 1 : 0,
     updated_at: "",
   };

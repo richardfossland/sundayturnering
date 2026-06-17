@@ -54,7 +54,9 @@ export function OrganiserPanel({
   }
 
   const canAdvance =
-    tournament.format === "league_playoff" && tournament.status === "league";
+    (tournament.format === "league_playoff" ||
+      tournament.format === "group_playoff") &&
+    tournament.status === "league";
   const canFinish = tournament.status !== "finished";
   const doneMatches = matches.filter((m) => m.status === "done");
 

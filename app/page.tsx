@@ -21,7 +21,10 @@ export default function Home() {
           <Link href="/ny" className="btn btn-gold btn-lg btn-block">
             {no.landing.createCta}
           </Link>
-          <Link href="/kontroll" className="btn btn-lg btn-block">
+          <Link href="/hurtig" className="btn btn-lg btn-block">
+            {no.landing.quickCta}
+          </Link>
+          <Link href="/kontroll" className="btn btn-block">
             {no.landing.controlCta}
           </Link>
           <Link href="/tavle" className="btn btn-ghost btn-block">

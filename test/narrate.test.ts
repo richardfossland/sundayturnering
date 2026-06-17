@@ -39,6 +39,7 @@ function team(id: string, name: string, seed: number | null = null): Team {
     seed,
     sort_order: 0,
     members: [],
+    group_no: null,
   };
 }
 
@@ -50,6 +51,7 @@ function match(over: Partial<Match> = {}): Match {
     phase: "league",
     round: 1,
     bracket_slot: null,
+    group_no: null,
     court_id: null,
     queue_order: 0,
     home_team_id: "a",
@@ -58,6 +60,7 @@ function match(over: Partial<Match> = {}): Match {
     result: null,
     winner_team_id: null,
     locked_by: null,
+    result_by: null,
     result_version: 0,
     updated_at: "",
     ...over,

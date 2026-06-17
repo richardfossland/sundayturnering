@@ -58,6 +58,9 @@ export function Wizard() {
   const [courtCount, setCourtCount] = useState(2);
   const [courtNames, setCourtNames] = useState<string[]>(["Bane 1", "Bane 2"]);
   const [playoffSize, setPlayoffSize] = useState<2 | 4 | 8>(4);
+  const [groupCount, setGroupCount] = useState(2);
+  const [advancePerGroup, setAdvancePerGroup] = useState(2);
+  const [thirdPlace, setThirdPlace] = useState(false);
   const [teams, setTeams] = useState<DraftTeam[]>([]);
   const [bulk, setBulk] = useState("");
   const [count, setCount] = useState(8);
@@ -114,8 +117,9 @@ export function Wizard() {
     );
   }
 
-  // steps shown — skip step 6 unless league_playoff
-  const showPlayoff = format === "league_playoff";
+  // steps shown — skip step 6 unless a playoff/group format
+  const isGroup = format === "group_playoff";
+  const showPlayoff = format === "league_playoff" || isGroup;
 
   function setProfile(p: ScoringProfileKey) {
     setScoring(defaultScoringConfig(p));
@@ -216,8 +220,10 @@ export function Wizard() {
         scoring,
         parallelism,
         config: {
-          playoffSize: showPlayoff ? (Math.min(playoffSize, validTeams.length) as 2 | 4 | 8) : 0,
+          playoffSize: showPlayoff && !isGroup ? (Math.min(playoffSize, validTeams.length) as 2 | 4 | 8) : 0,
           roundRobinDouble: false,
+          thirdPlace: showPlayoff ? thirdPlace : false,
+          ...(isGroup ? { groupCount, advancePerGroup } : {}),
         },
         teams: validTeams.map((t) => ({
           name: t.name.trim(),
@@ -303,7 +309,7 @@ export function Wizard() {
           {step === 2 && (
             <Step title={no.wizard.s2Title}>
               <div className="opt-grid">
-                {(["league", "league_playoff", "cup"] as Format[]).map((f) => (
+                {(["league", "league_playoff", "group_playoff", "cup"] as Format[]).map((f) => (
                   <button key={f} className="opt" data-on={format === f} onClick={() => setFormat(f)}>
                     <h3>{no.wizard.formats[f].name}</h3>
                     <p>{no.wizard.formats[f].blurb}</p>
@@ -475,16 +481,63 @@ export function Wizard() {
 
           {step === 6 && showPlayoff && (
             <Step title={no.wizard.s6Title}>
-              <div className="field">
-                <label className="label">{no.wizard.playoffSize}</label>
-                <div className="chips">
-                  {[2, 4, 8].map((n) => (
-                    <button key={n} className="chip" data-on={playoffSize === n} disabled={n > validTeams.length}
-                      onClick={() => setPlayoffSize(n as 2 | 4 | 8)}>{n}</button>
-                  ))}
+              {isGroup ? (
+                <>
+                  <div className="field">
+                    <label className="label">{no.wizard.groupCount}</label>
+                    <div className="chips">
+                      {[2, 3, 4].map((n) => (
+                        <button
+                          key={n}
+                          className="chip"
+                          data-on={groupCount === n}
+                          disabled={n * 2 > validTeams.length}
+                          onClick={() => setGroupCount(n)}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label className="label">{no.wizard.advancePerGroup}</label>
+                    <div className="chips">
+                      {[1, 2].map((n) => (
+                        <button
+                          key={n}
+                          className="chip"
+                          data-on={advancePerGroup === n}
+                          onClick={() => setAdvancePerGroup(n)}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="faint">
+                      {no.wizard.groupPreview(groupCount, advancePerGroup)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="field">
+                  <label className="label">{no.wizard.playoffSize}</label>
+                  <div className="chips">
+                    {[2, 4, 8].map((n) => (
+                      <button key={n} className="chip" data-on={playoffSize === n} disabled={n > validTeams.length}
+                        onClick={() => setPlayoffSize(n as 2 | 4 | 8)}>{n}</button>
+                    ))}
+                  </div>
+                  <span className="faint">{no.wizard.playoffCapped(validTeams.length)} · {maxPlayoff} går videre</span>
                 </div>
-                <span className="faint">{no.wizard.playoffCapped(validTeams.length)} · {maxPlayoff} går videre</span>
-              </div>
+              )}
+              <label className="row" style={{ gap: 10, cursor: "pointer", marginTop: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={thirdPlace}
+                  onChange={(e) => setThirdPlace(e.target.checked)}
+                />
+                <span>{no.wizard.thirdPlace}</span>
+              </label>
             </Step>
           )}
 
@@ -493,7 +546,8 @@ export function Wizard() {
               <Summary
                 title={title} sport={sport} format={format} scoring={scoring}
                 parallelism={parallelism} courtCount={courtCount}
-                teamCount={validTeams.length} playoff={showPlayoff ? maxPlayoff : 0}
+                teamCount={validTeams.length} playoff={showPlayoff && !isGroup ? maxPlayoff : 0}
+                groupCount={groupCount} advancePerGroup={advancePerGroup} thirdPlace={thirdPlace}
               />
               <button className="btn btn-block" onClick={saveTemplate} disabled={validTeams.length < 2}>
                 💾 Lagre som mal
@@ -627,12 +681,25 @@ function LogoUpload({ url, onUrl }: { url: string | null; onUrl: (u: string | nu
 function Summary(props: {
   title: string; sport: string; format: Format; scoring: ScoringConfig;
   parallelism: Parallelism; courtCount: number; teamCount: number; playoff: number;
+  groupCount?: number; advancePerGroup?: number; thirdPlace?: boolean;
 }) {
+  const isGroup = props.format === "group_playoff";
   const matchCount = useMemo(() => {
-    if (props.format === "cup") return props.teamCount - 1;
+    if (props.format === "cup") return Math.max(0, props.teamCount - 1);
+    if (isGroup) {
+      const g = props.groupCount ?? 2;
+      const base = Math.floor(props.teamCount / g);
+      const rem = props.teamCount % g;
+      let total = 0;
+      for (let i = 0; i < g; i++) {
+        const size = base + (i < rem ? 1 : 0);
+        total += roundRobinMatchCount(size);
+      }
+      return total;
+    }
     return roundRobinMatchCount(props.teamCount);
-  }, [props.format, props.teamCount]);
-  const rounds = props.format === "cup" ? null : roundRobinRoundCount(props.teamCount);
+  }, [props.format, props.teamCount, isGroup, props.groupCount]);
+  const rounds = props.format === "cup" || isGroup ? null : roundRobinRoundCount(props.teamCount);
 
   const rows: [string, string][] = [
     [no.wizard.s1Name, props.title || "—"],
@@ -643,7 +710,13 @@ function Summary(props: {
     [no.wizard.summaryCourts, props.parallelism === "parallel" ? String(props.courtCount) : no.wizard.sequential],
     ["Kamper", `${matchCount}${rounds ? ` · ${rounds} runder` : ""}`],
   ];
-  if (props.playoff) rows.push([no.wizard.s6Title, `${props.playoff} lag`]);
+  if (isGroup)
+    rows.push([
+      no.wizard.formats.group_playoff.name,
+      no.wizard.groupPreview(props.groupCount ?? 2, props.advancePerGroup ?? 2),
+    ]);
+  else if (props.playoff) rows.push([no.wizard.s6Title, `${props.playoff} lag`]);
+  if (props.thirdPlace) rows.push([no.wizard.thirdPlace, "Ja"]);
 
   return (
     <div className="panel stack" style={{ gap: 10 }}>

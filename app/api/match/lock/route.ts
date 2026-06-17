@@ -7,12 +7,13 @@ import { channels, events } from "@/lib/realtime";
 //   'lock'   set locked_by = deviceId; scheduled → live
 //   'force'  take an existing lock
 //   'unlock' clear lock; live → scheduled (unless already done)
+//   'start'  mark scheduled → live WITHOUT holding a lock (referee "Start kamp")
 export async function POST(req: Request) {
   const body = await readJson<{
     matchId?: string;
     deviceId?: string;
     deviceName?: string;
-    action?: "lock" | "force" | "unlock";
+    action?: "lock" | "force" | "unlock" | "start";
   }>(req);
   if (!body?.matchId || !body.deviceId)
     return fail(400, "mangler_felt");
@@ -27,7 +28,11 @@ export async function POST(req: Request) {
     ? `${body.deviceId}|${body.deviceName}`
     : body.deviceId;
 
-  if (action === "unlock") {
+  if (action === "start") {
+    // Go live without taking an edit lock (others can still register the result).
+    if (m.status === "scheduled")
+      await db().from("matches").update({ status: "live" }).eq("id", m.id);
+  } else if (action === "unlock") {
     if (m.locked_by && m.locked_by.split("|")[0] !== body.deviceId)
       return ok({ match: m }); // not our lock; ignore
     await db()

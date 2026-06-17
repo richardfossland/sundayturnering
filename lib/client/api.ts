@@ -56,7 +56,7 @@ export const api = {
     matchId: string,
     deviceId: string,
     deviceName: string,
-    action: "lock" | "force" | "unlock",
+    action: "lock" | "force" | "unlock" | "start",
   ) {
     return post<{ match: Match }>("/api/match/lock", {
       matchId,
@@ -66,11 +66,48 @@ export const api = {
     });
   },
 
-  submitResult(matchId: string, expectedVersion: number, result: MatchResult) {
+  submitResult(
+    matchId: string,
+    expectedVersion: number,
+    result: MatchResult,
+    device?: { deviceId: string; deviceName?: string },
+  ) {
     return post<{ match: Match }>("/api/match/result", {
       matchId,
       expectedVersion,
       result,
+      deviceId: device?.deviceId,
+      deviceName: device?.deviceName,
+    });
+  },
+
+  /** Referee self-correct of their own just-saved result (grace window). */
+  correct(
+    matchId: string,
+    expectedVersion: number,
+    result: MatchResult,
+    device: { deviceId: string; deviceName?: string },
+  ) {
+    return post<{ match: Match }>("/api/match/correct", {
+      matchId,
+      expectedVersion,
+      result,
+      deviceId: device.deviceId,
+      deviceName: device.deviceName,
+    });
+  },
+
+  /** Referee-controlled match/court timer (non-destructive, not organiser-gated). */
+  courtTimer(
+    tournamentId: string,
+    action: "start" | "add" | "stop",
+    opts?: { courtId?: string; durationSec?: number },
+  ) {
+    return post<{ timer: unknown }>("/api/match/timer", {
+      tournamentId,
+      action,
+      courtId: opts?.courtId,
+      durationSec: opts?.durationSec,
     });
   },
 

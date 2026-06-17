@@ -51,4 +51,6 @@ export interface StateDTO {
   courts: Court[];
   matches: Match[];
   standings: StandingRow[];
+  /** Per-group tables, present only for the group_playoff format. */
+  groupStandings?: { group_no: number; rows: StandingRow[] }[];
 }

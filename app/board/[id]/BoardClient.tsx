@@ -10,7 +10,7 @@ import {
   liveMatches,
   upcoming,
 } from "@/lib/client/view";
-import { Standings } from "./Standings";
+import { Standings, GroupStandings } from "./Standings";
 import { Bracket } from "./Bracket";
 import { NowPlaying } from "./NowPlaying";
 import { Champion } from "./Champion";
@@ -80,7 +80,7 @@ export function BoardClient({
       </main>
     );
 
-  const { tournament, matches, standings, courts } = state;
+  const { tournament, matches, standings, courts, groupStandings } = state;
 
   const finished = tournament.status === "finished";
 
@@ -207,15 +207,26 @@ export function BoardClient({
               </div>
             )}
           </div>
-          {showBracket ? (
-            <Bracket matches={matches} teams={teams} scoring={tournament.scoring} />
-          ) : (
-            <Standings
-              standings={standings}
-              teams={teams}
-              showDraw={tournament.scoring.profile === "simple" && tournament.scoring.allowDraw}
-            />
-          )}
+          <div
+            className="panel-swap"
+            key={showBracket ? "bracket" : groupStandings?.length ? "groups" : "standings"}
+          >
+            {showBracket ? (
+              <Bracket matches={matches} teams={teams} scoring={tournament.scoring} />
+            ) : groupStandings && groupStandings.length > 0 ? (
+              <GroupStandings
+                groups={groupStandings}
+                teams={teams}
+                showDraw={tournament.scoring.profile === "simple" && tournament.scoring.allowDraw}
+              />
+            ) : (
+              <Standings
+                standings={standings}
+                teams={teams}
+                showDraw={tournament.scoring.profile === "simple" && tournament.scoring.allowDraw}
+              />
+            )}
+          </div>
         </section>
       </div>
     </main>

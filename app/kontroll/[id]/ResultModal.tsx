@@ -13,6 +13,7 @@ export function ResultModal({
   teams,
   deviceId,
   deviceName,
+  mode = "new",
   onClose,
   onDone,
   onConflict,
@@ -22,6 +23,7 @@ export function ResultModal({
   teams: Map<string, Team>;
   deviceId: string;
   deviceName: string;
+  mode?: "new" | "correct";
   onClose: () => void;
   onDone: () => void;
   onConflict: () => void;
@@ -32,9 +34,12 @@ export function ResultModal({
 
   const h = match.home_team_id ? teams.get(match.home_team_id) : null;
   const a = match.away_team_id ? teams.get(match.away_team_id) : null;
+  const correcting = mode === "correct";
 
   // Acquire a soft lock on open; release on close (unless it became 'done').
+  // In correct mode the match is already 'done' (lock would 409) — skip it.
   useEffect(() => {
+    if (correcting) return;
     let active = true;
     (async () => {
       try {
@@ -76,10 +81,12 @@ export function ResultModal({
   async function submit(result: MatchResult) {
     setSubmitting(true);
     try {
-      await api.submitResult(match.id, version, result);
+      const device = { deviceId, deviceName };
+      if (correcting) await api.correct(match.id, version, result, device);
+      else await api.submitResult(match.id, version, result, device);
       onDone();
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
+      if (e instanceof ApiError && (e.status === 409 || e.status === 403)) {
         onConflict();
         onClose();
       } else {
@@ -94,7 +101,9 @@ export function ResultModal({
     <div className="scrim" onClick={onClose}>
       <div className="card card-pad modal stack" onClick={(e) => e.stopPropagation()}>
         <div className="spread">
-          <h2 style={{ fontSize: "1.3rem" }}>{no.control.enterResult}</h2>
+          <h2 style={{ fontSize: "1.3rem" }}>
+            {correcting ? no.control.edit : no.control.enterResult}
+          </h2>
           <button className="btn btn-ghost" onClick={onClose}>✕</button>
         </div>
 

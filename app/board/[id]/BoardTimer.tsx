@@ -4,8 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { playBuzzer } from "@/lib/client/sound";
 import type { TimerState } from "@/lib/types";
 
-// Board countdown driven by tournament.timer.endsAt. Buzzes once at zero.
-export function BoardTimer({ timer }: { timer: TimerState | null }) {
+// Board countdown driven by a timer's endsAt. Buzzes once at zero. `compact`
+// renders a smaller chip for per-court display.
+export function BoardTimer({
+  timer,
+  compact,
+}: {
+  timer: TimerState | null;
+  compact?: boolean;
+}) {
   const [remaining, setRemaining] = useState(0);
   const buzzed = useRef(false);
 
@@ -36,7 +43,11 @@ export function BoardTimer({ timer }: { timer: TimerState | null }) {
   const s = remaining % 60;
   const low = remaining <= 10 && remaining > 0;
   return (
-    <div className={`board-timer${low ? " low" : ""}${remaining <= 0 ? " done" : ""}`}>
+    <div
+      className={`board-timer${compact ? " board-timer-sm" : ""}${low ? " low" : ""}${
+        remaining <= 0 ? " done" : ""
+      }`}
+    >
       {remaining > 0 ? `${m}:${String(s).padStart(2, "0")}` : "TID!"}
     </div>
   );

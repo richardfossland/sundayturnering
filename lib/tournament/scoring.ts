@@ -9,10 +9,24 @@ import type {
   ScoringProfileKey,
   SetsResult,
   SimpleResult,
+  SpecialResult,
   WinnerResult,
 } from "@/lib/types";
 
 export type Outcome = "home" | "away" | "draw";
+
+/** Default scoreline credited to a walkover/DQ winner when the config omits one. */
+const DEFAULT_WALKOVER: [number, number] = [1, 0];
+
+function isSpecial(result: unknown): result is SpecialResult {
+  return result != null && typeof result === "object" && "special" in result;
+}
+
+/** A voided match (abandoned/annulled) contributes nothing to the standings —
+ * no points, no played count, like a bye. */
+export function isVoid(result: MatchResult | null | undefined): boolean {
+  return isSpecial(result) && result.special === "abandoned";
+}
 
 export interface Resolved {
   winner: Outcome;
@@ -41,6 +55,20 @@ export function validateResult(
   if (result == null || typeof result !== "object")
     return "Mangler resultat.";
   const r = result as Record<string, unknown>;
+
+  // Special outcomes are profile-independent — validate them first.
+  if ("special" in r) {
+    const kind = r.special;
+    if (kind !== "walkover" && kind !== "disqualification" && kind !== "abandoned")
+      return "Ukjent spesialresultat.";
+    if (kind === "abandoned") {
+      if (r.winner != null) return "En avbrutt kamp har ingen vinner.";
+      return null;
+    }
+    if (r.winner !== "home" && r.winner !== "away")
+      return "Velg hvilket lag som går videre.";
+    return null;
+  }
 
   if (profile === "simple") {
     if (!isInt(r.home) || !isInt(r.away)) return "Begge lag må ha et tall.";
@@ -92,6 +120,12 @@ export function canonicaliseResult(
   profile: ScoringProfileKey,
   raw: Record<string, unknown>,
 ): MatchResult {
+  if ("special" in raw) {
+    const kind = raw.special as SpecialResult["special"];
+    return kind === "abandoned"
+      ? { special: "abandoned" }
+      : { special: kind, winner: raw.winner as "home" | "away" };
+  }
   if (profile === "simple")
     return { home: raw.home as number, away: raw.away as number };
   if (profile === "sets") {
@@ -117,7 +151,22 @@ function countSets(sets: [number, number][]): { home: number; away: number } {
 export function resolve(
   profile: ScoringProfileKey,
   result: MatchResult,
+  cfg?: ScoringConfig,
 ): Resolved {
+  if (isSpecial(result)) {
+    if (result.special === "abandoned")
+      return { winner: "draw", display: "Avbrutt", homeScore: 0, awayScore: 0 };
+    const w = result.winner ?? "home";
+    const [hi, lo] = cfg?.walkoverScore ?? DEFAULT_WALKOVER;
+    const label = result.special === "walkover" ? "W.O." : "Disk.";
+    return {
+      winner: w,
+      display: label,
+      homeScore: w === "home" ? hi : lo,
+      awayScore: w === "away" ? hi : lo,
+    };
+  }
+
   if (profile === "simple") {
     const { home, away } = result as SimpleResult;
     return {
@@ -156,6 +205,13 @@ export function leaguePoints(
   profile: ScoringProfileKey,
   cfg: ScoringConfig,
 ): LeaguePoints {
+  if (isSpecial(result)) {
+    if (result.special === "abandoned") return { home: 0, away: 0 };
+    const w = result.winner ?? "home";
+    return w === "home"
+      ? { home: cfg.pointsWin, away: cfg.pointsLoss }
+      : { home: cfg.pointsLoss, away: cfg.pointsWin };
+  }
   const { winner } = resolve(profile, result);
   if (winner === "draw")
     return { home: cfg.pointsDraw, away: cfg.pointsDraw };

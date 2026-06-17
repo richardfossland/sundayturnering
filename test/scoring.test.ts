@@ -4,6 +4,7 @@ import {
   leaguePoints,
   validateResult,
   defaultScoringConfig,
+  isVoid,
 } from "@/lib/tournament/scoring";
 import type { ScoringConfig } from "@/lib/types";
 
@@ -82,6 +83,70 @@ describe("winner profile", () => {
   it("requires a winner", () => {
     expect(validateResult("winner", {}, winnerCfg)).toBeTruthy();
     expect(validateResult("winner", { winner: "home" }, winnerCfg)).toBeNull();
+  });
+});
+
+describe("special results", () => {
+  it("validates walkover/DQ require a winner, abandoned forbids one", () => {
+    expect(validateResult("simple", { special: "walkover" }, simpleCfg)).toBeTruthy();
+    expect(
+      validateResult("simple", { special: "walkover", winner: "home" }, simpleCfg),
+    ).toBeNull();
+    expect(
+      validateResult("simple", { special: "disqualification", winner: "away" }, simpleCfg),
+    ).toBeNull();
+    expect(validateResult("simple", { special: "abandoned" }, simpleCfg)).toBeNull();
+    expect(
+      validateResult("simple", { special: "abandoned", winner: "home" }, simpleCfg),
+    ).toBeTruthy();
+    expect(validateResult("simple", { special: "tull" }, simpleCfg)).toBeTruthy();
+  });
+
+  it("works regardless of the active profile (sets/winner)", () => {
+    expect(
+      validateResult("sets", { special: "walkover", winner: "home" }, setsCfg),
+    ).toBeNull();
+    expect(
+      validateResult("winner", { special: "walkover", winner: "away" }, winnerCfg),
+    ).toBeNull();
+  });
+
+  it("resolves a walkover to the recorded winner with a 1–0 default", () => {
+    const out = resolve("simple", { special: "walkover", winner: "home" }, simpleCfg);
+    expect(out.winner).toBe("home");
+    expect(out.display).toBe("W.O.");
+    expect(out.homeScore).toBe(1);
+    expect(out.awayScore).toBe(0);
+  });
+
+  it("honours a configured walkover scoreline", () => {
+    const cfg: ScoringConfig = { ...simpleCfg, walkoverScore: [3, 0] };
+    const out = resolve("simple", { special: "walkover", winner: "away" }, cfg);
+    expect(out.awayScore).toBe(3);
+    expect(out.homeScore).toBe(0);
+  });
+
+  it("resolves an abandoned match as a void draw", () => {
+    const out = resolve("simple", { special: "abandoned" }, simpleCfg);
+    expect(out.winner).toBe("draw");
+    expect(out.display).toBe("Avbrutt");
+    expect(out.homeScore).toBe(0);
+    expect(isVoid({ special: "abandoned" })).toBe(true);
+    expect(isVoid({ home: 1, away: 0 })).toBe(false);
+  });
+
+  it("awards league points for walkover/DQ but none for abandoned", () => {
+    expect(leaguePoints({ special: "walkover", winner: "home" }, "simple", simpleCfg)).toEqual({
+      home: 3,
+      away: 0,
+    });
+    expect(
+      leaguePoints({ special: "disqualification", winner: "away" }, "simple", simpleCfg),
+    ).toEqual({ home: 0, away: 3 });
+    expect(leaguePoints({ special: "abandoned" }, "simple", simpleCfg)).toEqual({
+      home: 0,
+      away: 0,
+    });
   });
 });
 

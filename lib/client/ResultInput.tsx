@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import type { MatchResult, ScoringConfig, Team } from "@/lib/types";
+import type {
+  MatchResult,
+  ScoringConfig,
+  SpecialKind,
+  Team,
+} from "@/lib/types";
 import { validateResult } from "@/lib/tournament/scoring";
 import { no } from "@/lib/locale/no";
 
-// Profile-driven result entry (spec §3). Renders steppers (simple), an add-set
-// grid (sets), or two big buttons (winner), and reports a valid MatchResult.
+// Profile-driven result entry (spec §3) + quick-score helpers + a special-result
+// affordance (walkover / abandoned / DQ). Renders a live scoreboard with
+// steppers (simple), a running set grid (sets), or two big buttons (winner),
+// and reports a valid MatchResult.
 
 interface Props {
   scoring: ScoringConfig;
@@ -17,6 +24,15 @@ interface Props {
   submitting?: boolean;
 }
 
+// A few common scorelines offered as one-tap chips (simple profile).
+const QUICK_SCORES: [number, number][] = [
+  [1, 0],
+  [2, 0],
+  [2, 1],
+  [3, 0],
+  [3, 1],
+];
+
 export function ResultInput({
   scoring,
   home,
@@ -26,6 +42,8 @@ export function ResultInput({
   submitting,
 }: Props) {
   const profile = scoring.profile;
+  const initSpecial =
+    initial && "special" in initial ? initial : null;
 
   // simple
   const [hs, setHs] = useState<number>(
@@ -37,22 +55,35 @@ export function ResultInput({
 
   // sets
   const [sets, setSets] = useState<[number, number][]>(
-    initial && "sets" in initial && initial.sets.length
-      ? initial.sets
-      : [[0, 0]],
+    initial && "sets" in initial && initial.sets.length ? initial.sets : [[0, 0]],
   );
 
   // winner
   const [winner, setWinner] = useState<"home" | "away" | null>(
-    initial && "winner" in initial ? initial.winner : null,
+    initial && "winner" in initial && !("special" in initial)
+      ? initial.winner
+      : null,
+  );
+
+  // special-result mode
+  const [showSpecial, setShowSpecial] = useState<boolean>(!!initSpecial);
+  const [special, setSpecial] = useState<SpecialKind | null>(
+    initSpecial?.special ?? null,
+  );
+  const [specialWinner, setSpecialWinner] = useState<"home" | "away" | null>(
+    initSpecial && "winner" in initSpecial ? (initSpecial.winner ?? null) : null,
   );
 
   const [err, setErr] = useState<string | null>(null);
 
   function build(): MatchResult | null {
+    if (special) {
+      if (special === "abandoned") return { special: "abandoned" };
+      if (!specialWinner) return null;
+      return { special, winner: specialWinner };
+    }
     if (profile === "simple") return { home: hs, away: as };
-    if (profile === "sets")
-      return { sets, home: 0, away: 0 } as MatchResult; // counts recomputed server-side
+    if (profile === "sets") return { sets, home: 0, away: 0 } as MatchResult;
     if (winner) return { winner };
     return null;
   }
@@ -60,7 +91,7 @@ export function ResultInput({
   function submit() {
     const r = build();
     if (!r) {
-      setErr("Velg hvem som vant."); // winner profile, none chosen
+      setErr(special ? no.control.pickTeam : "Velg hvem som vant.");
       return;
     }
     const v = validateResult(profile, r, scoring);
@@ -72,20 +103,65 @@ export function ResultInput({
     onSubmit(r);
   }
 
+  // sets running tally (informational)
+  const setTally = sets.reduce<[number, number]>(
+    (acc, [h, a]) => (h > a ? [acc[0] + 1, acc[1]] : a > h ? [acc[0], acc[1] + 1] : acc),
+    [0, 0],
+  );
+
   return (
     <div className="stack">
-      {profile === "simple" && (
-        <div className="spread" style={{ alignItems: "stretch", gap: 16 }}>
-          <Stepper label={home.name} colour={home.colour} value={hs} onChange={setHs} />
-          <span className="versus-mid" style={{ alignSelf: "center" }}>
-            {no.common.vs}
-          </span>
-          <Stepper label={away.name} colour={away.colour} value={as} onChange={setAs} />
+      {!special && profile === "simple" && (
+        <div className="stack" style={{ gap: 14 }}>
+          <div className="scoreboard">
+            <div className="sb-team">
+              <span className="team-swatch" style={{ background: home.colour }} />
+              <span className="team-name">{home.name}</span>
+              <span className="sb-score">{hs}</span>
+            </div>
+            <span className="sb-sep">{no.common.vs}</span>
+            <div className="sb-team">
+              <span className="team-swatch" style={{ background: away.colour }} />
+              <span className="team-name">{away.name}</span>
+              <span className="sb-score">{as}</span>
+            </div>
+          </div>
+          <div className="spread" style={{ alignItems: "stretch", gap: 16 }}>
+            <Stepper label="−1 / +1" value={hs} onChange={setHs} side="home" />
+            <Stepper label="−1 / +1" value={as} onChange={setAs} side="away" />
+          </div>
+          <div className="quick-row">
+            <button
+              className="quick-chip"
+              onClick={() => {
+                setHs(0);
+                setAs(0);
+              }}
+            >
+              {no.control.reset}
+            </button>
+            {scoring.allowDraw && (
+              <QuickChip h={0} a={0} hs={hs} as={as} onPick={pickScore} />
+            )}
+            {QUICK_SCORES.map(([h, a]) => (
+              <QuickChip key={`${h}-${a}`} h={h} a={a} hs={hs} as={as} onPick={pickScore} />
+            ))}
+          </div>
         </div>
       )}
 
-      {profile === "sets" && (
+      {!special && profile === "sets" && (
         <div className="stack">
+          <div className="spread" style={{ alignItems: "center" }}>
+            <strong style={{ fontVariantNumeric: "tabular-nums" }}>
+              {no.control.setsTally(setTally[0], setTally[1])}
+            </strong>
+            {scoring.setsBestOf ? (
+              <span className="faint" style={{ fontSize: ".85rem" }}>
+                {no.control.bestOf(scoring.setsBestOf)}
+              </span>
+            ) : null}
+          </div>
           {sets.map((s, i) => (
             <div className="set-row" key={i}>
               <input
@@ -94,9 +170,7 @@ export function ResultInput({
                 min={0}
                 inputMode="numeric"
                 value={s[0]}
-                onChange={(e) =>
-                  updateSet(sets, setSets, i, 0, e.target.value)
-                }
+                onChange={(e) => updateSet(sets, setSets, i, 0, e.target.value)}
                 aria-label={`${home.name} sett ${i + 1}`}
               />
               <span className="versus-mid">–</span>
@@ -106,9 +180,7 @@ export function ResultInput({
                 min={0}
                 inputMode="numeric"
                 value={s[1]}
-                onChange={(e) =>
-                  updateSet(sets, setSets, i, 1, e.target.value)
-                }
+                onChange={(e) => updateSet(sets, setSets, i, 1, e.target.value)}
                 aria-label={`${away.name} sett ${i + 1}`}
               />
               {sets.length > 1 ? (
@@ -123,16 +195,13 @@ export function ResultInput({
               )}
             </div>
           ))}
-          <button
-            className="btn btn-ghost"
-            onClick={() => setSets([...sets, [0, 0]])}
-          >
+          <button className="btn btn-ghost" onClick={() => setSets([...sets, [0, 0]])}>
             {no.control.addSet}
           </button>
         </div>
       )}
 
-      {profile === "winner" && (
+      {!special && profile === "winner" && (
         <div className="bigchoice">
           <button data-on={winner === "home"} onClick={() => setWinner("home")}>
             <TeamLabel team={home} />
@@ -143,17 +212,120 @@ export function ResultInput({
         </div>
       )}
 
+      {/* Special-result affordance (all profiles). */}
+      <div className="special-box">
+        {!showSpecial ? (
+          <button className="special-toggle" onClick={() => setShowSpecial(true)}>
+            {no.control.special} ▾
+          </button>
+        ) : (
+          <div className="stack" style={{ gap: 10 }}>
+            <div className="spread">
+              <span className="label" style={{ margin: 0 }}>
+                {no.control.special}
+              </span>
+              <button
+                className="special-toggle"
+                onClick={() => {
+                  setShowSpecial(false);
+                  setSpecial(null);
+                  setSpecialWinner(null);
+                }}
+              >
+                {no.control.specialBack}
+              </button>
+            </div>
+            <div className="quick-row" style={{ justifyContent: "flex-start" }}>
+              {(
+                [
+                  ["walkover", no.control.specialWalkover],
+                  ["disqualification", no.control.specialDq],
+                  ["abandoned", no.control.specialAbandoned],
+                ] as [SpecialKind, string][]
+              ).map(([kind, label]) => (
+                <button
+                  key={kind}
+                  className="quick-chip"
+                  data-on={special === kind}
+                  onClick={() => {
+                    setSpecial(kind);
+                    if (kind === "abandoned") setSpecialWinner(null);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {special && special !== "abandoned" && (
+              <div className="stack" style={{ gap: 8 }}>
+                <span className="faint" style={{ fontSize: ".85rem" }}>
+                  {no.control.specialPickWinner}
+                </span>
+                <div className="bigchoice">
+                  <button
+                    data-on={specialWinner === "home"}
+                    onClick={() => setSpecialWinner("home")}
+                  >
+                    <TeamLabel team={home} />
+                  </button>
+                  <button
+                    data-on={specialWinner === "away"}
+                    onClick={() => setSpecialWinner("away")}
+                  >
+                    <TeamLabel team={away} />
+                  </button>
+                </div>
+              </div>
+            )}
+            {special === "abandoned" && (
+              <span className="faint" style={{ fontSize: ".85rem" }}>
+                {no.control.specialAbandonedHint}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
       {err && <div className="toast-danger" style={{ fontSize: ".9rem" }}>{err}</div>}
 
       <button
         className="btn btn-gold btn-block btn-lg"
         onClick={submit}
-        disabled={submitting}
+        disabled={submitting || (showSpecial && !special)}
       >
         {submitting ? <span className="spin" /> : null}
         {submitting ? no.control.saving : no.control.save}
       </button>
     </div>
+  );
+
+  function pickScore(h: number, a: number) {
+    setHs(h);
+    setAs(a);
+  }
+}
+
+function QuickChip({
+  h,
+  a,
+  hs,
+  as,
+  onPick,
+}: {
+  h: number;
+  a: number;
+  hs: number;
+  as: number;
+  onPick: (h: number, a: number) => void;
+}) {
+  return (
+    <button
+      className="quick-chip"
+      data-on={hs === h && as === a}
+      onClick={() => onPick(h, a)}
+    >
+      {h}–{a}
+    </button>
   );
 }
 
@@ -172,30 +344,29 @@ function updateSet(
 }
 
 function Stepper({
-  label,
-  colour,
   value,
   onChange,
+  side,
 }: {
   label: string;
-  colour: string;
   value: number;
   onChange: (n: number) => void;
+  side: "home" | "away";
 }) {
   return (
     <div className="stack" style={{ alignItems: "center", gap: 10, flex: 1 }}>
-      <div className="team" style={{ maxWidth: "100%" }}>
-        <span className="team-swatch" style={{ background: colour }} />
-        <span className="team-name" style={{ fontWeight: 700 }}>
-          {label}
-        </span>
-      </div>
       <div className="stepper">
-        <button onClick={() => onChange(Math.max(0, value - 1))} aria-label="minus">
+        <button
+          onClick={() => onChange(Math.max(0, value - 1))}
+          aria-label={`${side === "home" ? "Hjemme" : "Borte"} minus`}
+        >
           −
         </button>
         <span className="stepper-val">{value}</span>
-        <button onClick={() => onChange(value + 1)} aria-label="pluss">
+        <button
+          onClick={() => onChange(value + 1)}
+          aria-label={`${side === "home" ? "Hjemme" : "Borte"} pluss`}
+        >
           +
         </button>
       </div>
