@@ -16,6 +16,7 @@ import { NowPlaying } from "./NowPlaying";
 import { Champion } from "./Champion";
 import { BoardTimer } from "./BoardTimer";
 import { CodesOverlay } from "./CodesOverlay";
+import { Commentator } from "./Commentator";
 import { useReactionWall } from "./ReactionWall";
 import { SoundToggle } from "@/lib/client/SoundToggle";
 import { events } from "@/lib/realtime";
@@ -85,8 +86,7 @@ export function BoardClient({
 
   const { tournament, matches, standings, courts } = state;
 
-  if (tournament.status === "finished")
-    return <Champion state={state} />;
+  const finished = tournament.status === "finished";
 
   const live = liveMatches(matches);
   const next = upcoming(matches, 6);
@@ -101,7 +101,15 @@ export function BoardClient({
     ? panel === "bracket"
     : hasBracket && (!hasLeague || tournament.status === "playoff");
 
+  // Commentator stays mounted in a stable tree position across the league →
+  // finished transition, so its previous-snapshot ref survives and the
+  // "champion crowned" cut-in still plays over the celebration screen.
   return (
+    <>
+      <Commentator state={state} />
+      {finished ? (
+        <Champion state={state} />
+      ) : (
     <main className={`board${flash ? " board-flash" : ""}`}>
       <SoundToggle />
       {wall}
@@ -217,6 +225,8 @@ export function BoardClient({
         </section>
       </div>
     </main>
+      )}
+    </>
   );
 }
 

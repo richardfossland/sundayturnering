@@ -171,6 +171,15 @@ export const no = {
     needOrganiser: "Denne handlingen krever arrangørkoden.",
   },
 
+  // commentator / announcer auto-feed (storskjerm-speaker)
+  narrate: {
+    badge: "Speaker",
+    ttsOn: "Les opp",
+    ttsOff: "Les opp",
+    ttsOnTitle: "Speaker leser opp (på)",
+    ttsOffTitle: "Speaker leser opp (av)",
+  },
+
   // spectator phone view (/se/[id])
   spectator: {
     title: "Heiagjeng",
@@ -199,3 +208,36 @@ export const no = {
 } as const;
 
 export type Locale = typeof no;
+
+// Commentator copy table (storskjerm-speaker). Kept separate from `no` because
+// these are builder *functions* consumed by the pure narrate module — church/
+// community-appropriate, energetic but never mocking the losing team.
+export const narr = {
+  unknownTeam: "Ukjent lag",
+
+  resultHeadline: (winner: string, loser: string) =>
+    `${winner} slo ${loser}!`,
+  routHeadline: (winner: string, loser: string, margin: number) =>
+    `Klar beskjed: ${winner} valset ${loser} med ${margin}!`,
+  upsetHeadline: (winner: string, loser: string) =>
+    `Sensasjon! ${winner} felte ${loser}!`,
+  drawHeadline: (home: string, away: string) =>
+    `Uavgjort mellom ${home} og ${away}.`,
+
+  liveHeadline: (home: string, away: string) =>
+    `Nå braker det løs: ${home} mot ${away}!`,
+
+  leadHeadline: (team: string) => `${team} tar ledelsen på tabellen!`,
+  leadDetail: (points: number) => `${points} poeng på topp.`,
+
+  clinchHeadline: (team: string) => `${team} er klare for sluttspill!`,
+
+  playoffHeadline: "Sluttspillet er i gang!",
+  playoffDetail: "De beste lagene kjemper om seieren.",
+
+  finalHeadline: (home: string, away: string) =>
+    `Finale! ${home} mot ${away} om tittelen.`,
+
+  championHeadline: (team: string) => `${team} vinner turneringen! 🏆`,
+  championDetail: "Gratulerer til vinneren – og takk for kampen, alle sammen!",
+} as const;
