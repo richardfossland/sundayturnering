@@ -17,6 +17,7 @@ import { Champion } from "./Champion";
 import { BoardTimer } from "./BoardTimer";
 import { CodesOverlay } from "./CodesOverlay";
 import { Commentator } from "./Commentator";
+import { useReactionWall } from "./ReactionWall";
 import { SoundToggle } from "@/lib/client/SoundToggle";
 import { events } from "@/lib/realtime";
 import { playDing } from "@/lib/client/sound";
@@ -30,13 +31,16 @@ export function BoardClient({
   spectator?: boolean;
 }) {
   const [flash, setFlash] = useState(false);
-  const { state, error } = useTournament(id, 15_000, (event) => {
+  const [wallRef, wall] = useReactionWall();
+  const { state, error } = useTournament(id, 15_000, (event, payload) => {
     // Celebrate a freshly entered result: chime + a brief board pulse.
     if (event === events.matchUpdated) {
       playDing();
       setFlash(true);
       setTimeout(() => setFlash(false), 700);
     }
+    // Spectator cheer → float emoji on the board (no refetch, see useTournament).
+    if (event === events.reaction) wallRef.current?.push(payload);
   });
   // Right panel: auto-rotates standings↔bracket, but the user can take manual
   // control (pauses the rotation) via the on-board view switcher.
@@ -87,8 +91,9 @@ export function BoardClient({
   const live = liveMatches(matches);
   const next = upcoming(matches, 6);
   // The on-screen QR is the READ-ONLY spectator link — anyone in the room can
-  // scan it safely. Referees join by typing the control code (shown as text).
-  const followUrl = `${baseUrl}/live/${tournament.id}`;
+  // scan it safely. Points at /se/ (phone view + tap-to-cheer); referees join by
+  // typing the control code (shown as text).
+  const followUrl = `${baseUrl}/se/${tournament.id}`;
 
   // which right-hand panel
   const canSwitch = hasBracket && hasLeague;
@@ -107,6 +112,7 @@ export function BoardClient({
       ) : (
     <main className={`board${flash ? " board-flash" : ""}`}>
       <SoundToggle />
+      {wall}
       {!spectator && (
         <>
           <Link className="board-home" href="/" aria-label="Hjem" title="Hjem">
