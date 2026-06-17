@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client/api";
 import { useChannel } from "@/lib/client/useChannel";
-import { channels } from "@/lib/realtime";
+import { channels, events } from "@/lib/realtime";
 import type { StateDTO } from "@/lib/dto";
 
 /** Fetch the full tournament state and keep it fresh: refetch on any realtime
@@ -43,7 +43,10 @@ export function useTournament(
     onEventRef.current = onEvent;
   }, [onEvent]);
   useChannel(id ? channels.tournament(id) : null, (event, payload) => {
-    refetch();
+    // Reactions are ephemeral theatre with no authoritative state — refetching
+    // on every cheer would hammer the API. Forward to the caller (board uses it
+    // to float emoji) but skip the refetch.
+    if (event !== events.reaction) refetch();
     onEventRef.current?.(event, payload);
   });
 

@@ -171,6 +171,21 @@ export const no = {
     needOrganiser: "Denne handlingen krever arrangørkoden.",
   },
 
+  // spectator phone view (/se/[id])
+  spectator: {
+    title: "Heiagjeng",
+    intro: "Trykk for å heie – det dukker opp på storskjermen!",
+    cheer: "Hei!",
+    reactClap: "Applaus",
+    reactFire: "Brann",
+    reactGoal: "Mål!",
+    standings: "Stilling",
+    nowPlaying: "Nå spiller",
+    nextUp: "Neste",
+    nothingLive: "Ingen kamp akkurat nå",
+    finished: "Turneringen er ferdig",
+  },
+
   common: {
     home: "Hjemme",
     away: "Borte",
