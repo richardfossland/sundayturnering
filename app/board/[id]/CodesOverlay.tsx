@@ -19,7 +19,7 @@ export function CodesOverlay({
   onClose: () => void;
 }) {
   const controlUrl = `${baseUrl}/kontroll?code=${tournament.control_code}`;
-  const followUrl = `${baseUrl}/live/${tournament.id}`;
+  const followUrl = `${baseUrl}/se/${tournament.id}`;
   const boardUrl = `${baseUrl}/tavle`;
 
   useEffect(() => {
