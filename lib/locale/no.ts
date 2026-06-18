@@ -10,7 +10,7 @@ export const no = {
     boardCta: "Åpne tavle",
     controlCta: "Bli med (kontroll)",
     blurb:
-      "Kahoot-stil turneringsstyring for skole og arrangement. Én skjerm viser tavla, telefonene registrerer resultater.",
+      "Turneringsstyring på storskjerm for skole og arrangement. Én skjerm viser tavla, telefonene registrerer resultater.",
   },
 
   // quick 1v1 match

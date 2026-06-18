@@ -1,6 +1,6 @@
 # SundayTurnering
 
-Kahoot-style, sport-agnostic tournament manager for schools and events. One
+Big-screen, sport-agnostic tournament manager for schools and events. One
 device runs a **board** on a projector; phones/tablets enter results as
 **control** devices. Part of the Sunday Suite — sibling to
 [SundaySjakk](../sundaysjakk). Target: `turnering.sundaysuite.app`.
