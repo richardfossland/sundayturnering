@@ -24,6 +24,9 @@ export interface CreateInput {
   scoring: ScoringConfig;
   parallelism: Parallelism;
   config: TournamentConfig;
+  /** Sunday Account owner. Set server-side when an admin is signed in; null for
+   * anonymous /hurtig + /ny creates (which must keep working). */
+  organiserId?: string | null;
   teams: {
     name: string;
     colour: string;
@@ -83,6 +86,7 @@ export async function createTournament(
       control_code,
       board_code,
       organiser_code,
+      organiser_id: input.organiserId ?? null,
       title: input.title,
       sport_label: input.sport_label,
       format: input.format,

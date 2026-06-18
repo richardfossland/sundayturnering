@@ -1,5 +1,6 @@
 import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
 import { createTournament, type CreateInput } from "@/lib/server/build";
+import { getOptionalAdmin } from "@/lib/server/auth";
 
 // POST /api/tournament — create a tournament from the onboarding wizard.
 export async function POST(req: Request) {
@@ -8,6 +9,11 @@ export async function POST(req: Request) {
 
   const body = await readJson<CreateInput>(req);
   if (!body) return fail(400, "ugyldig_body");
+
+  // If a Sunday Account admin is signed in, stamp ownership so the tournament
+  // shows up in /admin. Anonymous /hurtig + /ny creates resolve to null here
+  // and keep working with zero auth.
+  const admin = await getOptionalAdmin();
 
   // Minimal structural validation; pure logic + DB constraints do the rest.
   if (!["league", "league_playoff", "cup"].includes(body.format))
@@ -39,6 +45,7 @@ export async function POST(req: Request) {
       scoring: body.scoring,
       parallelism: body.parallelism === "parallel" ? "parallel" : "sequential",
       config: { playoffSize, roundRobinDouble: !!body.config?.roundRobinDouble },
+      organiserId: admin?.id ?? null,
       teams: body.teams.map((t) => ({
         name: t.name.trim().slice(0, 60),
         colour: t.colour || "#888888",

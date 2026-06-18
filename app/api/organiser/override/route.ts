@@ -1,5 +1,5 @@
 import { ok, fail, readJson } from "@/lib/server/http";
-import { authOrganiser } from "@/lib/server/auth";
+import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { db, getMatch } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
@@ -12,7 +12,8 @@ import {
 
 // POST /api/organiser/override — force-set any match result (spec §5). Bypasses
 // the version guard (organiser authority), but still validates the result shape
-// and re-propagates the bracket. Organiser-code gated.
+// and re-propagates the bracket. Authorised by EITHER the organiser code OR a
+// signed-in admin who owns it.
 export async function POST(req: Request) {
   const body = await readJson<{
     tournamentId?: string;
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     matchId?: string;
     result?: Record<string, unknown>;
   }>(req);
-  const t = await authOrganiser(body?.tournamentId, body?.organiserCode);
+  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode);
   if (!t) return fail(403, "feil_arrangorkode");
   if (!body?.matchId || !body.result) return fail(400, "mangler_felt");
 

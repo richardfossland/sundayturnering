@@ -244,6 +244,54 @@ export const no = {
     finished: "Turneringen er ferdig",
   },
 
+  // Sunday Account admin layer (logged-in organiser dashboard)
+  admin: {
+    // login
+    loginLede: "Logg inn med Sunday-kontoen for å styre turneringene dine.",
+    loginSend: "Send innloggingslenke",
+    loginSending: "Sender …",
+    loginSentTo: "Sjekk innboksen til",
+    loginSentTail: "— vi har sendt deg en innloggingslenke.",
+    loginGoogle: "Logg inn med Google",
+    loginError: "Klarte ikke å sende lenken — sjekk adressen og prøv igjen.",
+    email: "E-post",
+
+    // dashboard
+    title: "Mine turneringer",
+    lede: "Turneringer du har opprettet mens du var innlogget.",
+    create: "Lag ny turnering",
+    empty: "Du har ingen turneringer ennå.",
+    emptyHint: "Opprett én, så dukker den opp her.",
+    loading: "Laster turneringer …",
+    loadError: "Klarte ikke å hente turneringene.",
+    signOut: "Logg ut",
+
+    // per-row actions
+    openBoard: "Tavle",
+    openControl: "Kontroll",
+    edit: "Endre",
+    save: "Lagre",
+    saving: "Lagrer …",
+    cancel: "Avbryt",
+    titleLabel: "Tittel",
+    sportLabel: "Idrett",
+    reopen: "Gjenåpne",
+    reopening: "Gjenåpner …",
+    delete: "Slett",
+    deleting: "Sletter …",
+    deleteConfirm: (name: string) =>
+      `Slette «${name}» for godt? Dette kan ikke angres.`,
+    actionError: "Handlingen feilet. Prøv igjen.",
+
+    // status labels
+    status: {
+      setup: "Oppsett",
+      league: "Serie",
+      playoff: "Sluttspill",
+      finished: "Ferdig",
+    },
+  },
+
   common: {
     home: "Hjemme",
     away: "Borte",
