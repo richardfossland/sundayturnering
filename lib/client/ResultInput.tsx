@@ -114,21 +114,9 @@ export function ResultInput({
       {!special && profile === "simple" && (
         <div className="stack" style={{ gap: 14 }}>
           <div className="scoreboard">
-            <div className="sb-team">
-              <span className="team-swatch" style={{ background: home.colour }} />
-              <span className="team-name">{home.name}</span>
-              <span className="sb-score">{hs}</span>
-            </div>
+            <ScoreColumn team={home} value={hs} onChange={setHs} />
             <span className="sb-sep">{no.common.vs}</span>
-            <div className="sb-team">
-              <span className="team-swatch" style={{ background: away.colour }} />
-              <span className="team-name">{away.name}</span>
-              <span className="sb-score">{as}</span>
-            </div>
-          </div>
-          <div className="spread" style={{ alignItems: "stretch", gap: 16 }}>
-            <Stepper label="−1 / +1" value={hs} onChange={setHs} side="home" />
-            <Stepper label="−1 / +1" value={as} onChange={setAs} side="away" />
+            <ScoreColumn team={away} value={as} onChange={setAs} />
           </div>
           <div className="quick-row">
             <button
@@ -343,30 +331,30 @@ function updateSet(
   setSets(next);
 }
 
-function Stepper({
+function ScoreColumn({
+  team,
   value,
   onChange,
-  side,
 }: {
-  label: string;
+  team: Team;
   value: number;
   onChange: (n: number) => void;
-  side: "home" | "away";
 }) {
   return (
-    <div className="stack" style={{ alignItems: "center", gap: 10, flex: 1 }}>
-      <div className="stepper">
+    <div className="sb-team">
+      <span className="team">
+        <span className="team-swatch" style={{ background: team.colour }} />
+        <span className="team-name">{team.name}</span>
+      </span>
+      <div className="sb-stepper">
         <button
           onClick={() => onChange(Math.max(0, value - 1))}
-          aria-label={`${side === "home" ? "Hjemme" : "Borte"} minus`}
+          aria-label={`${team.name} minus`}
         >
           −
         </button>
-        <span className="stepper-val">{value}</span>
-        <button
-          onClick={() => onChange(value + 1)}
-          aria-label={`${side === "home" ? "Hjemme" : "Borte"} pluss`}
-        >
+        <span className="sb-score">{value}</span>
+        <button onClick={() => onChange(value + 1)} aria-label={`${team.name} pluss`}>
           +
         </button>
       </div>
