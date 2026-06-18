@@ -3,6 +3,7 @@
 import type { StateDTO, TournamentDTO } from "@/lib/dto";
 import type { Match, MatchResult } from "@/lib/types";
 import type { CreateInput } from "@/lib/server/build";
+import type { OrganiserTournamentRow } from "@/lib/server/store";
 
 // Typed fetch wrappers for the API routes. Throw ApiError on non-2xx so callers
 // can branch on the error code (e.g. 'konflikt' → refetch + warn).
@@ -18,10 +19,19 @@ export class ApiError extends Error {
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
+  return send<T>("POST", path, body);
+}
+
+/** Shared fetch for non-GET verbs (POST/PATCH/DELETE). Body is optional. */
+async function send<T>(
+  method: "POST" | "PATCH" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<T> {
   const res = await fetch(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    method,
+    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok)
@@ -157,5 +167,25 @@ export const api = {
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new ApiError(res.status, json.error ?? "feil");
     return json.url as string;
+  },
+
+  // ---- Sunday Account admin (session-gated; no organiser code needed) ----
+  async listMyTournaments(): Promise<OrganiserTournamentRow[]> {
+    const res = await fetch("/api/admin/tournaments", { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(res.status, json.error ?? "feil");
+    return (json.tournaments ?? []) as OrganiserTournamentRow[];
+  },
+  deleteTournament(id: string) {
+    return send<{ ok: true }>("DELETE", `/api/tournament/${id}`);
+  },
+  editTournament(id: string, patch: { title?: string; sport_label?: string }) {
+    return send<{ ok: true }>("PATCH", `/api/admin/tournaments/${id}`, patch);
+  },
+  reopenTournament(id: string) {
+    return send<{ ok: true; status: string }>(
+      "POST",
+      `/api/admin/tournaments/${id}/reopen`,
+    );
   },
 };

@@ -117,3 +117,32 @@ export async function getState(t: Tournament): Promise<StateDTO> {
 export async function bumpVersion(tournamentId: string): Promise<void> {
   await db().rpc("bump_version", { p_id: tournamentId });
 }
+
+/** Lightweight row for the admin dashboard list (no standings/matches join —
+ * just enough to render and link each card). Never includes organiser_code. */
+export interface OrganiserTournamentRow {
+  id: string;
+  title: string;
+  sport_label: string;
+  format: Tournament["format"];
+  status: Tournament["status"];
+  control_code: string;
+  board_code: string;
+  created_at: string;
+}
+
+/** List tournaments owned by a signed-in admin (organiser_id === userId),
+ * newest first. Used by GET /api/admin/tournaments. Anonymous tournaments
+ * (organiser_id null) are never returned here. */
+export async function listTournamentsByOrganiser(
+  organiserId: string,
+): Promise<OrganiserTournamentRow[]> {
+  const { data } = await db()
+    .from("tournaments")
+    .select(
+      "id, title, sport_label, format, status, control_code, board_code, created_at",
+    )
+    .eq("organiser_id", organiserId)
+    .order("created_at", { ascending: false });
+  return (data as OrganiserTournamentRow[]) ?? [];
+}
