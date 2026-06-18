@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTournament } from "@/lib/client/useTournament";
 import { QRCode } from "@/lib/client/QRCode";
 import { no } from "@/lib/locale/no";
@@ -10,15 +9,14 @@ import {
   liveMatches,
   upcoming,
 } from "@/lib/client/view";
-import { Standings, GroupStandings } from "./Standings";
-import { Bracket } from "./Bracket";
 import { NowPlaying } from "./NowPlaying";
 import { Champion } from "./Champion";
 import { BoardTimer } from "./BoardTimer";
 import { CodesOverlay } from "./CodesOverlay";
 import { Commentator } from "./Commentator";
+import { BoardControls } from "./BoardControls";
+import { BoardStandingsPanel } from "./BoardStandingsPanel";
 import { useReactionWall } from "./ReactionWall";
-import { SoundToggle } from "@/lib/client/SoundToggle";
 import { events } from "@/lib/realtime";
 import { playDing } from "@/lib/client/sound";
 import type { Match } from "@/lib/types";
@@ -33,37 +31,16 @@ export function BoardClient({
   const [flash, setFlash] = useState(false);
   const [wallRef, wall] = useReactionWall();
   const { state, error } = useTournament(id, 15_000, (event, payload) => {
-    // Celebrate a freshly entered result: chime + a brief board pulse.
+    // Celebrate a freshly entered result: chime + a brief, subtle border flash.
     if (event === events.matchUpdated) {
       playDing();
       setFlash(true);
-      setTimeout(() => setFlash(false), 700);
+      setTimeout(() => setFlash(false), 450);
     }
     // Spectator cheer → float emoji on the board (no refetch, see useTournament).
     if (event === events.reaction) wallRef.current?.push(payload);
   });
-  // Right panel: auto-rotates standings↔bracket, but the user can take manual
-  // control (pauses the rotation) via the on-board view switcher.
-  const [panel, setPanel] = useState<"standings" | "bracket">("standings");
-  const [manual, setManual] = useState(false);
   const [showCodes, setShowCodes] = useState(false);
-
-  const hasBracket = !!state?.matches.some((m) => m.phase === "playoff");
-  const hasLeague = state?.tournament.format !== "cup";
-
-  useEffect(() => {
-    if (!hasBracket || !hasLeague || manual) return;
-    const t = setInterval(
-      () => setPanel((p) => (p === "standings" ? "bracket" : "standings")),
-      9000,
-    );
-    return () => clearInterval(t);
-  }, [hasBracket, hasLeague, manual]);
-
-  function pick(p: "standings" | "bracket") {
-    setManual(true);
-    setPanel(p);
-  }
 
   const baseUrl =
     process.env.NEXT_PUBLIC_BASE_URL ??
@@ -84,7 +61,7 @@ export function BoardClient({
       </main>
     );
 
-  const { tournament, matches, standings, courts, groupStandings } = state;
+  const { tournament, matches, courts } = state;
 
   const finished = tournament.status === "finished";
 
@@ -94,12 +71,6 @@ export function BoardClient({
   // scan it safely. Points at /se/ (phone view + tap-to-cheer); referees join by
   // typing the control code (shown as text).
   const followUrl = `${baseUrl}/se/${tournament.id}`;
-
-  // which right-hand panel
-  const canSwitch = hasBracket && hasLeague;
-  const showBracket = canSwitch
-    ? panel === "bracket"
-    : hasBracket && (!hasLeague || tournament.status === "playoff");
 
   // Commentator stays mounted in a stable tree position across the league →
   // finished transition, so its previous-snapshot ref survives and the
@@ -111,23 +82,8 @@ export function BoardClient({
         <Champion state={state} />
       ) : (
     <main className={`board${flash ? " board-flash" : ""}`}>
-      <SoundToggle />
+      <BoardControls spectator={spectator} onCodes={() => setShowCodes(true)} />
       {wall}
-      {!spectator && (
-        <>
-          <Link className="board-home" href="/" aria-label="Hjem" title="Hjem">
-            ⌂
-          </Link>
-          <button
-            className="board-home board-codes-fab"
-            onClick={() => setShowCodes(true)}
-            aria-label={no.board.codesBtn}
-            title={no.board.codesBtn}
-          >
-            ⚿
-          </button>
-        </>
-      )}
       {showCodes && !spectator && (
         <CodesOverlay
           tournament={tournament}
@@ -144,27 +100,26 @@ export function BoardClient({
           <BoardTimer timer={tournament.timer} />
         </div>
         {spectator ? (
-          <div className="row" style={{ alignItems: "center", gap: 18 }}>
-            <div className="board-qr">
-              <QRCode value={followUrl} size={104} />
-              <div className="board-qr-label">{no.board.follow}</div>
-            </div>
+          <div className="board-qr">
+            <QRCode value={followUrl} size={104} />
+            <div className="board-qr-label">{no.board.follow}</div>
           </div>
         ) : (
+          // Full codes live in the CodesOverlay (⚿ in the controls cluster); the
+          // header keeps just the scannable follow QR + a compact code chip.
           <button
-            className="row board-codes-open"
-            style={{ alignItems: "center", gap: 18 }}
+            className="board-code-chip"
             onClick={() => setShowCodes(true)}
             title={no.board.codesBtn}
           >
-            <div className="board-code-card">
-              <div className="board-code-label">{no.board.controlCode}</div>
-              <div className="board-code">{tournament.control_code}</div>
-            </div>
             <div className="board-qr">
-              <QRCode value={followUrl} size={104} />
+              <QRCode value={followUrl} size={88} />
               <div className="board-qr-label">{no.board.follow}</div>
             </div>
+            <span className="board-code-mini">
+              <span className="board-code-mini-label">{no.board.controlCode}</span>
+              <span className="board-code-mini-val">{tournament.control_code}</span>
+            </span>
           </button>
         )}
       </header>
@@ -192,48 +147,7 @@ export function BoardClient({
           )}
         </section>
 
-        <section className="card card-pad" style={{ minHeight: 0, overflow: "auto" }}>
-          <div className="spread" style={{ marginBottom: 4 }}>
-            <div className="section-title" style={{ marginBottom: 0 }}>
-              {showBracket ? no.board.bracket : no.board.standings}
-            </div>
-            {canSwitch && (
-              <div className="board-views">
-                <button data-on={!showBracket} onClick={() => pick("standings")}>
-                  {no.board.standings}
-                </button>
-                <button data-on={showBracket} onClick={() => pick("bracket")}>
-                  {no.board.bracket}
-                </button>
-                {manual && (
-                  <button onClick={() => setManual(false)} title="Auto-veksling">
-                    ⟳
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-          <div
-            className="panel-swap"
-            key={showBracket ? "bracket" : groupStandings?.length ? "groups" : "standings"}
-          >
-            {showBracket ? (
-              <Bracket matches={matches} teams={teams} scoring={tournament.scoring} />
-            ) : groupStandings && groupStandings.length > 0 ? (
-              <GroupStandings
-                groups={groupStandings}
-                teams={teams}
-                showDraw={tournament.scoring.profile === "simple" && tournament.scoring.allowDraw}
-              />
-            ) : (
-              <Standings
-                standings={standings}
-                teams={teams}
-                showDraw={tournament.scoring.profile === "simple" && tournament.scoring.allowDraw}
-              />
-            )}
-          </div>
-        </section>
+        <BoardStandingsPanel state={state} teams={teams} />
       </div>
     </main>
       )}

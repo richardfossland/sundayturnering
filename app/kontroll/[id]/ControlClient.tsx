@@ -12,6 +12,7 @@ import { no } from "@/lib/locale/no";
 import type { Court, Match, Team, TimerState } from "@/lib/types";
 import { ResultModal } from "./ResultModal";
 import { OrganiserPanel } from "./OrganiserPanel";
+import { Standings, GroupStandings } from "@/app/board/[id]/Standings";
 
 type Tab = "scheduled" | "live" | "done";
 
@@ -29,6 +30,7 @@ export function ControlClient({ id }: { id: string }) {
   const [self, setSelf] = useState<{ deviceId: string; name: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showRoster, setShowRoster] = useState(false);
+  const [showStandings, setShowStandings] = useState(false);
   const [busyTimer, setBusyTimer] = useState(false);
   const [nowMs, setNowMs] = useState(0);
 
@@ -67,8 +69,13 @@ export function ControlClient({ id }: { id: string }) {
   if (!state)
     return <main className="center-screen"><span className="spin" /></main>;
 
-  const { tournament, matches, courts } = state;
+  const { tournament, matches, courts, standings, groupStandings } = state;
   const parallel = tournament.parallelism === "parallel";
+  const showDraw =
+    tournament.scoring.profile === "simple" && tournament.scoring.allowDraw;
+  const hasStandings =
+    (groupStandings?.some((g) => g.rows.length > 0) ?? false) ||
+    standings.length > 0;
 
   const filtered = matches
     .filter((m) => {
@@ -156,9 +163,20 @@ export function ControlClient({ id }: { id: string }) {
             <span className="brand-mark" style={{ width: 26, height: 26, fontSize: ".8rem" }}>T</span>
             {tournament.title || no.brand}
           </span>
-          <button className="pill" onClick={() => setShowRoster((v) => !v)}>
-            {devices.length} {no.pair.attached}
-          </button>
+          <div className="row" style={{ gap: 8 }}>
+            {hasStandings && (
+              <button
+                className="pill"
+                data-on={showStandings}
+                onClick={() => setShowStandings((v) => !v)}
+              >
+                {no.board.standings}
+              </button>
+            )}
+            <button className="pill" onClick={() => setShowRoster((v) => !v)}>
+              {devices.length} {no.pair.attached}
+            </button>
+          </div>
         </div>
 
         {showRoster && devices.length > 0 && (
@@ -170,6 +188,26 @@ export function ControlClient({ id }: { id: string }) {
                 {self && d.deviceId === self.deviceId ? " (deg)" : ""}
               </span>
             ))}
+          </div>
+        )}
+
+        {showStandings && hasStandings && (
+          <div className="control-standings">
+            {groupStandings && groupStandings.length > 0 ? (
+              <GroupStandings
+                groups={groupStandings}
+                teams={teams}
+                showDraw={showDraw}
+                compact
+              />
+            ) : (
+              <Standings
+                standings={standings}
+                teams={teams}
+                showDraw={showDraw}
+                compact
+              />
+            )}
           </div>
         )}
 
@@ -325,6 +363,8 @@ function MatchCard({
   const r = m.result ? resolve(profile, m.result) : null;
   const ready = h && a;
   const tappable = (ready && m.status !== "done") || correctMsLeft != null;
+  const homeWon = !!(m.winner_team_id && m.winner_team_id === m.home_team_id);
+  const awayWon = !!(m.winner_team_id && m.winner_team_id === m.away_team_id);
 
   return (
     <div
@@ -342,12 +382,14 @@ function MatchCard({
       }}
     >
       <div className="match-teams">
-        <TeamLine team={h} />
-        <TeamLine team={a} />
+        <TeamLine team={h} win={m.status === "done" && homeWon} />
+        <TeamLine team={a} win={m.status === "done" && awayWon} />
       </div>
       <div className="match-meta stack" style={{ gap: 4, alignItems: "flex-end" }}>
         {m.status === "done" && r ? (
-          <span className="match-result">{r.display.split(" ")[0]}</span>
+          // Full scoreline (e.g. "2–1 (25–20, 23–25, 15–10)") — no longer
+          // truncated to the set tally, so judges see exactly what was entered.
+          <span className="match-result">{r.display}</span>
         ) : m.status === "live" ? (
           <span className="pill pill-live"><span className="dot" />{no.control.live}</span>
         ) : null}
@@ -380,11 +422,18 @@ function MatchCard({
   );
 }
 
-function TeamLine({ team }: { team: Team | null | undefined }) {
+function TeamLine({
+  team,
+  win = false,
+}: {
+  team: Team | null | undefined;
+  win?: boolean;
+}) {
   return (
-    <span className="team">
+    <span className={`team${win ? " team-win" : ""}`}>
       <span className="team-swatch" style={{ background: team?.colour ?? "#555" }} />
       <span className="team-name">{team?.name ?? no.board.tbd}</span>
+      {win && <span className="win-mark" aria-label="Vinner" title="Vinner">✓</span>}
     </span>
   );
 }
