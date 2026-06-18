@@ -13,14 +13,29 @@ export function Standings({
   standings,
   teams,
   showDraw,
+  limit,
+  compact = false,
 }: {
   standings: StandingRow[];
   teams: Map<string, Team>;
   showDraw: boolean;
+  /** Cap the number of rows shown (keeps an always-on board panel scroll-free).
+   * The cut-line row is kept visible even when it would fall past the limit. */
+  limit?: number;
+  /** Tighter type/padding for an embedded strip (control + always-on board). */
+  compact?: boolean;
 }) {
   if (standings.length === 0)
     return <div className="empty">{no.board.noMatches}</div>;
-  return <StandingsTable standings={standings} teams={teams} showDraw={showDraw} />;
+  return (
+    <StandingsTable
+      standings={standings}
+      teams={teams}
+      showDraw={showDraw}
+      limit={limit}
+      compact={compact}
+    />
+  );
 }
 
 /** Several group tables stacked (group_playoff format). */
@@ -28,38 +43,64 @@ export function GroupStandings({
   groups,
   teams,
   showDraw,
+  limit,
+  compact = false,
 }: {
   groups: { group_no: number; rows: StandingRow[] }[];
   teams: Map<string, Team>;
   showDraw: boolean;
+  limit?: number;
+  compact?: boolean;
 }) {
   if (!groups.length)
     return <div className="empty">{no.board.noMatches}</div>;
   return (
-    <div className="stack" style={{ gap: 18 }}>
+    <div className="stack" style={{ gap: compact ? 12 : 18 }}>
       {groups.map((g) => (
         <div key={g.group_no} className="stack" style={{ gap: 8 }}>
           <h3 className="group-head">{groupLabel(g.group_no)}</h3>
-          <StandingsTable standings={g.rows} teams={teams} showDraw={showDraw} />
+          <StandingsTable
+            standings={g.rows}
+            teams={teams}
+            showDraw={showDraw}
+            limit={limit}
+            compact={compact}
+          />
         </div>
       ))}
     </div>
   );
 }
 
+/** Trim to `limit` rows but never hide the cut line (the row just above the
+ * playoff boundary), so the always-on board still tells the qualifying story. */
+function capRows(standings: StandingRow[], limit?: number): StandingRow[] {
+  if (!limit || standings.length <= limit) return standings;
+  const cut = standings.findIndex(
+    (r, i) => r.inPlayoff && !standings[i + 1]?.inPlayoff,
+  );
+  const keep = Math.max(limit, cut >= 0 ? cut + 1 : 0);
+  return standings.slice(0, keep);
+}
+
 function StandingsTable({
   standings,
   teams,
   showDraw,
+  limit,
+  compact = false,
 }: {
   standings: StandingRow[];
   teams: Map<string, Team>;
   showDraw: boolean;
+  limit?: number;
+  compact?: boolean;
 }) {
   const th = no.board.th;
-  const showForm = standings.some((r) => (r.form?.length ?? 0) > 0);
+  const rows = capRows(standings, limit);
+  const showForm = !compact && rows.some((r) => (r.form?.length ?? 0) > 0);
   return (
-    <table className="standings">
+    <table className={`standings${compact ? " standings-compact" : ""}`}>
       <thead>
         <tr>
           <th>{th.rank}</th>
@@ -74,7 +115,7 @@ function StandingsTable({
         </tr>
       </thead>
       <tbody>
-        {standings.map((r) => {
+        {rows.map((r) => {
           const t = teams.get(r.team_id);
           const lastInPlayoff =
             r.inPlayoff &&

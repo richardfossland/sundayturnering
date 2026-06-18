@@ -162,13 +162,22 @@ export function OrganiserPanel({
               const h = m.home_team_id ? teams.get(m.home_team_id) : null;
               const a = m.away_team_id ? teams.get(m.away_team_id) : null;
               const r = m.result ? resolve(tournament.scoring.profile, m.result) : null;
+              const homeWon = !!(m.winner_team_id && m.winner_team_id === m.home_team_id);
+              const awayWon = !!(m.winner_team_id && m.winner_team_id === m.away_team_id);
               return (
                 <div className="match-card" key={m.id} style={{ cursor: "default" }}>
                   <div className="match-teams">
-                    <span className="team-name">{h?.name}</span>
-                    <span className="team-name">{a?.name}</span>
+                    <span className={`team-name${homeWon ? " team-win" : ""}`}>
+                      {h?.name}
+                      {homeWon && <span className="win-mark"> ✓</span>}
+                    </span>
+                    <span className={`team-name${awayWon ? " team-win" : ""}`}>
+                      {a?.name}
+                      {awayWon && <span className="win-mark"> ✓</span>}
+                    </span>
                   </div>
-                  <span className="match-result">{r?.display.split(" ")[0]}</span>
+                  {/* Full scoreline (was truncated to the set tally before). */}
+                  <span className="match-result">{r?.display}</span>
                   <button
                     className="btn btn-ghost"
                     disabled={!code}

@@ -657,6 +657,35 @@ textarea {
   }
 }
 
+/* right column: always-on standings (top) + bracket region (bottom). The
+   bracket grows to fill leftover height; standings keep their intrinsic size so
+   they never get squeezed off-screen. */
+.board-right {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: clamp(14px, 1.8vw, 22px);
+  min-height: 0;
+}
+.board-standings-region {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.board-standings-scroll {
+  min-height: 0;
+  overflow: auto;
+}
+.board-bracket-region {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.board-bracket-scroll {
+  min-height: 0;
+  overflow: auto;
+  scroll-behavior: smooth;
+}
+
 /* now playing */
 .now-card {
   background: linear-gradient(165deg, rgba(235, 184, 75, 0.12), var(--ink-3));
@@ -837,6 +866,24 @@ textarea {
 .standings .rank {
   color: var(--txt-faint);
   font-weight: 700;
+}
+
+/* compact variant — tighter type + padding for embedded strips (always-on
+   board right column, judge-mode standings strip) so more rows fit without
+   scrolling. */
+.standings-compact {
+  font-size: clamp(0.82rem, 1vw, 1rem);
+  width: 100%;
+}
+.standings-compact th {
+  padding: 5px 7px;
+}
+.standings-compact td {
+  padding: 6px 7px;
+}
+.standings-compact .team-name {
+  font-size: 0.95em;
+  max-width: 11ch;
 }
 
 /* bracket */
@@ -1048,6 +1095,16 @@ textarea {
   margin: 0 auto;
   padding: 18px 16px 80px;
 }
+/* let the header (brand + action pills) wrap on a narrow phone instead of
+   overflowing — a long tournament title + the standings/roster pills can exceed
+   one line. */
+.control-head > .spread {
+  flex-wrap: wrap;
+}
+.control-head > .spread > .brand {
+  min-width: 0;
+  flex: 1 1 auto;
+}
 .control-head {
   position: sticky;
   top: 0;
@@ -1109,6 +1166,14 @@ textarea {
   font-size: 0.78rem;
   color: var(--txt-faint);
   text-align: right;
+  /* keep a long scoreline (set details) from pushing the card wider than the
+     column — cap + allow shrink so it wraps within the card instead. */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 52%;
+}
+.match-meta .match-result {
+  max-width: 100%;
 }
 .match-card[data-disabled="true"] {
   cursor: default;
@@ -1121,6 +1186,37 @@ textarea {
   font-family: var(--mono);
   font-weight: 700;
   color: var(--gold-ink);
+  /* full scoreline can include set details, e.g. "2–1 (25–20, …)" — let it wrap
+     within the meta column instead of overflowing. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+
+/* winner highlight in judge-mode match lists */
+.team-win .team-name,
+.team-name.team-win {
+  color: var(--txt);
+  font-weight: 800;
+}
+.win-mark {
+  color: var(--live);
+  font-weight: 800;
+}
+
+/* judge-mode standings strip (collapsible, reuses board Standings compact) */
+.control-standings {
+  border: 1px solid var(--ink-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--s-03);
+  max-height: 46dvh;
+  overflow: auto;
+}
+.pill[data-on="true"] {
+  color: var(--on-gold);
+  background: var(--gold-grad);
+  border-color: transparent;
 }
 
 /* small button variant (referee inline actions / timer) */
@@ -1535,19 +1631,27 @@ textarea {
   }
 }
 
-/* result-entered board pulse */
+/* result-entered cue — a subtle, short top-border flash (the chime carries the
+   celebration; the full-screen radial wash was too much over a busy board). */
 .board-flash::after {
   content: "";
   position: fixed;
-  inset: 0;
-  background: radial-gradient(circle at 50% 38%, rgba(235, 184, 75, 0.2), transparent 60%);
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: var(--gold-grad);
   pointer-events: none;
   z-index: 50;
-  animation: flashfade 0.7s var(--ease) forwards;
+  animation: flashfade 0.45s var(--ease) forwards;
 }
 @keyframes flashfade {
-  from { opacity: 1; }
+  from { opacity: 0.95; }
   to { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-flash::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 /* confetti + sound toggle */
@@ -1757,11 +1861,28 @@ textarea {
   color: var(--txt);
   background: var(--s-05);
 }
-.board-home {
+/* one small collapsible controls cluster (home / codes / sound) — replaces the
+   three separate floating buttons that used to scatter across the board. */
+.board-controls {
   position: fixed;
-  bottom: 66px;
-  left: 16px;
+  bottom: 16px;
+  right: 16px;
   z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.board-controls-items {
+  display: flex;
+  gap: 8px;
+  animation: ctlin 0.16s var(--ease);
+}
+@keyframes ctlin {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.board-ctl-btn,
+.board-ctl-toggle {
   width: 42px;
   height: 42px;
   border-radius: 12px;
@@ -1772,19 +1893,64 @@ textarea {
   background: var(--s-05);
   backdrop-filter: blur(8px);
   color: var(--txt);
-  font-size: 20px;
+  font-size: 19px;
   line-height: 1;
   opacity: 0.72;
   transition: opacity 0.15s var(--ease), background 0.15s var(--ease);
 }
-.board-home:hover {
+.board-ctl-btn:hover,
+.board-ctl-toggle:hover {
   opacity: 1;
   background: var(--s-hover);
 }
+.board-controls[data-open] .board-ctl-toggle {
+  opacity: 1;
+}
 @media print {
+  .board-controls,
   .board-home {
     display: none;
   }
+}
+
+/* compact header chip (follow QR + small control-code) — the full code card is
+   in CodesOverlay, so the header stays clean. */
+.board-code-chip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--k-30);
+  border: 1px solid var(--ink-line-strong);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: transform 0.15s var(--ease), background 0.15s var(--ease);
+}
+.board-code-chip:hover {
+  transform: scale(1.02);
+  background: var(--s-hover);
+}
+.board-code-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+.board-code-mini-label {
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--txt-dim);
+}
+.board-code-mini-val {
+  font-family: var(--mono);
+  font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--gold-ink);
+  line-height: 1.05;
 }
 
 /* one-time "tap for sound" prompt on the board */
