@@ -20,6 +20,12 @@ export async function broadcast(
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return;
 
+  // Bound the call so a hung Supabase realtime endpoint can't stall the route
+  // handler that awaits this before responding (the referee's "save" would spin
+  // forever). Broadcast is a hint layer, so an abort is swallowed like any other
+  // failure — clients recover on their next refetch.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
   try {
     const res = await fetch(`${url}/realtime/v1/api/broadcast`, {
       method: "POST",
@@ -31,12 +37,15 @@ export async function broadcast(
       body: JSON.stringify({
         messages: [{ topic, event, payload }],
       }),
+      signal: controller.signal,
     });
     if (!res.ok) {
       console.warn("[broadcast] failed", topic, event, res.status);
     }
   } catch (err) {
     console.warn("[broadcast] error", topic, event, err);
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

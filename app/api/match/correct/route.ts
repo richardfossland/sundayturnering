@@ -1,4 +1,4 @@
-import { ok, fail, readJson } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
@@ -16,6 +16,8 @@ import { canSelfCorrect } from "@/lib/tournament/correct";
 // checks the saving device (result_by) + the time window (updated_at). The
 // optimistic version guard is preserved via the same RPC the result route uses.
 export async function POST(req: Request) {
+  if (!rateLimit(`match-correct:${clientIp(req)}`, 60, 60_000))
+    return fail(429, "for_mange_forsok");
   const body = await readJson<{
     matchId?: string;
     expectedVersion?: number;

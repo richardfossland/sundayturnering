@@ -1,4 +1,4 @@
-import { ok, fail, readJson } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
 import { db, getMatch } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
 import { channels, events } from "@/lib/realtime";
@@ -9,6 +9,8 @@ import { channels, events } from "@/lib/realtime";
 //   'unlock' clear lock; live → scheduled (unless already done)
 //   'start'  mark scheduled → live WITHOUT holding a lock (referee "Start kamp")
 export async function POST(req: Request) {
+  if (!rateLimit(`match-lock:${clientIp(req)}`, 120, 60_000))
+    return fail(429, "for_mange_forsok");
   const body = await readJson<{
     matchId?: string;
     deviceId?: string;

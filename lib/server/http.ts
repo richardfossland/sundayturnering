@@ -43,6 +43,13 @@ export function rateLimit(
 }
 
 export function clientIp(req: Request): string {
+  // Prefer Cloudflare's CF-Connecting-IP: the edge sets it and the caller cannot
+  // spoof it. X-Forwarded-For is client-supplied, so keying the rate limiter on
+  // its first entry let an attacker send a random XFF per request and mint a
+  // fresh bucket every time — defeating the control-code brute-force protection
+  // on /api/attach entirely. Fall back to XFF only when CF header is absent.
+  const cf = req.headers.get("cf-connecting-ip");
+  if (cf) return cf.trim();
   const fwd = req.headers.get("x-forwarded-for");
   return fwd?.split(",")[0]?.trim() || "local";
 }
