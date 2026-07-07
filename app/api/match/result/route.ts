@@ -1,4 +1,4 @@
-import { ok, fail, readJson } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
@@ -14,6 +14,10 @@ import {
 // §4.2). The control device sends the result_version it based the edit on; the
 // RPC accepts only if it still matches, then bumps it. Loser → 409 conflict.
 export async function POST(req: Request) {
+  // Throttle score writes per client (the mutating match routes had no limit —
+  // once a tournament's match ids are known, results could be spammed freely).
+  if (!rateLimit(`match-result:${clientIp(req)}`, 60, 60_000))
+    return fail(429, "for_mange_forsok");
   const body = await readJson<{
     matchId?: string;
     expectedVersion?: number;
