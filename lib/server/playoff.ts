@@ -70,9 +70,47 @@ export async function advanceToPlayoff(t: Tournament): Promise<void> {
 /** After a playoff match resolves, push the winner into the next match's slot
  * (and, for a bronze final, the loser into its loser-link) via bracket_links.
  * The tournament finishes only when the FINAL (bracket_slot 0, no winner-link)
- * completes — never when a bronze final does. Returns whether it finished. */
+ * completes — never when a bronze final does. Returns whether it finished.
+ *
+ * The whole step runs as ONE atomic, idempotent Postgres RPC
+ * (`propagate_playoff_result`, migration 0009) instead of the several
+ * separate client-side writes this used to be: a crash/timeout partway
+ * through can no longer leave the bracket half-updated, and calling this
+ * twice for the SAME result (retry, double-tap, two referee devices) is a
+ * guaranteed no-op the second time — the RPC checks a guard row keyed on
+ * (match_id, result_version) before writing anything. Calling it again after
+ * a genuine correction (organiser override bumps result_version) still
+ * re-propagates, which is the desired "fix the mistake downstream too"
+ * behaviour.
+ *
+ * Falls back to the pre-migration multi-write path when the RPC hasn't been
+ * deployed yet (PostgREST error PGRST202 = function not in the schema cache),
+ * so this file tolerates either deploy order — see docs/DEPLOY.md. Once
+ * migration 0009 is confirmed live everywhere, the fallback is dead code and
+ * may be deleted in a follow-up. */
 export async function propagateResult(match: Match): Promise<boolean> {
   if (match.phase !== "playoff" || !match.winner_team_id) return false;
+  const sb = db();
+
+  const { data, error } = await sb.rpc("propagate_playoff_result", {
+    p_match_id: match.id,
+  });
+  if (!error) {
+    const row = Array.isArray(data) ? data[0] : data;
+    return Boolean(row?.finished);
+  }
+  if (error.code !== "PGRST202") {
+    console.error("[propagateResult]", error);
+    throw error;
+  }
+  return propagateResultLegacy(match);
+}
+
+/** Pre-migration-0009 propagation: several separate writes, kept only as a
+ * fallback for the window between deploying this code and running the
+ * migration (see propagateResult above). Not transactional and not guarded
+ * against duplicate calls — do not call directly. */
+async function propagateResultLegacy(match: Match): Promise<boolean> {
   const sb = db();
 
   const { data: rawLinks } = await sb
