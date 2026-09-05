@@ -13,20 +13,27 @@ export function ResultModal({
   teams,
   deviceId,
   deviceName,
+  controlCode,
   mode = "new",
   onClose,
   onDone,
   onConflict,
+  onAuthError,
 }: {
   match: Match;
   tournament: TournamentDTO;
   teams: Map<string, Team>;
   deviceId: string;
   deviceName: string;
+  /** Referee credential sent with every write (see lib/client/api.ts). */
+  controlCode: string;
   mode?: "new" | "correct";
   onClose: () => void;
   onDone: () => void;
   onConflict: () => void;
+  /** The server rejected the control code. Return true when handled (the
+   * parent re-prompts), so the modal does not also report a conflict. */
+  onAuthError?: (e: unknown) => boolean;
 }) {
   const [version, setVersion] = useState(match.result_version);
   const [submitting, setSubmitting] = useState(false);
@@ -43,18 +50,20 @@ export function ResultModal({
     let active = true;
     (async () => {
       try {
-        const { match: m } = await api.lock(match.id, deviceId, deviceName, "lock");
+        const { match: m } = await api.lock(match.id, deviceId, deviceName, "lock", controlCode);
         if (active) setVersion(m.result_version);
       } catch (e) {
         if (e instanceof ApiError && e.status === 409 && e.code === "laast_av_annen") {
           // surface force-take option
           setLockedByOther("en annen enhet");
+        } else if (active) {
+          onAuthError?.(e);
         }
       }
     })();
     return () => {
       active = false;
-      api.lock(match.id, deviceId, deviceName, "unlock").catch(() => {});
+      api.lock(match.id, deviceId, deviceName, "unlock", controlCode).catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.id]);
@@ -70,7 +79,7 @@ export function ResultModal({
 
   async function forceTake() {
     try {
-      const { match: m } = await api.lock(match.id, deviceId, deviceName, "force");
+      const { match: m } = await api.lock(match.id, deviceId, deviceName, "force", controlCode);
       setVersion(m.result_version);
       setLockedByOther(null);
     } catch {
@@ -82,10 +91,11 @@ export function ResultModal({
     setSubmitting(true);
     try {
       const device = { deviceId, deviceName };
-      if (correcting) await api.correct(match.id, version, result, device);
-      else await api.submitResult(match.id, version, result, device);
+      if (correcting) await api.correct(match.id, version, result, device, controlCode);
+      else await api.submitResult(match.id, version, result, device, controlCode);
       onDone();
     } catch (e) {
+      if (onAuthError?.(e)) return;
       if (e instanceof ApiError && (e.status === 409 || e.status === 403)) {
         onConflict();
         onClose();

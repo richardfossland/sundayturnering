@@ -21,6 +21,15 @@ devices. Walk these once provisioned (`scripts/provision.mjs`):
 - [ ] Tap a scheduled match → enter a result → board updates within ~1 s.
 - [ ] Court chips filter the list; pinning a court persists across reloads.
 
+## Referee credential (control code)
+- [ ] Open `/se/[id]` (public follow link) on a phone that never attached: no
+      way to enter a result. Confirm with devtools that `POST /api/match/result`
+      with a valid `matchId` but no/wrong `controlCode` returns 403
+      `feil_kontrollkode`.
+- [ ] Open `/kontroll/[id]` directly (deep link) on a fresh device → the page
+      asks for the six-digit code before anything else; a code for a DIFFERENT
+      tournament is refused («tilhører en annen turnering»).
+
 ## Concurrency (two phones, same match)
 - [ ] Phone A opens a match → Phone B sees "Redigeres av …" + "Ta over".
 - [ ] Both submit different scores → the **second gets** "Resultatet ble endret

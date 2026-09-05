@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getTournament } from "@/lib/server/store";
-import { normalizeWordCode } from "@/lib/codes";
+import { isValidControlCode, normalizeWordCode } from "@/lib/codes";
 import { createAuthClient } from "@/lib/supabase/auth-server";
 import type { Tournament } from "@/lib/types";
 
@@ -18,6 +18,18 @@ export async function authOrganiser(
   if (!t) return null;
   if (t.organiser_code !== normalizeWordCode(organiserCode)) return null;
   return t;
+}
+
+/** Verify the referee CONTROL code for a tournament. Gates every referee write
+ * (result, self-correct, soft lock, match timer). Match/tournament ids are
+ * public — they are in the state DTO every spectator on /se/[id] downloads — so
+ * knowing an id must never be enough to write; knowing the six-digit code the
+ * board shows to referees is the actual credential. Constant-shape check: the
+ * code must be a well-formed control code AND equal the stored one. */
+export function authControlCode(t: Tournament, code: unknown): boolean {
+  if (typeof code !== "string") return false;
+  const c = code.trim();
+  return isValidControlCode(c) && c === t.control_code;
 }
 
 // ---------------------------------------------------------------------------

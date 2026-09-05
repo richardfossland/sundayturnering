@@ -62,17 +62,22 @@ export const api = {
     return post<{ tournament: TournamentDTO }>("/api/attach", { boardCode });
   },
 
+  // ---- referee routes: every one carries the control code (the referee
+  // credential — match/tournament ids are public). 403 feil_kontrollkode means
+  // the stored code is wrong/stale and the control page must re-prompt. ----
   lock(
     matchId: string,
     deviceId: string,
     deviceName: string,
     action: "lock" | "force" | "unlock" | "start",
+    controlCode: string,
   ) {
     return post<{ match: Match }>("/api/match/lock", {
       matchId,
       deviceId,
       deviceName,
       action,
+      controlCode,
     });
   },
 
@@ -80,14 +85,16 @@ export const api = {
     matchId: string,
     expectedVersion: number,
     result: MatchResult,
-    device?: { deviceId: string; deviceName?: string },
+    device: { deviceId: string; deviceName?: string },
+    controlCode: string,
   ) {
     return post<{ match: Match }>("/api/match/result", {
       matchId,
       expectedVersion,
       result,
-      deviceId: device?.deviceId,
-      deviceName: device?.deviceName,
+      deviceId: device.deviceId,
+      deviceName: device.deviceName,
+      controlCode,
     });
   },
 
@@ -97,6 +104,7 @@ export const api = {
     expectedVersion: number,
     result: MatchResult,
     device: { deviceId: string; deviceName?: string },
+    controlCode: string,
   ) {
     return post<{ match: Match }>("/api/match/correct", {
       matchId,
@@ -104,6 +112,7 @@ export const api = {
       result,
       deviceId: device.deviceId,
       deviceName: device.deviceName,
+      controlCode,
     });
   },
 
@@ -111,11 +120,13 @@ export const api = {
   courtTimer(
     tournamentId: string,
     action: "start" | "add" | "stop",
+    controlCode: string,
     opts?: { courtId?: string; durationSec?: number },
   ) {
     return post<{ timer: unknown }>("/api/match/timer", {
       tournamentId,
       action,
+      controlCode,
       courtId: opts?.courtId,
       durationSec: opts?.durationSec,
     });

@@ -1,5 +1,6 @@
 import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
-import { db, getMatch } from "@/lib/server/store";
+import { db, getMatch, getTournament } from "@/lib/server/store";
+import { authControlCode } from "@/lib/server/auth";
 import { broadcast } from "@/lib/server/broadcast";
 import { channels, events } from "@/lib/realtime";
 
@@ -16,12 +17,17 @@ export async function POST(req: Request) {
     deviceId?: string;
     deviceName?: string;
     action?: "lock" | "force" | "unlock" | "start";
+    controlCode?: string;
   }>(req);
   if (!body?.matchId || !body.deviceId)
     return fail(400, "mangler_felt");
 
   const m = await getMatch(body.matchId);
   if (!m) return fail(404, "finnes_ikke");
+  // Referee credential: the control code. Match ids alone are public.
+  const t = await getTournament(m.tournament_id);
+  if (!t) return fail(404, "finnes_ikke");
+  if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
   if (m.status === "done" || m.status === "bye")
     return fail(409, "kamp_ferdig");
 

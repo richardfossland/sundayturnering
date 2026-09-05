@@ -10,6 +10,7 @@ import {
   isVoid,
 } from "@/lib/tournament/scoring";
 import { canSelfCorrect } from "@/lib/tournament/correct";
+import { authControlCode } from "@/lib/server/auth";
 
 // POST /api/match/correct — a referee fixes THEIR OWN just-saved result within a
 // short grace window, WITHOUT the organiser code. Self-authorising: the server
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
     result?: Record<string, unknown>;
     deviceId?: string;
     deviceName?: string;
+    controlCode?: string;
   }>(req);
   if (
     !body?.matchId ||
@@ -43,6 +45,7 @@ export async function POST(req: Request) {
 
   const t = await getTournament(m.tournament_id);
   if (!t) return fail(404, "finnes_ikke");
+  if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
 
   const err = validateResult(t.scoring.profile, body.result, t.scoring);
   if (err) return fail(422, "ugyldig_resultat", { detail: err });

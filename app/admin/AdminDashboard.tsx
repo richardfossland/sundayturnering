@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { identity } from "@/lib/client/identity";
 import { api, ApiError } from "@/lib/client/api";
 import { createAuthBrowserClient } from "@/lib/supabase/auth-browser";
 import { no } from "@/lib/locale/no";
@@ -150,7 +151,11 @@ export function AdminDashboard({
                       </button>
                       <button
                         className="btn"
-                        onClick={() => router.push(`/kontroll/${t.id}`)}
+                        onClick={() => {
+                          // The control page needs the referee credential.
+                          identity.setControlCode(t.id, t.control_code);
+                          router.push(`/kontroll/${t.id}`);
+                        }}
                         type="button"
                       >
                         {no.admin.openControl}
