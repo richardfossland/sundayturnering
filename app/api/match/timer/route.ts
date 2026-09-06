@@ -1,6 +1,7 @@
 import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
 import { db, getTournament, bumpVersion } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
+import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
 import { computeTimer } from "@/lib/tournament/timer";
 import { authControlCode } from "@/lib/server/auth";
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
     );
     await db().from("courts").update({ timer }).eq("id", body.courtId);
     await bumpVersion(t.id);
-    await broadcast(channels.tournament(t.id), events.structure, {});
+    defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "match-timer");
     return ok({ timer });
   }
 
@@ -59,6 +60,6 @@ export async function POST(req: Request) {
   const timer = computeTimer(t.timer, action, Date.now(), body.durationSec);
   await db().from("tournaments").update({ timer }).eq("id", t.id);
   await bumpVersion(t.id);
-  await broadcast(channels.tournament(t.id), events.structure, {});
+  defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "match-timer");
   return ok({ timer });
 }

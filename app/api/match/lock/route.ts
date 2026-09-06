@@ -2,6 +2,7 @@ import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { authControlCode } from "@/lib/server/auth";
 import { broadcast } from "@/lib/server/broadcast";
+import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
 
 // POST /api/match/lock — soft lock for editing (spec §4.1). action:
@@ -58,7 +59,8 @@ export async function POST(req: Request) {
     const demote = body.revert === true && m.status === "live";
     await db()
       .from("matches")
-      .update(demote ? { locked_by: null, status: "scheduled" } : { locked_by: null })
+      // A demoted match also drops any interim live score it was showing.
+      .update(demote ? { locked_by: null, status: "scheduled", result: null } : { locked_by: null })
       .eq("id", m.id);
   } else {
     // lock / force
@@ -75,9 +77,9 @@ export async function POST(req: Request) {
       .eq("id", m.id);
   }
 
-  await broadcast(channels.tournament(m.tournament_id), events.lockChanged, {
+  defer(() => broadcast(channels.tournament(m.tournament_id), events.lockChanged, {
     matchId: m.id,
-  });
+  }), "lock");
   const updated = await getMatch(m.id);
   return ok({ match: updated, promoted });
 }

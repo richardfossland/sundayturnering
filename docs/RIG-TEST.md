@@ -30,6 +30,15 @@ devices. Walk these once provisioned (`scripts/provision.mjs`):
       asks for the six-digit code before anything else; a code for a DIFFERENT
       tournament is refused («tilhører en annen turnering»).
 
+## Live score (board)
+- [ ] Open a match on a phone (Enkel score) and tap +/−: the board's «Nå
+      spiller» card shows the running score within ~1 s, and the modal shows a
+      pulsing «Stillingen vises live på tavla». Close without saving → the
+      score stays on the board until the result is saved (the match is still
+      live). Save → normal result flow.
+- [ ] Sett-profile: the set line under the tally on the board updates as sets
+      are typed; a level set (24–24) counts for nobody until it is decided.
+
 ## Concurrency (two phones, same match)
 - [ ] Phone A opens a match → Phone B sees "Redigeres av …" + "Ta over".
 - [ ] Both submit different scores → the **second gets** "Resultatet ble endret

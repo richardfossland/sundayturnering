@@ -2,6 +2,7 @@ import { ok, fail, readJson } from "@/lib/server/http";
 import { requireOwnedTournament, authFail } from "@/lib/server/auth";
 import { db, bumpVersion } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
+import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
 
 // PATCH /api/admin/tournaments/[id] — edit a tournament's display fields
@@ -27,7 +28,7 @@ export async function PATCH(
 
     await db().from("tournaments").update(patch).eq("id", tournament.id);
     await bumpVersion(tournament.id);
-    await broadcast(channels.tournament(tournament.id), events.structure, {});
+    defer(() => broadcast(channels.tournament(tournament.id), events.structure, {}), "admin-patch");
     return ok({ ok: true });
   } catch (err) {
     const r = authFail(err);

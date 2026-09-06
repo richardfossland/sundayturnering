@@ -109,6 +109,52 @@ export function validateResult(
   return "Ukjent poengprofil.";
 }
 
+// ---------- live (interim) scores ----------
+
+/** Validate an in-progress score the referee pushes to the board WHILE the
+ * match is live. Deliberately looser than validateResult: a draw is fine in
+ * the 40th minute, a set at 24–24 is fine before it ends, and a winner-only
+ * profile has nothing to show live. Returns an error string or null. */
+export function validateLiveResult(
+  profile: ScoringProfileKey,
+  result: unknown,
+): string | null {
+  if (result == null || typeof result !== "object") return "Mangler resultat.";
+  const r = result as Record<string, unknown>;
+  if ("special" in r) return "Spesialresultat kan ikke vises live.";
+  if (profile === "simple") {
+    if (!isInt(r.home) || !isInt(r.away)) return "Begge lag må ha et tall.";
+    if ((r.home as number) < 0 || (r.away as number) < 0) return "Tall kan ikke være negative.";
+    if ((r.home as number) > 999 || (r.away as number) > 999) return "Urimelig høy score.";
+    return null;
+  }
+  if (profile === "sets") {
+    const sets = r.sets;
+    if (!Array.isArray(sets) || sets.length === 0 || sets.length > 15)
+      return "Legg til minst ett sett.";
+    for (const s of sets) {
+      if (!Array.isArray(s) || s.length !== 2 || !isInt(s[0]) || !isInt(s[1]) || s[0] < 0 || s[1] < 0 || s[0] > 999 || s[1] > 999)
+        return "Hvert sett må ha to gyldige tall.";
+    }
+    return null;
+  }
+  return "Denne poengprofilen har ingen live-score.";
+}
+
+/** Canonical stored shape for a live score (sets tally recomputed, a set that
+ * is level counts for nobody). Call only after validateLiveResult is null. */
+export function canonicaliseLiveResult(
+  profile: ScoringProfileKey,
+  raw: Record<string, unknown>,
+): MatchResult {
+  if (profile === "sets") {
+    const sets = raw.sets as [number, number][];
+    const { home, away } = countSets(sets);
+    return { sets, home, away };
+  }
+  return { home: raw.home as number, away: raw.away as number };
+}
+
 function isInt(v: unknown): v is number {
   return typeof v === "number" && Number.isInteger(v);
 }
