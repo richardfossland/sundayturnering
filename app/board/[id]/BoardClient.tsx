@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTournament } from "@/lib/client/useTournament";
 import { QRCode } from "@/lib/client/QRCode";
 import { no } from "@/lib/locale/no";
@@ -29,6 +29,10 @@ export function BoardClient({
   spectator?: boolean;
 }) {
   const [flash, setFlash] = useState(false);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+  }, []);
   const [wallRef, wall] = useReactionWall();
   const { state, error } = useTournament(id, {
     // Public /live boards may be many; spread their refetches. The organiser's
@@ -39,7 +43,8 @@ export function BoardClient({
       if (event === events.matchUpdated) {
         playDing();
         setFlash(true);
-        setTimeout(() => setFlash(false), 450);
+        if (flashTimer.current) clearTimeout(flashTimer.current);
+        flashTimer.current = setTimeout(() => setFlash(false), 450);
       }
       // Spectator cheer → float emoji on the board (no refetch, see useTournament).
       if (event === events.reaction) wallRef.current?.push(payload);
