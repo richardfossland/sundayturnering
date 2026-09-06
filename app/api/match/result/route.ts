@@ -2,6 +2,7 @@ import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
+import { defer } from "@/lib/server/defer";
 import { authControlCode } from "@/lib/server/auth";
 import { channels, events } from "@/lib/realtime";
 import {
@@ -86,8 +87,8 @@ export async function POST(req: Request) {
   // Playoff: push the winner into the next bracket slot (may finish the cup).
   if (saved?.phase === "playoff") await propagateResult(saved);
 
-  await broadcast(channels.tournament(m.tournament_id), events.matchUpdated, {
+  defer(() => broadcast(channels.tournament(m.tournament_id), events.matchUpdated, {
     matchId: m.id,
-  });
+  }), "result");
   return ok({ match: saved });
 }

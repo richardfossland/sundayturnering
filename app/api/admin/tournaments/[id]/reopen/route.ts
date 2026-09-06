@@ -2,6 +2,7 @@ import { ok, fail } from "@/lib/server/http";
 import { requireOwnedTournament, authFail } from "@/lib/server/auth";
 import { db, bumpVersion, getMatches } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
+import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
 
 // POST /api/admin/tournaments/[id]/reopen — un-finish a tournament so the
@@ -30,7 +31,7 @@ export async function POST(
       .eq("id", tournament.id)
       .eq("status", "finished"); // guard against a concurrent reopen
     await bumpVersion(tournament.id);
-    await broadcast(channels.tournament(tournament.id), events.structure, {});
+    defer(() => broadcast(channels.tournament(tournament.id), events.structure, {}), "admin-reopen");
     return ok({ ok: true, status: priorStatus });
   } catch (err) {
     const r = authFail(err);

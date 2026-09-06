@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   MatchResult,
   ScoringConfig,
@@ -22,6 +22,10 @@ interface Props {
   initial?: MatchResult | null;
   onSubmit: (result: MatchResult) => void;
   submitting?: boolean;
+  /** Called with the running score whenever the referee changes it (simple
+   * and sets profiles, never in special-result mode). The caller debounces
+   * and pushes it to the board as a live score. */
+  onLive?: (result: MatchResult) => void;
 }
 
 // A few common scorelines offered as one-tap chips (simple profile).
@@ -40,6 +44,7 @@ export function ResultInput({
   initial,
   onSubmit,
   submitting,
+  onLive,
 }: Props) {
   const profile = scoring.profile;
   const initSpecial =
@@ -75,6 +80,18 @@ export function ResultInput({
   );
 
   const [err, setErr] = useState<string | null>(null);
+
+  // Live score: report the running tally as the referee taps. Ref-held callback
+  // so an inline arrow from the parent does not retrigger the effect.
+  const onLiveRef = useRef(onLive);
+  useEffect(() => {
+    onLiveRef.current = onLive;
+  });
+  useEffect(() => {
+    if (!onLiveRef.current || showSpecial) return;
+    if (profile === "simple") onLiveRef.current({ home: hs, away: as });
+    else if (profile === "sets") onLiveRef.current({ sets, home: 0, away: 0 });
+  }, [hs, as, sets, profile, showSpecial]);
 
   function build(): MatchResult | null {
     if (special) {

@@ -3,6 +3,7 @@ import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { db, getMatch } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
+import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
 import {
   validateResult,
@@ -51,8 +52,8 @@ export async function POST(req: Request) {
   const saved = await getMatch(m.id);
   if (saved?.phase === "playoff") await propagateResult(saved);
 
-  await broadcast(channels.tournament(t.id), events.matchUpdated, {
+  defer(() => broadcast(channels.tournament(t.id), events.matchUpdated, {
     matchId: m.id,
-  });
+  }), "override");
   return ok({ match: saved });
 }
