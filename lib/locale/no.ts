@@ -34,6 +34,10 @@ export const no = {
     join: "Koble til",
     joining: "Kobler til …",
     badCode: "Fant ingen turnering med den koden.",
+    codeForOther: "Den koden tilhører en annen turnering.",
+    reenterTitle: "Tast kontrollkoden",
+    reenterHint:
+      "Kontrollkoden står på tavla. Den bekrefter at du er dommer før resultater kan registreres.",
     boardCodeTitle: "Skriv inn tavlekoden",
     attached: "tilkoblet",
     devices: "Tilkoblede enheter",
@@ -208,6 +212,7 @@ export const no = {
     connected: "Tilkoblet",
     editJustSaved: "Endre",
     editWindowGone: "Tidsvinduet er utløpt — be arrangøren om å endre.",
+    codeRejected: "Kontrollkoden ble avvist — tast den på nytt.",
 
     organiser: "Arrangør",
     organiserCode: "Arrangørkode",

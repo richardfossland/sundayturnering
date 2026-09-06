@@ -9,13 +9,23 @@ const BASE = process.env.BASE || "http://localhost:3000";
 let pass = 0, fail = 0;
 const check = (n, c, x = "") => (c ? (pass++, console.log("  ✓ " + n)) : (fail++, console.log("  ✗ " + n + " " + x)));
 
+// The referee credential for the most recently seeded tournament. Every
+// /api/match/* write requires it (match ids are public), so `post` injects it
+// unless a test overrides `controlCode` explicitly (e.g. to prove the 403).
+let ctl = null;
 async function post(path, body) {
+  const payload =
+    path.startsWith("/api/match/") && ctl && !("controlCode" in body)
+      ? { ...body, controlCode: ctl }
+      : body;
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
-  return { status: res.status, json: await res.json().catch(() => ({})) };
+  const json = await res.json().catch(() => ({}));
+  if (path === "/api/dev/seed" && json.control_code) ctl = json.control_code;
+  return { status: res.status, json };
 }
 async function get(path) {
   const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
@@ -34,8 +44,17 @@ async function main() {
   check("league has 6 matches", state.matches.filter((m) => m.away_team_id).length === 6);
   check("empty standings present (4 rows)", state.standings.length === 4);
 
-  // Play every league match: home wins 2–0.
+  // Referee credential: a public match id without the control code is refused.
   const league = state.matches.filter((m) => m.away_team_id);
+  const noCode = await post("/api/match/result", {
+    matchId: league[0].id,
+    expectedVersion: league[0].result_version,
+    result: { home: 2, away: 0 },
+    controlCode: "000000",
+  });
+  check("wrong control code → 403 feil_kontrollkode", noCode.status === 403 && noCode.json.error === "feil_kontrollkode", JSON.stringify(noCode.json));
+
+  // Play every league match: home wins 2–0.
   for (const m of league) {
     const r = await post("/api/match/result", {
       matchId: m.id,

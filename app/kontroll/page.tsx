@@ -25,6 +25,8 @@ function AttachInner() {
     try {
       const { tournament } = await api.attachControl(c);
       if (name.trim()) identity.setDeviceName(name.trim());
+      // The code is the referee credential for every write on /kontroll/[id].
+      identity.setControlCode(tournament.id, c);
       router.push(`/kontroll/${tournament.id}`);
     } catch (e) {
       setErr(e instanceof ApiError ? no.pair.badCode : no.common.error);

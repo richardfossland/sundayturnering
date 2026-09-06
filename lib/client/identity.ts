@@ -8,6 +8,7 @@ const DEVICE_ID = "turnering:deviceId";
 const DEVICE_NAME = "turnering:deviceName";
 const ORG_CODE = (id: string) => `turnering:org:${id}`;
 const PINNED_COURT = (id: string) => `turnering:court:${id}`;
+const CONTROL_CODE = (id: string) => `turnering:ctl:${id}`;
 
 function rid(): string {
   try {
@@ -52,6 +53,22 @@ export const identity = {
   setOrganiserCode(id: string, code: string) {
     try {
       localStorage.setItem(ORG_CODE(id), code);
+    } catch {}
+  },
+  /** The six-digit control code this device attached with, per tournament.
+   * It is the referee credential every write route requires (tournament and
+   * match ids are public), so /kontroll/[id] re-prompts for it when absent. */
+  controlCode(id: string): string | null {
+    try {
+      return localStorage.getItem(CONTROL_CODE(id));
+    } catch {
+      return null;
+    }
+  },
+  setControlCode(id: string, code: string | null) {
+    try {
+      if (code) localStorage.setItem(CONTROL_CODE(id), code);
+      else localStorage.removeItem(CONTROL_CODE(id));
     } catch {}
   },
   pinnedCourt(id: string): string | null {

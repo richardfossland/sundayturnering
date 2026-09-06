@@ -2,6 +2,7 @@ import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
+import { authControlCode } from "@/lib/server/auth";
 import { channels, events } from "@/lib/realtime";
 import {
   validateResult,
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
     result?: Record<string, unknown>;
     deviceId?: string;
     deviceName?: string;
+    controlCode?: string;
   }>(req);
   if (!body?.matchId || typeof body.expectedVersion !== "number" || !body.result)
     return fail(400, "mangler_felt");
@@ -39,6 +41,8 @@ export async function POST(req: Request) {
 
   const t = await getTournament(m.tournament_id);
   if (!t) return fail(404, "finnes_ikke");
+  // Referee credential: the control code. Match ids alone are public.
+  if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
 
   // Validate against the active profile, then canonicalise (recompute sets).
   const err = validateResult(t.scoring.profile, body.result, t.scoring);

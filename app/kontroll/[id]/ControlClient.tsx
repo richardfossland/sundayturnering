@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTournament } from "@/lib/client/useTournament";
+import { ApiError } from "@/lib/client/api";
 import { usePresence } from "@/lib/client/usePresence";
 import { identity } from "@/lib/client/identity";
 import { api } from "@/lib/client/api";
@@ -33,15 +34,34 @@ export function ControlClient({ id }: { id: string }) {
   const [showStandings, setShowStandings] = useState(false);
   const [busyTimer, setBusyTimer] = useState(false);
   const [nowMs, setNowMs] = useState(0);
+  // The referee credential. undefined = not read yet (SSR/first paint); null =
+  // this device never attached with the code (deep link, cleared storage, or
+  // the server rejected the stored one) → the CodeGate below asks for it.
+  const [ctl, setCtl] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     // Read browser-only identity/prefs after mount (hydration-safe).
     /* eslint-disable react-hooks/set-state-in-effect */
     setSelf({ deviceId: identity.deviceId(), name: identity.deviceName() || "Enhet" });
     setCourtId(identity.pinnedCourt(id));
+    setCtl(identity.controlCode(id));
     setNowMs(Date.now());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [id]);
+
+  /** The server said the stored control code is wrong → forget it and re-ask.
+   * Returns true when the error was exactly that, so callers can skip their
+   * generic toast. */
+  function codeRejected(e: unknown): boolean {
+    if (e instanceof ApiError && e.status === 403 && e.code === "feil_kontrollkode") {
+      identity.setControlCode(id, null);
+      setCtl(null);
+      setOpen(null);
+      flash(no.control.codeRejected);
+      return true;
+    }
+    return false;
+  }
 
   // 1s tick drives the self-correct countdown + live timer remaining.
   useEffect(() => {
@@ -66,8 +86,19 @@ export function ControlClient({ id }: { id: string }) {
         </div>
       </main>
     );
-  if (!state)
+  if (!state || ctl === undefined)
     return <main className="center-screen"><span className="spin" /></main>;
+  if (ctl === null)
+    return (
+      <CodeGate
+        tournamentId={id}
+        title={state.tournament.title}
+        onAttached={(code) => {
+          identity.setControlCode(id, code);
+          setCtl(code);
+        }}
+      />
+    );
 
   const { tournament, matches, courts, standings, groupStandings } = state;
   const parallel = tournament.parallelism === "parallel";
@@ -119,17 +150,17 @@ export function ControlClient({ id }: { id: string }) {
   }
 
   async function startMatch(m: Match) {
-    if (!self) return;
+    if (!self || !ctl) return;
     try {
-      await api.lock(m.id, self.deviceId, self.name, "start");
+      await api.lock(m.id, self.deviceId, self.name, "start", ctl);
       // Kick off a default 10-minute clock on the relevant court / tournament.
-      await api.courtTimer(id, "start", {
+      await api.courtTimer(id, "start", ctl, {
         courtId: parallel ? (m.court_id ?? undefined) : undefined,
         durationSec: 600,
       });
       refetch();
-    } catch {
-      flash(no.common.error);
+    } catch (e) {
+      if (!codeRejected(e)) flash(no.common.error);
     }
   }
 
@@ -144,12 +175,13 @@ export function ControlClient({ id }: { id: string }) {
       : null;
 
   async function timerAction(action: "start" | "add" | "stop", durationSec?: number) {
+    if (!ctl) return;
     setBusyTimer(true);
     try {
-      await api.courtTimer(id, action, { courtId: timerCourtId, durationSec });
+      await api.courtTimer(id, action, ctl, { courtId: timerCourtId, durationSec });
       refetch();
-    } catch {
-      flash(no.common.error);
+    } catch (e) {
+      if (!codeRejected(e)) flash(no.common.error);
     } finally {
       setBusyTimer(false);
     }
@@ -320,8 +352,10 @@ export function ControlClient({ id }: { id: string }) {
           teams={teams}
           deviceId={self?.deviceId ?? "anon"}
           deviceName={self?.name ?? "Enhet"}
+          controlCode={ctl}
           mode={openMode}
           onClose={() => setOpen(null)}
+          onAuthError={codeRejected}
           onDone={() => {
             setOpen(null);
             refetch();
@@ -334,6 +368,73 @@ export function ControlClient({ id }: { id: string }) {
       )}
 
       {toast && <div className="toast toast-danger">{toast}</div>}
+    </main>
+  );
+}
+
+/** Inline re-attach: /kontroll/[id] was opened without the control code on
+ * this device (deep link, cleared storage, or a rejected code). Same six-digit
+ * entry as /kontroll, but pinned to THIS tournament — a code for a different
+ * tournament is refused rather than silently navigating away. */
+function CodeGate({
+  tournamentId,
+  title,
+  onAttached,
+}: {
+  tournamentId: string;
+  title: string;
+  onAttached: (code: string) => void;
+}) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function attach() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const { tournament } = await api.attachControl(code);
+      if (tournament.id !== tournamentId) {
+        setErr(no.pair.codeForOther);
+        return;
+      }
+      onAttached(code);
+    } catch (e) {
+      setErr(e instanceof ApiError ? no.pair.badCode : no.common.error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="center-screen">
+      <div className="card card-pad stack" style={{ maxWidth: 420, width: "100%" }}>
+        <div className="brand" style={{ justifyContent: "center" }}>
+          <span className="brand-mark">T</span>
+          {title || no.brand}
+        </div>
+        <h2 className="center">{no.pair.reenterTitle}</h2>
+        <p className="faint center" style={{ fontSize: ".9rem" }}>{no.pair.reenterHint}</p>
+        <input
+          className="input code-input"
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="000000"
+          inputMode="numeric"
+          maxLength={6}
+          autoFocus
+          onKeyDown={(e) => e.key === "Enter" && code.length === 6 && attach()}
+        />
+        {err && <div className="toast-danger" style={{ fontSize: ".9rem" }}>{err}</div>}
+        <button
+          className="btn btn-gold btn-block btn-lg"
+          disabled={busy || code.length !== 6}
+          onClick={attach}
+        >
+          {busy ? <span className="spin" /> : null}
+          {busy ? no.pair.joining : no.pair.join}
+        </button>
+      </div>
     </main>
   );
 }
