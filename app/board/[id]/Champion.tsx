@@ -2,30 +2,21 @@
 
 import { useEffect } from "react";
 import { no } from "@/lib/locale/no";
-import { initials } from "@/lib/client/view";
+import { championId, initials } from "@/lib/client/view";
 import { playFanfare } from "@/lib/client/sound";
 import { Confetti } from "./Confetti";
 import type { Team } from "@/lib/types";
 import type { StateDTO } from "@/lib/dto";
 
-// Winner / podium celebration. Champion = winner of the playoff final, else the
-// rank-1 league standing.
+// Winner / podium celebration. Champion = winner of the playoff FINAL (bracket
+// slot 0 — the bronze final shares the last round and must never crown), else
+// the rank-1 league standing. One rule, shared with the results page via
+// championId() so the board and the diploma can never disagree.
 export function Champion({ state }: { state: StateDTO }) {
-  const { matches, standings, teams } = state;
+  const { teams } = state;
   const byId = new Map(teams.map((t) => [t.id, t]));
-
-  let championId: string | null = null;
-  const playoff = matches.filter((m) => m.phase === "playoff");
-  if (playoff.length > 0) {
-    const totalRounds = Math.max(...playoff.map((m) => m.round));
-    const final = playoff.find(
-      (m) => m.round === totalRounds && m.status === "done",
-    );
-    championId = final?.winner_team_id ?? null;
-  }
-  if (!championId && standings.length > 0) championId = standings[0].team_id;
-
-  const champ: Team | undefined = championId ? byId.get(championId) : undefined;
+  const winnerId = championId(state);
+  const champ: Team | undefined = winnerId ? byId.get(winnerId) : undefined;
 
   useEffect(() => {
     playFanfare();

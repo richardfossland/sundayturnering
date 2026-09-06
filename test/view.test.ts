@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { championId, finalRanking } from "@/lib/client/view";
+import { championId, finalRanking, knockoutPodium } from "@/lib/client/view";
 import type { StateDTO, TournamentDTO } from "@/lib/dto";
 import type { Match, StandingRow, Team } from "@/lib/types";
 
@@ -120,5 +120,44 @@ describe("finalRanking", () => {
   it("empty state → all teams returned (no crash)", () => {
     const s = state({ teams: [team("a", "A"), team("b", "B")] });
     expect(finalRanking(s)).toHaveLength(2);
+  });
+
+  it("liga + sluttspill: the bracket decides the podium, the table the rest", () => {
+    // Table: A(1) B(2) C(3) D(4). Semis: A beats D? no — upset bracket: D beats
+    // A in the final, C beats B in the bronze final. Diplomas must read
+    // D, A, C, B — not the league order with D floated to the top.
+    const semi1 = { ...pmatch(1, "a", "d", "a"), bracket_slot: 0 };
+    const semi2 = { ...pmatch(1, "b", "c", "b"), bracket_slot: 1 };
+    const final = { ...pmatch(2, "a", "b", "d"), bracket_slot: 0, home_team_id: "a", away_team_id: "d", winner_team_id: "d" };
+    const bronze = { ...pmatch(2, "b", "c", "c"), bracket_slot: 1 };
+    const s = state({
+      teams: [team("a", "A", 1), team("b", "B", 2), team("c", "C", 3), team("d", "D", 4)],
+      standings: [standing("a", 1), standing("b", 2), standing("c", 3), standing("d", 4)],
+      matches: [semi1, semi2, final, bronze],
+    });
+    expect(finalRanking(s).map((t) => t.id)).toEqual(["d", "a", "c", "b"]);
+  });
+
+  it("liga + sluttspill without a bronze final: final loser is 2nd, rest by table", () => {
+    const final = { ...pmatch(1, "a", "d", "d"), bracket_slot: 0 };
+    const s = state({
+      teams: [team("a", "A"), team("b", "B"), team("c", "C"), team("d", "D")],
+      standings: [standing("a", 1), standing("b", 2), standing("c", 3), standing("d", 4)],
+      matches: [final],
+    });
+    expect(finalRanking(s).map((t) => t.id)).toEqual(["d", "a", "b", "c"]);
+  });
+
+  it("a bronze final played BEFORE the final never crowns anyone", () => {
+    const final = { ...pmatch(2, "a", "d", null), bracket_slot: 0 };
+    const bronze = { ...pmatch(2, "b", "c", "c"), bracket_slot: 1 };
+    const s = state({
+      teams: [team("a", "A", 1), team("b", "B", 2), team("c", "C", 3), team("d", "D", 4)],
+      standings: [standing("a", 1), standing("b", 2), standing("c", 3), standing("d", 4)],
+      matches: [final, bronze],
+    });
+    expect(knockoutPodium(s.matches)).toEqual([]);
+    // No champion yet → table order stands.
+    expect(finalRanking(s).map((t) => t.id)).toEqual(["a", "b", "c", "d"]);
   });
 });
