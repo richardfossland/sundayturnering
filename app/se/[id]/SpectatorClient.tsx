@@ -17,8 +17,9 @@ const BUTTONS: { kind: ReactionKind; label: string }[] = [
 ];
 
 export function SpectatorClient({ id }: { id: string }) {
-  // Read-only: refetch authoritative state on hints, never write.
-  const { state, error } = useTournament(id);
+  // Read-only: refetch authoritative state on hints, never write. A whole gym
+  // of phones gets the same broadcast at once — jitter spreads the refetches.
+  const { state, error } = useTournament(id, { jitterMs: 1500 });
   const react = useReactionSender(id);
   const teams = useMemo(() => teamMap(state?.teams ?? []), [state?.teams]);
 
