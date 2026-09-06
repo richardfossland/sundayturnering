@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/client/api";
 import { ResultInput } from "@/lib/client/ResultInput";
 import { no } from "@/lib/locale/no";
@@ -38,6 +38,10 @@ export function ResultModal({
   const [version, setVersion] = useState(match.result_version);
   const [submitting, setSubmitting] = useState(false);
   const [lockedByOther, setLockedByOther] = useState<string | null>(null);
+  // Did OUR lock move the match scheduled → live? Only then does closing the
+  // modal without a result put it back — a match started with "Start kamp"
+  // stays live on the board.
+  const promoted = useRef(false);
 
   const h = match.home_team_id ? teams.get(match.home_team_id) : null;
   const a = match.away_team_id ? teams.get(match.away_team_id) : null;
@@ -50,7 +54,8 @@ export function ResultModal({
     let active = true;
     (async () => {
       try {
-        const { match: m } = await api.lock(match.id, deviceId, deviceName, "lock", controlCode);
+        const { match: m, promoted: p } = await api.lock(match.id, deviceId, deviceName, "lock", controlCode);
+        promoted.current = !!p;
         if (active) setVersion(m.result_version);
       } catch (e) {
         if (e instanceof ApiError && e.status === 409 && e.code === "laast_av_annen") {
@@ -63,7 +68,9 @@ export function ResultModal({
     })();
     return () => {
       active = false;
-      api.lock(match.id, deviceId, deviceName, "unlock", controlCode).catch(() => {});
+      api
+        .lock(match.id, deviceId, deviceName, "unlock", controlCode, { revert: promoted.current })
+        .catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.id]);
@@ -79,7 +86,8 @@ export function ResultModal({
 
   async function forceTake() {
     try {
-      const { match: m } = await api.lock(match.id, deviceId, deviceName, "force", controlCode);
+      const { match: m, promoted: p } = await api.lock(match.id, deviceId, deviceName, "force", controlCode);
+      promoted.current = !!p;
       setVersion(m.result_version);
       setLockedByOther(null);
     } catch {
