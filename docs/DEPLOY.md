@@ -56,6 +56,29 @@ Env summary:
 > Cloudflare may run multiple isolates — fine for a single event; revisit
 > (edge KV) only if abused at scale.
 
+## Health & uptime
+
+`GET /api/health` is a liveness probe: the bare call answers `{ ok, app,
+ts }` without touching Supabase, so a dead Worker is distinguishable from a
+dead database. `GET /api/health?db=1` additionally does the lightest possible
+read (`tournaments`, one column, one row) through the service-role client and
+returns 503 JSON if that fails — the failure mode that actually takes the app
+down (a rotated/missing `SUPABASE_SERVICE_ROLE_KEY`, or PostgREST being
+unreachable). The `?db=1` branch is rate-limited (60/min per IP); the bare
+probe is not. Both verbs (`GET`/`HEAD`) never throw — any unexpected error
+becomes a 503 body, not a Worker exception page.
+
+A GitHub Actions cron (`.github/workflows/uptime.yml`, every 10 min, offset
+minutes) probes `turnering.sundaysuite.app` from an external vantage point —
+catching edge-level drops a Worker-side cron can't see itself failing.
+Targets/budgets live in `.github/uptime-targets.json`; run it locally with
+`npm run uptime`. A breach files/updates a GitHub issue labelled `uptime`;
+recovery closes it.
+
+> GitHub automatically disables a scheduled workflow after 60 days with no
+> repository activity (commits, PRs, etc.). If the uptime cron goes quiet,
+> check Actions → `uptime` → re-enable, not just Cloudflare.
+
 ## Optional: organiser accounts via suite auth
 
 `tournaments.organiser_id` is a ready seam for a real Supabase-Auth organiser

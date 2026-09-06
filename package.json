@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check": "tsc --noEmit && eslint && vitest run"
+    "check": "tsc --noEmit && eslint && vitest run",
+    "uptime": "node scripts/probe.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
