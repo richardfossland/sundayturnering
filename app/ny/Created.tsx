@@ -43,9 +43,11 @@ export function Created({
           <Link href={`/kontroll?code=${result.control_code}`} className="btn btn-block">
             {no.landing.controlCta}
           </Link>
+          {/* Same link the board's QR points at: the phone view with
+              tap-to-cheer (/se), not the projector layout (/live). */}
           <CopyLink
             label="📣 Del følge-lenke (publikum)"
-            value={`${base}/live/${result.id}`}
+            value={`${base}/se/${result.id}`}
           />
         </div>
       </div>
