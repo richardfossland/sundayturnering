@@ -102,7 +102,7 @@ describe("POST /api/match/lock — status side effects", () => {
   it("unlock WITH revert demotes the lock-promoted match back to scheduled", async () => {
     matchRow = makeMatch({ status: "live", locked_by: "d1|Bane 1" });
     await lock({ action: "unlock", revert: true });
-    expect(patches).toEqual([{ locked_by: null, status: "scheduled" }]);
+    expect(patches).toEqual([{ locked_by: null, status: "scheduled", result: null }]);
   });
 
   it("unlock WITHOUT revert only releases the lock — a started match stays live", async () => {

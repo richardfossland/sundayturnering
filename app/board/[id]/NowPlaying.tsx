@@ -90,11 +90,24 @@ function Versus({
   const a = m.away_team_id ? teams.get(m.away_team_id) : null;
   const r = m.result ? resolve(scoring.profile, m.result) : null;
 
+  // Sets profile: the tally is sets won; the running set scores (from the live
+  // feed or the final result) go on a line beneath.
+  const setLine =
+    scoring.profile === "sets" && m.result && "sets" in m.result
+      ? m.result.sets.map(([hs, as]) => `${hs}–${as}`).join("  ·  ")
+      : null;
   return (
-    <div className="versus">
-      <Side team={h} score={r?.homeScore} compact={compact} />
-      <span className="versus-mid">{no.common.vs}</span>
-      <Side team={a} score={r?.awayScore} compact={compact} right />
+    <div className="stack" style={{ gap: 6, alignItems: "center" }}>
+      <div className="versus">
+        <Side team={h} score={r?.homeScore} compact={compact} />
+        <span className="versus-mid">{no.common.vs}</span>
+        <Side team={a} score={r?.awayScore} compact={compact} right />
+      </div>
+      {setLine && (
+        <div className="versus-sets" style={{ fontSize: compact ? ".85rem" : "1.1rem" }}>
+          {setLine}
+        </div>
+      )}
     </div>
   );
 }

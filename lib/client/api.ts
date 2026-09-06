@@ -103,6 +103,22 @@ export const api = {
     });
   },
 
+  /** Interim score pushed to the board while the match is live (not a result;
+   * the final save still goes through submitResult). */
+  liveScore(
+    matchId: string,
+    result: MatchResult,
+    device: { deviceId: string },
+    controlCode: string,
+  ) {
+    return post<{ ok: true; result: MatchResult }>("/api/match/live", {
+      matchId,
+      result,
+      deviceId: device.deviceId,
+      controlCode,
+    });
+  },
+
   /** Referee self-correct of their own just-saved result (grace window). */
   correct(
     matchId: string,

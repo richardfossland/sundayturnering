@@ -2,6 +2,7 @@ import { ok, fail, readJson } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { advanceToPlayoff } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
+import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
 
 // POST /api/organiser/advance — build the playoff bracket from league standings.
@@ -25,6 +26,6 @@ export async function POST(req: Request) {
       detail: (e as Error).message,
     });
   }
-  await broadcast(channels.tournament(t.id), events.structure, {});
+  defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "advance");
   return ok({ ok: true });
 }

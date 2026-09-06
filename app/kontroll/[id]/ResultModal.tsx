@@ -38,6 +38,41 @@ export function ResultModal({
   const [version, setVersion] = useState(match.result_version);
   const [submitting, setSubmitting] = useState(false);
   const [lockedByOther, setLockedByOther] = useState<string | null>(null);
+  // Live score: debounce the referee's taps, skip unchanged pushes, and stop
+  // once the final result is being saved. Only for a fresh entry on a live
+  // match — a self-correct of a finished match must not flip it back.
+  const liveEnabled =
+    mode === "new" &&
+    (tournament.scoring.profile === "simple" || tournament.scoring.profile === "sets");
+  const [liveState, setLiveState] = useState<"idle" | "sent" | "off">("idle");
+  const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLive = useRef<string>("");
+  const submittingRef = useRef(false);
+  useEffect(
+    () => () => {
+      if (liveTimer.current) clearTimeout(liveTimer.current);
+    },
+    [],
+  );
+  function pushLive(result: MatchResult) {
+    if (!liveEnabled || submittingRef.current) return;
+    const key = JSON.stringify(result);
+    if (key === lastLive.current) return;
+    if (liveTimer.current) clearTimeout(liveTimer.current);
+    liveTimer.current = setTimeout(() => {
+      liveTimer.current = null;
+      if (submittingRef.current) return;
+      lastLive.current = key;
+      api
+        .liveScore(match.id, result, { deviceId }, controlCode)
+        .then(() => setLiveState("sent"))
+        .catch((e) => {
+          // A stale/expired code → parent re-prompts. Anything else (the match
+          // finished under us, network) just stops the live feed quietly.
+          if (!onAuthError?.(e)) setLiveState("off");
+        });
+    }, 400);
+  }
   // Did OUR lock move the match scheduled → live? Only then does closing the
   // modal without a result put it back — a match started with "Start kamp"
   // stays live on the board.
@@ -97,6 +132,11 @@ export function ResultModal({
 
   async function submit(result: MatchResult) {
     setSubmitting(true);
+    submittingRef.current = true;
+    if (liveTimer.current) {
+      clearTimeout(liveTimer.current);
+      liveTimer.current = null;
+    }
     try {
       const device = { deviceId, deviceName };
       if (correcting) await api.correct(match.id, version, result, device, controlCode);
@@ -109,6 +149,7 @@ export function ResultModal({
         onClose();
       } else {
         setSubmitting(false);
+        submittingRef.current = false;
       }
     }
   }
@@ -124,6 +165,12 @@ export function ResultModal({
           </h2>
           <button className="btn btn-ghost" onClick={onClose}>✕</button>
         </div>
+        {liveEnabled && liveState !== "off" && (
+          <div className="live-hint" data-sent={liveState === "sent"}>
+            <span className="dot" />
+            {no.control.liveOnBoard}
+          </div>
+        )}
 
         {lockedByOther && (
           <div className="panel" style={{ borderColor: "rgba(224,137,74,.4)" }}>
@@ -143,6 +190,7 @@ export function ResultModal({
           initial={match.result}
           onSubmit={submit}
           submitting={submitting}
+          onLive={liveEnabled ? pushLive : undefined}
         />
       </div>
     </div>

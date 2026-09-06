@@ -2273,3 +2273,34 @@ textarea {
     display: none;
   }
 }
+
+/* Live-score hint in the result modal (the running score is on the board). */
+.live-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--txt-dim);
+}
+.live-hint .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--txt-dim);
+  opacity: 0.5;
+}
+.live-hint[data-sent="true"] .dot {
+  background: var(--gold);
+  opacity: 1;
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.55; }
+}
+.versus-sets {
+  color: var(--txt-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+

@@ -213,6 +213,7 @@ export const no = {
     editJustSaved: "Endre",
     editWindowGone: "Tidsvinduet er utløpt — be arrangøren om å endre.",
     codeRejected: "Kontrollkoden ble avvist — tast den på nytt.",
+    liveOnBoard: "Stillingen vises live på tavla mens du taster",
 
     organiser: "Arrangør",
     organiserCode: "Arrangørkode",
