@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTournament } from "@/lib/client/useTournament";
 import { QRCode } from "@/lib/client/QRCode";
 import { no } from "@/lib/locale/no";
@@ -29,18 +29,13 @@ export function BoardClient({
   spectator?: boolean;
 }) {
   const [flash, setFlash] = useState(false);
-  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (flashTimer.current) clearTimeout(flashTimer.current);
-  }, []);
   const [wallRef, wall] = useReactionWall();
   const { state, error } = useTournament(id, 15_000, (event, payload) => {
     // Celebrate a freshly entered result: chime + a brief, subtle border flash.
     if (event === events.matchUpdated) {
       playDing();
       setFlash(true);
-      if (flashTimer.current) clearTimeout(flashTimer.current);
-      flashTimer.current = setTimeout(() => setFlash(false), 450);
+      setTimeout(() => setFlash(false), 450);
     }
     // Spectator cheer → float emoji on the board (no refetch, see useTournament).
     if (event === events.reaction) wallRef.current?.push(payload);
