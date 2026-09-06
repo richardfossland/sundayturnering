@@ -30,15 +30,20 @@ export function BoardClient({
 }) {
   const [flash, setFlash] = useState(false);
   const [wallRef, wall] = useReactionWall();
-  const { state, error } = useTournament(id, 15_000, (event, payload) => {
-    // Celebrate a freshly entered result: chime + a brief, subtle border flash.
-    if (event === events.matchUpdated) {
-      playDing();
-      setFlash(true);
-      setTimeout(() => setFlash(false), 450);
-    }
-    // Spectator cheer → float emoji on the board (no refetch, see useTournament).
-    if (event === events.reaction) wallRef.current?.push(payload);
+  const { state, error } = useTournament(id, {
+    // Public /live boards may be many; spread their refetches. The organiser's
+    // own board wants the result the moment it lands.
+    jitterMs: spectator ? 1500 : 0,
+    onEvent: (event, payload) => {
+      // Celebrate a freshly entered result: chime + a brief, subtle border flash.
+      if (event === events.matchUpdated) {
+        playDing();
+        setFlash(true);
+        setTimeout(() => setFlash(false), 450);
+      }
+      // Spectator cheer → float emoji on the board (no refetch, see useTournament).
+      if (event === events.reaction) wallRef.current?.push(payload);
+    },
   });
   const [showCodes, setShowCodes] = useState(false);
 
