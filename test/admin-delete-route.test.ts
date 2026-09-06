@@ -33,7 +33,7 @@ vi.mock("@/lib/server/store", () => ({
 // Allowlist: only this email is an admin (TURNERING_ADMIN_EMAILS).
 process.env.TURNERING_ADMIN_EMAILS = "owner@example.com";
 
-import { DELETE } from "@/app/api/tournament/[id]/route";
+import { GET, DELETE } from "@/app/api/tournament/[id]/route";
 
 const ID = "11111111-1111-1111-1111-111111111111";
 const OWNER_ID = "owner-uid";
@@ -122,5 +122,26 @@ describe("DELETE /api/tournament/[id]", () => {
     const res = await call();
     expect(res.status).toBe(200);
     expect(deleted).toEqual([ID]);
+  });
+
+  it("400 ugyldig_id for a malformed id, before touching auth or the DB", async () => {
+    currentUser = { id: OWNER_ID, email: "owner@example.com" };
+    const res = await DELETE(
+      new Request("http://localhost/api/tournament/not-a-uuid", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "not-a-uuid" }) },
+    );
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "ugyldig_id" });
+    expect(deleted).toHaveLength(0);
+  });
+});
+
+describe("GET /api/tournament/[id]", () => {
+  it("404 finnes_ikke for a malformed id, before touching the DB", async () => {
+    const res = await GET(new Request("http://localhost/api/tournament/not-a-uuid"), {
+      params: Promise.resolve({ id: "not-a-uuid" }),
+    });
+    expect(res.status).toBe(404);
+    await expect(res.json()).resolves.toEqual({ error: "finnes_ikke" });
   });
 });

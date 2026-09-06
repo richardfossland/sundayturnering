@@ -1,4 +1,4 @@
-import { ok, fail } from "@/lib/server/http";
+import { ok, fail, isUuid } from "@/lib/server/http";
 import { getTournament, getState, db } from "@/lib/server/store";
 import { requireOwnedTournament, authFail } from "@/lib/server/auth";
 
@@ -9,6 +9,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  // A malformed id (slug, empty, SQL-ish input) can never match a row — reject
+  // it before spending a PostgREST round-trip. Same outcome (404) as "no such
+  // tournament" so this stays indistinguishable from a real miss.
+  if (!isUuid(id)) return fail(404, "finnes_ikke");
   const t = await getTournament(id);
   if (!t) return fail(404, "finnes_ikke");
   const state = await getState(t);
@@ -27,6 +31,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  // Same short-circuit as GET, but 400: a DELETE with a malformed id is a
+  // caller bug (a real miss is 404, via requireOwnedTournament below), and
+  // matches the existing `ugyldig_id` code requireOwnedTournament already
+  // uses for a non-string id.
+  if (!isUuid(id)) return fail(400, "ugyldig_id");
   try {
     await requireOwnedTournament(id);
     await db().from("tournaments").delete().eq("id", id);
