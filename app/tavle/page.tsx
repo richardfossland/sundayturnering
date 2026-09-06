@@ -38,9 +38,9 @@ export default function BoardEntry() {
           onKeyDown={(e) => e.key === "Enter" && go()}
         />
         {err && <div className="toast-danger" style={{ fontSize: ".9rem" }}>{err}</div>}
-        <button className="btn btn-gold btn-block btn-lg" onClick={go} disabled={busy}>
+        <button className="btn btn-gold btn-block btn-lg" onClick={go} disabled={busy || !code.trim()}>
           {busy ? <span className="spin" /> : null}
-          {no.board.standings}
+          {no.landing.boardCta}
         </button>
       </div>
     </main>

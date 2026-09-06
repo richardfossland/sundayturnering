@@ -33,6 +33,23 @@ Then walk `docs/RIG-TEST.md` (two phones + a projector tab).
 
 ## 3. Build + deploy the Worker
 
+From a clone that holds `.env.local` (Supabase URL/anon key, base URL) and
+`.env.production.local` (Sunday Account issuer + admin allowlist) — both are
+gitignored — the whole deploy is:
+
+```bash
+set -a && . ./.env.local && . ./.env.production.local && set +a \
+  && npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy
+```
+
+Then smoke it: `BASE=https://turnering.sundaysuite.app node scripts/smoke.mjs`
+(the seed route is 404 in production, so only the reachability checks run) and
+`curl -s https://turnering.sundaysuite.app/api/health?db=1`. A bad deploy is
+one command away from the previous version: `npx wrangler rollback`.
+
+> **A release on GitHub is not a release to users.** Nothing deploys `main`
+> automatically; the Worker only changes when someone runs the command above.
+
 ```bash
 # NEXT_PUBLIC_* are inlined at build time → .env.local must hold the real
 # Supabase URL/anon key BEFORE building.

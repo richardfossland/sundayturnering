@@ -7,7 +7,7 @@ import { teamMap, liveMatches, upcoming } from "@/lib/client/view";
 import { reactionEmoji } from "@/lib/realtime";
 import type { ReactionKind } from "@/lib/realtime";
 import { no } from "@/lib/locale/no";
-import { Standings } from "@/app/board/[id]/Standings";
+import { Standings, GroupStandings } from "@/app/board/[id]/Standings";
 import type { Court, Match, Team } from "@/lib/types";
 
 const BUTTONS: { kind: ReactionKind; label: string }[] = [
@@ -35,7 +35,9 @@ export function SpectatorClient({ id }: { id: string }) {
       </main>
     );
 
-  const { tournament, matches, standings, courts } = state;
+  const { tournament, matches, standings, groupStandings, courts } = state;
+  const showDraw =
+    tournament.scoring.profile === "simple" && tournament.scoring.allowDraw;
   const live = liveMatches(matches);
   const next = upcoming(matches, 4);
   const finished = tournament.status === "finished";
@@ -97,13 +99,14 @@ export function SpectatorClient({ id }: { id: string }) {
 
       <section className="card card-pad">
         <div className="section-title">{no.spectator.standings}</div>
-        <Standings
-          standings={standings}
-          teams={teams}
-          showDraw={
-            tournament.scoring.profile === "simple" && tournament.scoring.allowDraw
-          }
-        />
+        {groupStandings && groupStandings.length > 0 ? (
+          // Gruppespill: the flat `standings` merges every group into one
+          // table (teams that never meet ranked against each other) — show
+          // the per-group tables the board shows instead.
+          <GroupStandings groups={groupStandings} teams={teams} showDraw={showDraw} />
+        ) : (
+          <Standings standings={standings} teams={teams} showDraw={showDraw} />
+        )}
       </section>
     </main>
   );
