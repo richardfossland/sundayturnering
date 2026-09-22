@@ -13,6 +13,8 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     public detail?: string,
+    /** Any other fields of the error body (e.g. `count` on a 409). */
+    public data?: Record<string, unknown>,
   ) {
     super(code);
   }
@@ -35,7 +37,7 @@ async function send<T>(
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok)
-    throw new ApiError(res.status, json.error ?? "feil", json.detail);
+    throw new ApiError(res.status, json.error ?? "feil", json.detail, json);
   return json as T;
 }
 
@@ -153,23 +155,36 @@ export const api = {
     });
   },
 
-  advance(tournamentId: string, organiserCode: string) {
+  /** 409 `uspilte_kamper` (data.count) until `force` confirms seeding from an
+   * unfinished table. */
+  advance(tournamentId: string, organiserCode: string, opts?: { force?: boolean }) {
     return post<{ ok: true }>("/api/organiser/advance", {
       tournamentId,
       organiserCode,
+      force: opts?.force,
     });
   },
+  /** 409 `neste_kamp_spilt` (data.count) when a knockout winner changes after
+   * later rounds were played; `cascade` confirms resetting them. */
   override(
     tournamentId: string,
     organiserCode: string,
     matchId: string,
     result: MatchResult,
+    opts?: { cascade?: boolean },
   ) {
     return post<{ match: Match }>("/api/organiser/override", {
       tournamentId,
       organiserCode,
       matchId,
       result,
+      cascade: opts?.cascade,
+    });
+  },
+  reopen(tournamentId: string, organiserCode: string) {
+    return post<{ ok: true; status: string }>("/api/organiser/reopen", {
+      tournamentId,
+      organiserCode,
     });
   },
   finish(tournamentId: string, organiserCode: string) {

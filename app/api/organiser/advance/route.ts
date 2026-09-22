@@ -1,6 +1,7 @@
 import { ok, fail, readJson, organiserLimit } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { advanceToPlayoff } from "@/lib/server/playoff";
+import { getMatches } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
@@ -11,15 +12,25 @@ import { channels, events } from "@/lib/realtime";
 export async function POST(req: Request) {
   const limited = organiserLimit(req);
   if (limited) return limited;
-  const body = await readJson<{ tournamentId?: string; organiserCode?: string }>(
-    req,
-  );
+  const body = await readJson<{
+    tournamentId?: string;
+    organiserCode?: string;
+    force?: boolean;
+  }>(req);
   const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode);
   if (!t) return fail(403, "feil_arrangorkode");
   if (t.format !== "league_playoff" && t.format !== "group_playoff")
     return fail(400, "ikke_sluttspillformat");
   if (t.status === "playoff" || t.status === "finished")
     return fail(409, "allerede_avansert");
+  // Seeding from an unfinished table is allowed, but only on purpose: the
+  // first call reports how many league/group matches are still unplayed.
+  if (body?.force !== true) {
+    const unplayed = (await getMatches(t.id)).filter(
+      (m) => m.phase === "league" && m.status !== "done" && m.status !== "bye",
+    ).length;
+    if (unplayed > 0) return fail(409, "uspilte_kamper", { count: unplayed });
+  }
 
   try {
     await advanceToPlayoff(t);

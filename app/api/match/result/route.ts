@@ -44,14 +44,20 @@ export async function POST(req: Request) {
   if (!t) return fail(404, "finnes_ikke");
   // Referee credential: the control code. Match ids alone are public.
   if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
+  if (t.status === "finished") return fail(409, "turnering_avsluttet");
+  // The bracket was seeded from the table; a late league result would quietly
+  // change it. (The organiser can still override.)
+  if (m.phase === "league" && t.status === "playoff")
+    return fail(409, "serien_avsluttet");
 
   // Validate against the active profile, then canonicalise (recompute sets).
-  const err = validateResult(t.scoring.profile, body.result, t.scoring);
+  // A knockout match must crown a winner: a level score needs a decider, and
+  // an abandoned (voided) result would leave the bracket unresolved.
+  const knockout = m.phase === "playoff";
+  const err = validateResult(t.scoring.profile, body.result, t.scoring, { knockout });
   if (err) return fail(422, "ugyldig_resultat", { detail: err });
-  const result = canonicaliseResult(t.scoring.profile, body.result);
-  // A knockout match must crown a winner — an abandoned (voided) result there
-  // would leave the bracket unresolved.
-  if (m.phase === "playoff" && isVoid(result))
+  const result = canonicaliseResult(t.scoring.profile, body.result, { knockout });
+  if (knockout && isVoid(result))
     return fail(422, "ugyldig_resultat", {
       detail: "Sluttspillkamper må kåre en vinner.",
     });

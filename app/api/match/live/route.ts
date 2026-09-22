@@ -27,6 +27,7 @@ export async function POST(req: Request) {
   const t = await getTournament(m.tournament_id);
   if (!t) return fail(404, "finnes_ikke");
   if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
+  if (t.status === "finished") return fail(409, "turnering_avsluttet");
   if (m.status !== "live") return fail(409, "kamp_ikke_live");
 
   const err = validateLiveResult(t.scoring.profile, body.result);

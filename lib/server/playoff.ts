@@ -4,6 +4,7 @@ import { db, getMatches, getTeams, bumpVersion } from "@/lib/server/store";
 import { buildCupMatches } from "@/lib/server/build";
 import { computeStandings, computeGroupStandings } from "@/lib/tournament/standings";
 import { seedKnockoutFromGroups } from "@/lib/tournament/groups";
+import { planDownstreamReset } from "@/lib/tournament/downstream";
 import type { Match, Tournament } from "@/lib/types";
 
 /** League/group → playoff transition (spec §7). Seed the knockout from the final
@@ -65,6 +66,70 @@ export async function advanceToPlayoff(t: Tournament): Promise<void> {
     await db().from("tournaments").update({ status: "league" }).eq("id", t.id);
     throw e;
   }
+}
+
+/** Un-finish a tournament so a result can be corrected after the champion
+ * screen showed. The prior phase is "playoff" if a knockout was ever built,
+ * otherwise "league". Guarded on status so a concurrent reopen is a no-op.
+ * Returns the status it went back to. */
+export async function reopenTournament(t: Tournament): Promise<"league" | "playoff"> {
+  const matches = await getMatches(t.id);
+  const priorStatus = matches.some((m) => m.phase === "playoff") ? "playoff" : "league";
+  await db()
+    .from("tournaments")
+    .update({ status: priorStatus })
+    .eq("id", t.id)
+    .eq("status", "finished");
+  await bumpVersion(t.id);
+  return priorStatus;
+}
+
+/** A knockout result whose WINNER changes after later rounds were played:
+ * every later match that already started goes back to 'scheduled' with its
+ * result cleared, and the slots those matches fed are blanked, so propagation
+ * can re-flow the new winner (and bronze loser). A finished tournament returns
+ * to 'playoff'. With `dryRun` nothing is written. Returns how many matches
+ * are (or would be) reset. Organiser-only — the caller confirms first. */
+export async function resetDownstream(
+  t: Tournament,
+  matchId: string,
+  opts: { dryRun?: boolean } = {},
+): Promise<number> {
+  const sb = db();
+  const [{ data: links }, matches] = await Promise.all([
+    sb
+      .from("bracket_links")
+      .select("from_match_id,to_match_id,to_slot")
+      .eq("tournament_id", t.id),
+    getMatches(t.id),
+  ]);
+  const plan = planDownstreamReset(matchId, links ?? [], matches);
+  if (opts.dryRun || plan.reset.length === 0) return plan.reset.length;
+
+  for (const id of plan.reset) {
+    const m = matches.find((x) => x.id === id);
+    if (!m) continue;
+    const { error } = await sb
+      .from("matches")
+      .update({
+        status: "scheduled",
+        result: null,
+        winner_team_id: null,
+        result_version: m.result_version + 1,
+        locked_by: null,
+        result_by: null,
+      })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+  for (const s of plan.clearSlots) {
+    const col = s.slot === "home" ? "home_team_id" : "away_team_id";
+    const { error } = await sb.from("matches").update({ [col]: null }).eq("id", s.matchId);
+    if (error) throw new Error(error.message);
+  }
+  if (t.status === "finished")
+    await sb.from("tournaments").update({ status: "playoff" }).eq("id", t.id);
+  return plan.reset.length;
 }
 
 /** After a playoff match resolves, push the winner into the next match's slot
