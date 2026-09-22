@@ -1,6 +1,6 @@
 "use client";
 
-import type { StateDTO, TournamentDTO } from "@/lib/dto";
+import type { AttachedTournamentDTO, StateDTO } from "@/lib/dto";
 import type { Match, MatchResult } from "@/lib/types";
 import type { CreateInput } from "@/lib/server/build";
 import type { OrganiserTournamentRow } from "@/lib/server/store";
@@ -56,10 +56,10 @@ export const api = {
   },
 
   attachControl(controlCode: string) {
-    return post<{ tournament: TournamentDTO }>("/api/attach", { controlCode });
+    return post<{ tournament: AttachedTournamentDTO }>("/api/attach", { controlCode });
   },
   attachBoard(boardCode: string) {
-    return post<{ tournament: TournamentDTO }>("/api/attach", { boardCode });
+    return post<{ tournament: AttachedTournamentDTO }>("/api/attach", { boardCode });
   },
 
   // ---- referee routes: every one carries the control code (the referee

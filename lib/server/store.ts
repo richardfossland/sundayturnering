@@ -35,12 +35,15 @@ export async function getTournamentByControlCode(
 export async function getTournamentByBoardCode(
   code: string,
 ): Promise<Tournament | null> {
+  // Older rows may share a board code (no unique constraint) — maybeSingle()
+  // would error on the pair and resolve neither. Newest wins.
   const { data } = await db()
     .from("tournaments")
     .select("*")
     .eq("board_code", code)
-    .maybeSingle();
-  return (data as Tournament) ?? null;
+    .order("created_at", { ascending: false })
+    .limit(1);
+  return ((data as Tournament[] | null)?.[0]) ?? null;
 }
 
 export async function getTeams(tournamentId: string): Promise<Team[]> {

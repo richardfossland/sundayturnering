@@ -1,14 +1,18 @@
 import { ok, fail, rateLimit, clientIp } from "@/lib/server/http";
 import { db } from "@/lib/server/store";
+import { sniffImage } from "@/lib/server/imageSniff";
 
 // POST /api/upload — team logo upload (multipart 'file'). Stores in the public
 // 'team-logos' bucket and returns the public URL. Used by the wizard before the
 // tournament row exists, so files land under a random path.
+//
+// The file type is decided by its bytes (sniffImage), never by the declared
+// MIME type or file name: raster only — an SVG could carry script and would be
+// served publicly from the bucket.
 const MAX_BYTES = 2_000_000; // 2 MB
-const ALLOWED = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
 
 export async function POST(req: Request) {
-  if (!rateLimit(`upload:${clientIp(req)}`, 40, 60_000))
+  if (!rateLimit(`upload:${clientIp(req)}`, 20, 60_000))
     return fail(429, "for_mange_forsok");
 
   let form: FormData;
@@ -20,14 +24,15 @@ export async function POST(req: Request) {
   const file = form.get("file");
   if (!(file instanceof File)) return fail(400, "mangler_fil");
   if (file.size > MAX_BYTES) return fail(413, "for_stor");
-  if (!ALLOWED.includes(file.type)) return fail(415, "ugyldig_filtype");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const type = sniffImage(bytes);
+  if (!type) return fail(415, "ugyldig_filtype");
 
-  const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
-  const path = `${crypto.randomUUID()}.${ext}`;
+  const path = `${crypto.randomUUID()}.${type.ext}`;
 
   const { error } = await db()
     .storage.from("team-logos")
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, bytes, { contentType: type.mime, upsert: false });
   if (error) {
     console.error("[upload]", error);
     return fail(500, "kunne_ikke_laste_opp");

@@ -11,12 +11,20 @@ const LETTERS = "ABCDEFGHJKMNPQRSTUVWXYZ"; // no I, O
 
 export type Rng = () => number; // returns [0,1)
 
+/** Default RNG: the platform CSPRNG (Workers + Node + browsers). The codes are
+ * credentials, so a predictable PRNG must not generate them. */
+export const secureRandom: Rng = () => {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return buf[0] / 0x1_0000_0000;
+};
+
 function pick(alphabet: string, rng: Rng): string {
   return alphabet[Math.floor(rng() * alphabet.length)];
 }
 
 /** 6-digit control code, e.g. "402815". Leading zeros allowed. */
-export function generateControlCode(rng: Rng = Math.random): string {
+export function generateControlCode(rng: Rng = secureRandom): string {
   let code = "";
   for (let i = 0; i < 6; i++) code += Math.floor(rng() * 10).toString();
   return code;
@@ -24,7 +32,7 @@ export function generateControlCode(rng: Rng = Math.random): string {
 
 /** Board / organiser code: 4 letters + dash + 2 letters, e.g. "KOLE-FR".
  * No ambiguous characters, no digits (visually distinct from control code). */
-export function generateWordCode(rng: Rng = Math.random): string {
+export function generateWordCode(rng: Rng = secureRandom): string {
   let head = "";
   for (let i = 0; i < 4; i++) head += pick(LETTERS, rng);
   let tail = "";
@@ -48,7 +56,7 @@ export function isValidControlCode(input: string): boolean {
 export function generateUnique(
   gen: (rng: Rng) => string,
   taken: ReadonlySet<string>,
-  rng: Rng = Math.random,
+  rng: Rng = secureRandom,
   maxTries = 50,
 ): string {
   for (let i = 0; i < maxTries; i++) {

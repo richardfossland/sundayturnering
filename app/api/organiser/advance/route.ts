@@ -1,4 +1,4 @@
-import { ok, fail, readJson } from "@/lib/server/http";
+import { ok, fail, readJson, organiserLimit } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { advanceToPlayoff } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
@@ -9,6 +9,8 @@ import { channels, events } from "@/lib/realtime";
 // Authorised by EITHER the organiser code OR a signed-in admin who owns it
 // (spec §5: stop a referee from nuking the bracket).
 export async function POST(req: Request) {
+  const limited = organiserLimit(req);
+  if (limited) return limited;
   const body = await readJson<{ tournamentId?: string; organiserCode?: string }>(
     req,
   );

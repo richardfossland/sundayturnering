@@ -28,7 +28,7 @@ export const no = {
   // pairing
   pair: {
     controlTitle: "Skriv inn kontrollkoden",
-    controlHint: "6-sifret kode fra tavla",
+    controlHint: "6-sifret kode fra arrangøren",
     deviceName: "Navn på enhet (valgfritt)",
     deviceNamePlaceholder: "F.eks. «Bane 1-dommer»",
     join: "Koble til",
@@ -37,7 +37,7 @@ export const no = {
     codeForOther: "Den koden tilhører en annen turnering.",
     reenterTitle: "Tast kontrollkoden",
     reenterHint:
-      "Kontrollkoden står på tavla. Den bekrefter at du er dommer før resultater kan registreres.",
+      "Kontrollkoden får du av arrangøren (den vises også på tavla under ⚿). Den bekrefter at du er dommer før resultater kan registreres.",
     boardCodeTitle: "Skriv inn tavlekoden",
     attached: "tilkoblet",
     devices: "Tilkoblede enheter",
@@ -199,6 +199,11 @@ export const no = {
       "Åpne tavla på en annen skjerm: gå til /tavle og tast tavlekoden.",
     codesCopy: "Kopier lenke",
     codesCopied: "Lenke kopiert!",
+    codesLocked: "Kodene er ikke lagret på denne skjermen",
+    codesLockedHint:
+      "Tast tavlekoden (står på arrangørsiden) for å vise kontrollkoden her. Den lagres på denne enheten.",
+    codesUnlock: "Vis koder",
+    codesWrongBoard: "Den tavlekoden hører til en annen turnering.",
   },
 
   // control

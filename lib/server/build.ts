@@ -61,7 +61,18 @@ export async function createTournament(
     if (!data) break;
     control_code = generateControlCode();
   }
-  const board_code = generateWordCode();
+  // board_code has no DB unique constraint (and a clash made /tavle resolve to
+  // neither tournament), so check it here the same way.
+  let board_code = generateWordCode();
+  for (let i = 0; i < 8; i++) {
+    const { data } = await sb
+      .from("tournaments")
+      .select("id")
+      .eq("board_code", board_code)
+      .limit(1);
+    if (!data?.length) break;
+    board_code = generateWordCode();
+  }
   const organiser_code = generateWordCode();
 
   const scoring = sanitiseScoring(input.scoring);

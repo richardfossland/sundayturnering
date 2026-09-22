@@ -63,6 +63,16 @@ export function rateLimit(
   return true;
 }
 
+/** Organiser actions (advance / finish / override / timer) accept a word code
+ * that could otherwise be guessed at full speed. Cap calls per IP; 30 a minute
+ * is far above what a real organiser ever does. Returns the 429 to send, or
+ * null to proceed. */
+export function organiserLimit(req: Request): Response | null {
+  return rateLimit(`organiser:${clientIp(req)}`, 30, 60_000)
+    ? null
+    : fail(429, "for_mange_forsok");
+}
+
 /** Test-only: current number of tracked rate-limit buckets. */
 export function __bucketCount(): number {
   return buckets.size;

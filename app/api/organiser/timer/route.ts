@@ -1,4 +1,4 @@
-import { ok, fail, readJson } from "@/lib/server/http";
+import { ok, fail, readJson, organiserLimit } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { db, bumpVersion } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
@@ -10,6 +10,8 @@ import { computeTimer } from "@/lib/tournament/timer";
 // organiser code OR a signed-in admin who owns it.
 //   action: 'start' (durationSec) | 'add' (+60s) | 'stop'
 export async function POST(req: Request) {
+  const limited = organiserLimit(req);
+  if (limited) return limited;
   const body = await readJson<{
     tournamentId?: string;
     organiserCode?: string;

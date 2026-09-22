@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/client/api";
+import { identity } from "@/lib/client/identity";
 import { no } from "@/lib/locale/no";
 
 export default function BoardEntry() {
@@ -16,6 +17,10 @@ export default function BoardEntry() {
     setErr(null);
     try {
       const { tournament } = await api.attachBoard(code);
+      // The board's codes overlay reads these from the device — the public
+      // state endpoint doesn't carry them.
+      identity.setControlCode(tournament.id, tournament.control_code);
+      identity.setBoardCode(tournament.id, tournament.board_code ?? null);
       router.push(`/board/${tournament.id}`);
     } catch (e) {
       setErr(e instanceof ApiError ? no.pair.badCode : no.common.error);

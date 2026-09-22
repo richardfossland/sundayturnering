@@ -2,6 +2,7 @@ import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
 import { createTournament, type CreateInput } from "@/lib/server/build";
 import { getOptionalAdmin } from "@/lib/server/auth";
 import type { Format, ScoringProfileKey } from "@/lib/types";
+import { sanitiseColour, sanitiseLogoUrl } from "@/lib/server/logo";
 
 // POST /api/tournament — create a tournament from the onboarding wizard (and
 // /hurtig). This route is the seam between the wizard and lib/server/build:
@@ -87,8 +88,8 @@ export async function POST(req: Request) {
       organiserId: admin?.id ?? null,
       teams: body.teams.map((t) => ({
         name: t.name.trim().slice(0, 60),
-        colour: t.colour || "#888888",
-        logo_url: t.logo_url ?? null,
+        colour: sanitiseColour(t.colour),
+        logo_url: sanitiseLogoUrl(t.logo_url),
         members: Array.isArray(t.members)
           ? t.members.map((m) => String(m).trim()).filter(Boolean).slice(0, 40)
           : [],
