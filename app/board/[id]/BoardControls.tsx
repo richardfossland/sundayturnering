@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { setSoundEnabled, unlockAudio } from "@/lib/client/sound";
+import { useFullscreen } from "@/lib/client/useFullscreen";
 import { no } from "@/lib/locale/no";
 
 const SOUND_KEY = "turnering:sound";
 
 /**
- * One small collapsible cluster in the corner of the board, replacing the three
- * separate floating buttons (home ⌂, codes ⚿, sound 🔊) that used to compete for
- * attention. Collapsed it's a single ⋯ disc; expanded it reveals the actions.
+ * One small collapsible cluster in the corner of the board, replacing the
+ * separate floating buttons (home ⌂, fullscreen ⛶, codes ⚿, sound 🔊) that used
+ * to compete for attention. Collapsed it's a single ⋯ disc; expanded it reveals the actions.
  *
  * `onCodes` opens the existing CodesOverlay (codes are managed by the parent so
  * the overlay keeps living at the board root). Spectator boards hide the codes
@@ -27,6 +28,24 @@ export function BoardControls({
   const [open, setOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [unlocked, setUnlocked] = useState(true);
+  const fullscreen = useFullscreen();
+
+  // F toggles fullscreen on the projector (ignored while typing, e.g. the
+  // board-code field in the codes overlay).
+  const toggleFullscreen = fullscreen.toggle;
+  const canFullscreen = fullscreen.supported;
+  useEffect(() => {
+    if (!canFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "f" && e.key !== "F") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, select, [contenteditable]")) return;
+      toggleFullscreen();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canFullscreen, toggleFullscreen]);
 
   useEffect(() => {
     let v = true;
@@ -74,6 +93,17 @@ export function BoardControls({
             >
               ⌂
             </Link>
+            {fullscreen.supported && (
+              <button
+                className="board-ctl-btn"
+                onClick={fullscreen.toggle}
+                aria-label={fullscreen.active ? no.board.exitFullscreen : no.board.fullscreen}
+                aria-pressed={fullscreen.active}
+                title={`${fullscreen.active ? no.board.exitFullscreen : no.board.fullscreen} (F)`}
+              >
+                {fullscreen.active ? "🗗" : "⛶"}
+              </button>
+            )}
             {!spectator && (
               <button
                 className="board-ctl-btn"
