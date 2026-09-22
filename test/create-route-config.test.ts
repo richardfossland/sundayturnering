@@ -28,6 +28,7 @@ vi.mock("@/lib/supabase/auth-server", () => ({
 }));
 
 import { POST } from "@/app/api/tournament/route";
+import { __resetRateLimiter } from "@/lib/server/http";
 
 function teams(n: number) {
   return Array.from({ length: n }, (_, i) => ({
@@ -59,6 +60,7 @@ const scoring = {
 describe("POST /api/tournament — wizard config survives the route", () => {
   beforeEach(() => {
     captured = null;
+    __resetRateLimiter(); // create is rate-limited per IP ("local" here)
   });
 
   it("accepts group_playoff and carries groupCount/advancePerGroup/thirdPlace", async () => {
@@ -156,17 +158,55 @@ describe("POST /api/tournament — wizard config survives the route", () => {
     expect((await res.json()).error).toBe("ugyldig_format");
   });
 
-  it("clamps an out-of-range playoff size to 0", async () => {
+  // An off-size request clamps DOWN to the largest bracket that fits. It used
+  // to become 0 — a "Liga + sluttspill" whose playoff could never start
+  // (3 teams at the wizard's default of 4 sent 3).
+  it.each([
+    [6, 8, 4],
+    [3, 3, 2],
+    [4, 3, 2],
+    [8, 5, 4],
+    [16, 16, 16],
+    ["x", 8, 0],
+    [1, 8, 0],
+  ])("playoffSize %s with %i teams → %i", async (requested, teamCount, expected) => {
     await post({
       title: "x",
       sport_label: "",
       format: "league_playoff",
       scoring,
       parallelism: "sequential",
-      config: { playoffSize: 6, roundRobinDouble: false },
-      teams: teams(8),
+      config: { playoffSize: requested, roundRobinDouble: false },
+      teams: teams(teamCount),
       courts: [],
     });
-    expect(captured!.config.playoffSize).toBe(0);
+    expect(captured!.config.playoffSize).toBe(expected);
+  });
+
+  it("non-string team names and malformed courts are a 400 / cleaned, not a 500", async () => {
+    const bad = await post({
+      title: "x",
+      sport_label: "",
+      format: "league",
+      scoring,
+      parallelism: "parallel",
+      config: {},
+      teams: [{ name: 42 }, { name: "B" }],
+      courts: [],
+    });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error).toBe("lag_mangler_navn");
+
+    await post({
+      title: "x",
+      sport_label: "",
+      format: "league",
+      scoring,
+      parallelism: "parallel",
+      config: {},
+      teams: teams(2),
+      courts: [{ name: "  Hall A " }, null, { name: 7 }],
+    });
+    expect(captured!.courts).toEqual([{ name: "Hall A" }, { name: "Bane 2" }, { name: "Bane 3" }]);
   });
 });

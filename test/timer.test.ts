@@ -39,3 +39,14 @@ describe("computeTimer", () => {
     expect(Date.parse(t.endsAt!)).toBe(NOW + 60_000);
   });
 });
+
+describe("computeTimer — malformed duration from a JSON body", () => {
+  it("falls back to 10 minutes instead of throwing on NaN / strings", () => {
+    const now = Date.parse("2026-01-01T00:00:00Z");
+    for (const bad of [Number.NaN, "abc" as unknown as number, Infinity]) {
+      const t = computeTimer(null, "start", now, bad);
+      expect(t?.durationSec).toBe(600);
+    }
+    expect(computeTimer(null, "start", now, "90" as unknown as number)?.durationSec).toBe(90);
+  });
+});

@@ -14,6 +14,10 @@ export interface TemplateData {
   courtCount: number;
   courtNames: string[];
   playoffSize: 2 | 4 | 8;
+  /** Added later — absent in older saved templates. */
+  groupCount?: number;
+  advancePerGroup?: number;
+  thirdPlace?: boolean;
   teams: { name: string; colour: string; members: string[] }[];
 }
 

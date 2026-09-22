@@ -3,6 +3,7 @@ import { createTournament, type CreateInput } from "@/lib/server/build";
 import { getOptionalAdmin } from "@/lib/server/auth";
 import type { Format, ScoringProfileKey } from "@/lib/types";
 import { sanitiseColour, sanitiseLogoUrl } from "@/lib/server/logo";
+import { clampPlayoffSize } from "@/lib/tournament/playoffSize";
 
 // POST /api/tournament — create a tournament from the onboarding wizard (and
 // /hurtig). This route is the seam between the wizard and lib/server/build:
@@ -13,7 +14,6 @@ import { sanitiseColour, sanitiseLogoUrl } from "@/lib/server/logo";
 
 const FORMATS: readonly Format[] = ["league", "league_playoff", "cup", "group_playoff"];
 const PROFILES: readonly ScoringProfileKey[] = ["simple", "sets", "winner"];
-const PLAYOFF_SIZES = new Set([0, 2, 4, 8, 16]);
 
 function intOr(v: unknown, dflt: number): number {
   const n = typeof v === "number" ? v : Number(v);
@@ -47,20 +47,16 @@ export async function POST(req: Request) {
   // Upper bound: 64 teams already implies ~2016 league matches — well past any
   // real classroom event, and a guard against an accidental/DoS huge schedule.
   if (body.teams.length > 64) return fail(400, "for_mange_lag");
-  if (body.teams.some((t) => !t?.name?.trim()))
+  if (body.teams.some((t) => typeof t?.name !== "string" || !t.name.trim()))
     return fail(400, "lag_mangler_navn");
 
   // Sanitise structural config so a malformed payload can't build a broken
   // bracket or oversized schedule. Every key the wizard sets is carried through
   // (build.ts clamps the group numbers and drops what a format doesn't use).
   const cfg = body.config ?? {};
-  const rawPlayoff = intOr(cfg.playoffSize, 0);
-  const playoffSize = (PLAYOFF_SIZES.has(rawPlayoff) ? rawPlayoff : 0) as
-    | 0
-    | 2
-    | 4
-    | 8
-    | 16;
+  // Clamp DOWN to the largest bracket that fits (3 teams asking for 4 → 2);
+  // this used to silently become 0 = a "Liga + sluttspill" with no playoff.
+  const playoffSize = clampPlayoffSize(cfg.playoffSize, body.teams.length);
   const isGroup = body.format === "group_playoff";
   const groupCount = intOr(cfg.groupCount, 2);
   const advancePerGroup = intOr(cfg.advancePerGroup, 2);
@@ -94,7 +90,13 @@ export async function POST(req: Request) {
           ? t.members.map((m) => String(m).trim()).filter(Boolean).slice(0, 40)
           : [],
       })),
-      courts: (Array.isArray(body.courts) ? body.courts : []).slice(0, 32),
+      courts: (Array.isArray(body.courts) ? body.courts : [])
+        .slice(0, 32)
+        .map((c, i) => ({
+          name:
+            (typeof c?.name === "string" ? c.name.trim().slice(0, 40) : "") ||
+            `Bane ${i + 1}`,
+        })),
     });
     return ok(result);
   } catch (e) {

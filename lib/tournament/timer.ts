@@ -25,7 +25,10 @@ export function computeTimer(
   }
 
   // start
-  const dur = Math.max(10, Math.min(7200, Math.floor(durationSec ?? 600)));
+  // durationSec comes straight from a JSON body: a string or NaN used to reach
+  // new Date(NaN).toISOString() and throw (a 500).
+  const n = Number(durationSec ?? 600);
+  const dur = Math.max(10, Math.min(7200, Math.floor(Number.isFinite(n) ? n : 600)));
   return {
     endsAt: new Date(nowMs + dur * 1000).toISOString(),
     durationSec: dur,

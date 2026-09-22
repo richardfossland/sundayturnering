@@ -28,6 +28,8 @@ import type {
   ScoringProfileKey,
 } from "@/lib/types";
 import { myTournaments } from "@/lib/client/myTournaments";
+import { errorMessage } from "@/lib/locale/errors";
+import { clampGroupCount, clampPlayoffSize } from "@/lib/tournament/playoffSize";
 
 interface DraftTeam {
   name: string;
@@ -42,6 +44,8 @@ export function Wizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [creating, setCreating] = useState(false);
+  const [createErr, setCreateErr] = useState<string | null>(null);
+  const [tmplName, setTmplName] = useState<string | null>(null); // null = closed
 
   // draft
   const [title, setTitle] = useState("");
@@ -76,6 +80,9 @@ export function Wizard() {
       courtCount,
       courtNames,
       playoffSize,
+      groupCount,
+      advancePerGroup,
+      thirdPlace,
       teams: validTeams.map((t) => ({
         name: t.name.trim(),
         colour: t.colour,
@@ -84,9 +91,10 @@ export function Wizard() {
     };
   }
   function saveTemplate() {
-    const name = window.prompt("Navn på mal", title || sport || "Mal");
-    if (!name?.trim()) return;
-    setTmpls(templates.save(name.trim(), currentTemplateData()));
+    const name = tmplName?.trim();
+    if (!name) return;
+    setTmpls(templates.save(name, currentTemplateData()));
+    setTmplName(null);
   }
   function loadTemplate(t: Template) {
     const d = t.data;
@@ -98,6 +106,10 @@ export function Wizard() {
     setCourtCount(d.courtCount);
     setCourtNames(d.courtNames);
     setPlayoffSize(d.playoffSize);
+    // Older templates predate these three; keep the wizard defaults then.
+    if (d.groupCount) setGroupCount(d.groupCount);
+    if (d.advancePerGroup) setAdvancePerGroup(d.advancePerGroup);
+    setThirdPlace(!!d.thirdPlace);
     setCount(d.teams.length || 8);
     setTeams(
       rollEmblems(
@@ -195,7 +207,11 @@ export function Wizard() {
   }
 
   const validTeams = teams.filter((t) => t.name.trim());
-  const maxPlayoff = Math.min(playoffSize, validTeams.length);
+  // Derived, so removing teams after picking a size can never leave an
+  // invalid choice behind (3 teams at "4 videre" used to mean no playoff).
+  const effectivePlayoff = clampPlayoffSize(playoffSize, validTeams.length);
+  const effectiveGroups = clampGroupCount(groupCount, validTeams.length);
+  const groupsPossible = validTeams.length >= 4;
 
   function next() {
     let n = step + 1;
@@ -210,6 +226,7 @@ export function Wizard() {
 
   async function create() {
     setCreating(true);
+    setCreateErr(null);
     try {
       const result = await api.create({
         title: title.trim(),
@@ -218,10 +235,10 @@ export function Wizard() {
         scoring,
         parallelism,
         config: {
-          playoffSize: showPlayoff && !isGroup ? (Math.min(playoffSize, validTeams.length) as 2 | 4 | 8) : 0,
+          playoffSize: showPlayoff && !isGroup ? effectivePlayoff : 0,
           roundRobinDouble: false,
           thirdPlace: showStep6 ? thirdPlace : false,
-          ...(isGroup ? { groupCount, advancePerGroup } : {}),
+          ...(isGroup ? { groupCount: effectiveGroups, advancePerGroup } : {}),
         },
         teams: validTeams.map((t) => ({
           name: t.name.trim(),
@@ -238,9 +255,9 @@ export function Wizard() {
       // page reads them from there, so Back/reload can never lose them.
       myTournaments.remember({ ...result, title: title.trim() });
       router.replace(`/arrangor/${result.id}`);
-    } catch {
+    } catch (e) {
       setCreating(false);
-      alert(no.common.error);
+      setCreateErr(errorMessage(e));
     }
   }
 
@@ -269,19 +286,23 @@ export function Wizard() {
                   <span className="label">📁 Maler</span>
                   <div className="chips">
                     {tmpls.map((t) => (
-                      <span key={t.id} className="chip" style={{ cursor: "pointer" }} onClick={() => loadTemplate(t)}>
-                        {t.name}
-                        <span
-                          role="button"
-                          aria-label="Slett mal"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setTmpls(templates.remove(t.id));
-                          }}
-                          style={{ marginLeft: 8, opacity: 0.6 }}
+                      <span key={t.id} className="chip" style={{ padding: 0, display: "inline-flex" }}>
+                        <button
+                          type="button"
+                          className="chip-btn"
+                          onClick={() => loadTemplate(t)}
+                        >
+                          {t.name}
+                        </button>
+                        <button
+                          type="button"
+                          className="chip-btn"
+                          aria-label={`Slett mal ${t.name}`}
+                          onClick={() => setTmpls(templates.remove(t.id))}
+                          style={{ opacity: 0.6, paddingLeft: 0 }}
                         >
                           ✕
-                        </span>
+                        </button>
                       </span>
                     ))}
                   </div>
@@ -489,7 +510,7 @@ export function Wizard() {
                         <button
                           key={n}
                           className="chip"
-                          data-on={groupCount === n}
+                          data-on={effectiveGroups === n}
                           disabled={n * 2 > validTeams.length}
                           onClick={() => setGroupCount(n)}
                         >
@@ -513,7 +534,9 @@ export function Wizard() {
                       ))}
                     </div>
                     <span className="faint">
-                      {no.wizard.groupPreview(groupCount, advancePerGroup)}
+                      {groupsPossible
+                        ? no.wizard.groupPreview(effectiveGroups, advancePerGroup)
+                        : no.wizard.groupNeedsFour}
                     </span>
                   </div>
                 </>
@@ -522,11 +545,11 @@ export function Wizard() {
                   <label className="label">{no.wizard.playoffSize}</label>
                   <div className="chips">
                     {[2, 4, 8].map((n) => (
-                      <button key={n} className="chip" data-on={playoffSize === n} disabled={n > validTeams.length}
+                      <button key={n} className="chip" data-on={effectivePlayoff === n} disabled={n > validTeams.length}
                         onClick={() => setPlayoffSize(n as 2 | 4 | 8)}>{n}</button>
                     ))}
                   </div>
-                  <span className="faint">{no.wizard.playoffCapped(validTeams.length)} · {maxPlayoff} går videre</span>
+                  <span className="faint">{no.wizard.playoffCapped(validTeams.length)} · {effectivePlayoff} går videre</span>
                 </div>
               )}
               <label className="row" style={{ gap: 10, cursor: "pointer", marginTop: 8 }}>
@@ -545,22 +568,59 @@ export function Wizard() {
               <Summary
                 title={title} sport={sport} format={format} scoring={scoring}
                 parallelism={parallelism} courtCount={courtCount}
-                teamCount={validTeams.length} playoff={showPlayoff && !isGroup ? maxPlayoff : 0}
-                groupCount={groupCount} advancePerGroup={advancePerGroup} thirdPlace={thirdPlace}
+                teamCount={validTeams.length} playoff={showPlayoff && !isGroup ? effectivePlayoff : 0}
+                groupCount={effectiveGroups} advancePerGroup={advancePerGroup} thirdPlace={thirdPlace}
               />
-              <button className="btn btn-block" onClick={saveTemplate} disabled={validTeams.length < 2}>
-                💾 Lagre som mal
-              </button>
+              {tmplName === null ? (
+                <button
+                  className="btn btn-block"
+                  onClick={() => setTmplName(title || sport || "Mal")}
+                  disabled={validTeams.length < 2}
+                >
+                  💾 {no.wizard.saveTemplate}
+                </button>
+              ) : (
+                <div className="row">
+                  <label className="sr-only" htmlFor="tmpl-name">{no.wizard.templateName}</label>
+                  <input
+                    id="tmpl-name"
+                    className="input grow"
+                    value={tmplName}
+                    onChange={(e) => setTmplName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && saveTemplate()}
+                    placeholder={no.wizard.templateName}
+                    autoFocus
+                  />
+                  <button className="btn btn-gold" onClick={saveTemplate} disabled={!tmplName.trim()}>
+                    {no.wizard.saveTemplateDo}
+                  </button>
+                  <button className="btn btn-ghost" onClick={() => setTmplName(null)}>
+                    {no.common.cancel}
+                  </button>
+                </div>
+              )}
+              {isGroup && !groupsPossible && (
+                <div className="toast-danger" role="alert">{no.wizard.groupNeedsFour}</div>
+              )}
             </Step>
           )}
         </div>
 
+        {createErr && (
+          <div className="toast-danger" role="alert" style={{ fontSize: ".9rem" }}>
+            {createErr}
+          </div>
+        )}
         <div className="spread">
           <button className="btn btn-ghost" onClick={back} disabled={step === 1}>{no.wizard.back}</button>
           {step < TOTAL ? (
             <button className="btn btn-gold" onClick={next} disabled={!canNext}>{no.wizard.next}</button>
           ) : (
-            <button className="btn btn-gold btn-lg" onClick={create} disabled={creating || validTeams.length < 2}>
+            <button
+              className="btn btn-gold btn-lg"
+              onClick={create}
+              disabled={creating || validTeams.length < 2 || (isGroup && !groupsPossible)}
+            >
               {creating ? <span className="spin" /> : null}
               {creating ? no.wizard.creating : no.wizard.create}
             </button>
@@ -653,18 +713,28 @@ function Progress({ step, showPlayoff }: { step: number; showPlayoff: boolean })
 
 function LogoUpload({ url, onUrl }: { url: string | null; onUrl: (u: string | null) => void }) {
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   return (
-    <label style={{ cursor: "pointer" }} title="Logo">
-      <input type="file" accept="image/*" hidden disabled={busy}
+    <label style={{ cursor: "pointer", position: "relative" }} title={err ?? "Logo"}>
+      {/* Visually hidden, not display:none — keeps it reachable by keyboard. */}
+      <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={busy}
+        aria-label="Last opp logo"
         onChange={async (e) => {
           const f = e.target.files?.[0];
+          e.target.value = "";
           if (!f) return;
           setBusy(true);
+          setErr(null);
           try {
             const u = await api.uploadLogo(f);
             onUrl(u);
-          } catch { /* ignore */ } finally { setBusy(false); }
+          } catch (x) {
+            setErr(errorMessage(x));
+          } finally { setBusy(false); }
         }} />
+      {err && (
+        <span role="alert" className="logo-err">{err}</span>
+      )}
       {busy ? (
         <span className="spin" style={{ display: "inline-block" }} />
       ) : url ? (
