@@ -8,7 +8,8 @@ import { computeAwards } from "@/lib/tournament/awards";
 import { matchesCsv, standingsCsv } from "@/lib/tournament/csv";
 import { downloadText, safeFilename } from "@/lib/client/download";
 import type { StateDTO } from "@/lib/dto";
-import type { Team } from "@/lib/types";
+import type { StandingRow, Team } from "@/lib/types";
+import { groupLabel } from "@/app/board/[id]/Standings";
 
 // Printable results + diplomas. "Skriv ut / lagre PDF" uses the browser's
 // print-to-PDF (print CSS forces a clean white sheet).
@@ -127,34 +128,19 @@ export function ResultClient({ id }: { id: string }) {
         {state.standings.some((s) => s.played > 0) && (
           <section className="result-records">
             <h2 className="result-awards-title">{no.board.standings}</h2>
-            <table className="standings result-records-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th className="l">{no.board.th.team}</th>
-                  <th>{no.board.th.p}</th>
-                  <th>{no.board.th.w}</th>
-                  <th>{no.board.th.d}</th>
-                  <th>{no.board.th.l}</th>
-                  <th>{no.board.th.diff}</th>
-                  <th>{no.board.th.pts}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.standings.map((r) => (
-                  <tr key={r.team_id}>
-                    <td className="rank">{r.rank}</td>
-                    <td className="l">{byId.get(r.team_id)?.name ?? "?"}</td>
-                    <td>{r.played}</td>
-                    <td>{r.won}</td>
-                    <td>{r.drawn}</td>
-                    <td>{r.lost}</td>
-                    <td>{r.diff > 0 ? `+${r.diff}` : r.diff}</td>
-                    <td className="pts">{r.points}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {state.groupStandings && state.groupStandings.length > 0 ? (
+              // Gruppespill: one table per group. The flat `standings` ranks
+              // teams that never met against each other (the board and /se
+              // already show per-group tables).
+              state.groupStandings.map((g) => (
+                <div key={g.group_no} className="result-group">
+                  <h3 className="group-head">{groupLabel(g.group_no)}</h3>
+                  <RecordsTable rows={g.rows} byId={byId} />
+                </div>
+              ))
+            ) : (
+              <RecordsTable rows={state.standings} byId={byId} />
+            )}
           </section>
         )}
 
@@ -194,5 +180,38 @@ function TeamCrest({ team, size }: { team: Team; size: number }) {
     >
       {initials(team.name)}
     </div>
+  );
+}
+
+function RecordsTable({ rows, byId }: { rows: StandingRow[]; byId: Map<string, Team> }) {
+  return (
+    <table className="standings result-records-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th className="l">{no.board.th.team}</th>
+          <th>{no.board.th.p}</th>
+          <th>{no.board.th.w}</th>
+          <th>{no.board.th.d}</th>
+          <th>{no.board.th.l}</th>
+          <th>{no.board.th.diff}</th>
+          <th>{no.board.th.pts}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.team_id}>
+            <td className="rank">{r.rank}</td>
+            <td className="l">{byId.get(r.team_id)?.name ?? "?"}</td>
+            <td>{r.played}</td>
+            <td>{r.won}</td>
+            <td>{r.drawn}</td>
+            <td>{r.lost}</td>
+            <td>{r.diff > 0 ? `+${r.diff}` : r.diff}</td>
+            <td className="pts">{r.points}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

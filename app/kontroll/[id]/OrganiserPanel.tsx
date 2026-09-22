@@ -6,6 +6,8 @@ import { identity } from "@/lib/client/identity";
 import { ResultInput } from "@/lib/client/ResultInput";
 import { resolve } from "@/lib/tournament/scoring";
 import { no } from "@/lib/locale/no";
+import { errorMessage } from "@/lib/locale/errors";
+import { useEscape } from "@/lib/client/useEscape";
 import type { Match, MatchResult, Team } from "@/lib/types";
 import type { TournamentDTO } from "@/lib/dto";
 
@@ -44,9 +46,7 @@ export function OrganiserPanel({
       onChanged();
       return r;
     } catch (e) {
-      if (e instanceof ApiError && e.status === 403) flash(no.control.wrongOrganiserCode);
-      else if (e instanceof ApiError && e.detail) flash(e.detail);
-      else flash(no.common.error);
+      flash(errorMessage(e));
       return null;
     } finally {
       setBusy(false);
@@ -85,9 +85,11 @@ export function OrganiserPanel({
       </a>
 
       <div className="field">
-        <label className="label">{no.control.organiserCode}</label>
+        <label className="label" htmlFor="organiser-code">{no.control.organiserCode}</label>
         <input
+          id="organiser-code"
           className="input"
+          autoComplete="off"
           value={code}
           onChange={(e) => saveCode(e.target.value.toUpperCase())}
           placeholder="KODE-XX"
@@ -227,7 +229,6 @@ export function OrganiserPanel({
             setOverride(null);
             onChanged();
           }}
-          onError={(msg) => flash(msg)}
         />
       )}
     </div>
@@ -241,7 +242,6 @@ function OverrideModal({
   code,
   onClose,
   onDone,
-  onError,
 }: {
   match: Match;
   tournament: TournamentDTO;
@@ -249,9 +249,10 @@ function OverrideModal({
   code: string;
   onClose: () => void;
   onDone: () => void;
-  onError: (m: string) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  useEscape(onClose);
   const h = match.home_team_id ? teams.get(match.home_team_id) : null;
   const a = match.away_team_id ? teams.get(match.away_team_id) : null;
   if (!h || !a) return null;
@@ -273,24 +274,29 @@ function OverrideModal({
       }
       onDone();
     } catch (e) {
-      onError(
-        e instanceof ApiError && e.status === 403
-          ? no.control.wrongOrganiserCode
-          : e instanceof ApiError && e.detail
-            ? e.detail
-            : no.common.error,
-      );
+      setErr(errorMessage(e));
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="scrim" onClick={onClose}>
-      <div className="card card-pad modal stack" onClick={(e) => e.stopPropagation()}>
+    // Backdrop taps don't close (would discard the typed score); ✕ / Escape do.
+    <div className="scrim">
+      <div
+        className="card card-pad modal stack"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="override-modal-title"
+      >
         <div className="spread">
-          <h2 style={{ fontSize: "1.2rem" }}>{no.control.override}</h2>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
+          <h2 id="override-modal-title" style={{ fontSize: "1.2rem" }}>{no.control.override}</h2>
+          <button className="btn btn-ghost" onClick={onClose} aria-label={no.common.close}>✕</button>
         </div>
+        {err && (
+          <div className="toast-danger" role="alert" style={{ fontSize: ".9rem" }}>
+            {err}
+          </div>
+        )}
         <ResultInput
           scoring={tournament.scoring}
           home={h}

@@ -54,7 +54,7 @@ export const no = {
       "Kodene er lagret på denne enheten. Du finner siden igjen under «Mine turneringer» på forsiden.",
     openBoard: "🖥 Åpne tavla på storskjerm",
     boardOpened:
-      "Tavla er åpnet i et eget vindu. Dra vinduet over til projektoren — denne siden blir stående her.",
+      "Tavla er åpnet i et eget vindu. Dra det over til projektoren og trykk F (eller ⛶ i menyen) for fullskjerm — denne siden blir stående her.",
     boardBlocked: "Nettleseren stoppet det nye vinduet.",
     boardBlockedLink: "Åpne tavla i ny fane",
     control: "📱 Registrer resultater og arrangørpanel",
@@ -121,6 +121,11 @@ export const no = {
     setsBestOf: "Best av hvor mange sett?",
     allowDraw: "Tillat uavgjort?",
     points: "Poeng (seier / uavgjort / tap)",
+    pointsLabel: {
+      pointsWin: "Poeng for seier",
+      pointsDraw: "Poeng for uavgjort",
+      pointsLoss: "Poeng for tap",
+    },
 
     s4Title: "Lag",
     s4Add: "Legg til lag",
@@ -191,6 +196,8 @@ export const no = {
     groups: "Grupper",
     tbd: "Avventer",
     th: { rank: "#", team: "Lag", p: "K", w: "S", d: "U", l: "T", diff: "±", pts: "P", form: "Form" },
+    fullscreen: "Fullskjerm",
+    exitFullscreen: "Avslutt fullskjerm",
     codesBtn: "Koder og lenker",
     codesTitle: "Koder og lenker",
     codesControl: "Dommere · kontroll",

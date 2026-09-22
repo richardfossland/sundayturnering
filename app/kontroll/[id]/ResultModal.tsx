@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/client/api";
 import { ResultInput } from "@/lib/client/ResultInput";
 import { no } from "@/lib/locale/no";
+import { errorMessage } from "@/lib/locale/errors";
+import { useEscape } from "@/lib/client/useEscape";
 import type { Match, MatchResult, Team } from "@/lib/types";
 import type { TournamentDTO } from "@/lib/dto";
 
@@ -38,6 +40,10 @@ export function ResultModal({
   const [version, setVersion] = useState(match.result_version);
   const [submitting, setSubmitting] = useState(false);
   const [lockedByOther, setLockedByOther] = useState<string | null>(null);
+  // Server/network failure shown in the modal (was silently swallowed, so a
+  // 422 detail or "tournament finished" never reached the referee).
+  const [err, setErr] = useState<string | null>(null);
+  useEscape(onClose);
   // Live score: debounce the referee's taps, skip unchanged pushes, and stop
   // once the final result is being saved. Only for a fresh entry on a live
   // match — a self-correct of a finished match must not flip it back.
@@ -125,8 +131,9 @@ export function ResultModal({
       promoted.current = !!p;
       setVersion(m.result_version);
       setLockedByOther(null);
-    } catch {
-      /* ignore */
+      setErr(null);
+    } catch (e) {
+      if (!onAuthError?.(e)) setErr(errorMessage(e));
     }
   }
 
@@ -137,6 +144,7 @@ export function ResultModal({
       clearTimeout(liveTimer.current);
       liveTimer.current = null;
     }
+    setErr(null);
     try {
       const device = { deviceId, deviceName };
       if (correcting) await api.correct(match.id, version, result, device, controlCode);
@@ -144,27 +152,43 @@ export function ResultModal({
       onDone();
     } catch (e) {
       if (onAuthError?.(e)) return;
-      if (e instanceof ApiError && (e.status === 409 || e.status === 403)) {
+      // Someone else changed/finished it → the parent refetches and warns.
+      if (e instanceof ApiError && (e.code === "konflikt" || e.code === "kamp_ferdig")) {
         onConflict();
         onClose();
-      } else {
-        setSubmitting(false);
-        submittingRef.current = false;
+        return;
       }
+      // Everything else stays in the modal with a real message, and the
+      // typed score is kept so the referee can fix it and retry.
+      setErr(errorMessage(e));
+      setSubmitting(false);
+      submittingRef.current = false;
     }
   }
 
   if (!h || !a) return null;
 
   return (
-    <div className="scrim" onClick={onClose}>
-      <div className="card card-pad modal stack" onClick={(e) => e.stopPropagation()}>
+    // No close on a backdrop tap: a stray tap on a phone used to throw away
+    // the score being typed. ✕ or Escape closes.
+    <div className="scrim">
+      <div
+        className="card card-pad modal stack"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="result-modal-title"
+      >
         <div className="spread">
-          <h2 style={{ fontSize: "1.3rem" }}>
+          <h2 id="result-modal-title" style={{ fontSize: "1.3rem" }}>
             {correcting ? no.control.edit : no.control.enterResult}
           </h2>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
+          <button className="btn btn-ghost" onClick={onClose} aria-label={no.common.close}>✕</button>
         </div>
+        {err && (
+          <div className="toast-danger" role="alert" style={{ fontSize: ".9rem" }}>
+            {err}
+          </div>
+        )}
         {liveEnabled && liveState !== "off" && (
           <div className="live-hint" data-sent={liveState === "sent"}>
             <span className="dot" />

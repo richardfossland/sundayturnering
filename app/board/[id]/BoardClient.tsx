@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTournament } from "@/lib/client/useTournament";
+import { useWakeLock } from "@/lib/client/useWakeLock";
 import { QRCode } from "@/lib/client/QRCode";
 import { no } from "@/lib/locale/no";
 import {
@@ -34,6 +35,8 @@ export function BoardClient({
     if (flashTimer.current) clearTimeout(flashTimer.current);
   }, []);
   const [wallRef, wall] = useReactionWall();
+  // A projector that dims or sleeps mid-tournament is the classic failure.
+  useWakeLock();
   const { state, error } = useTournament(id, {
     // Public /live boards may be many; spread their refetches. The organiser's
     // own board wants the result the moment it lands.
