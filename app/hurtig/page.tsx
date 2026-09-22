@@ -7,31 +7,26 @@ import { no } from "@/lib/locale/no";
 import { paletteColour } from "@/lib/palette";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import type { ScoringProfileKey } from "@/lib/types";
-import { Created } from "../ny/Created";
+import { myTournaments } from "@/lib/client/myTournaments";
 
 // Quick 1v1: a single knockout match (a 2-team "cup" = one final), created
 // instantly with no wizard. Reuses the standard create path + the post-create
-// codes screen (Created).
+// organiser page (/arrangor/[id]).
 export default function HurtigPage() {
   const router = useRouter();
   const [home, setHome] = useState("");
   const [away, setAway] = useState("");
   const [profile, setProfile] = useState<ScoringProfileKey>("simple");
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<{
-    id: string;
-    control_code: string;
-    board_code: string;
-    organiser_code: string;
-  } | null>(null);
 
   async function start() {
     const h = home.trim() || no.hurtig.home;
     const a = away.trim() || no.hurtig.away;
+    const title = `${h} ${no.common.vs} ${a}`;
     setBusy(true);
     try {
       const result = await api.create({
-        title: `${h} ${no.common.vs} ${a}`,
+        title,
         sport_label: "",
         format: "cup",
         scoring: defaultScoringConfig(profile),
@@ -43,15 +38,13 @@ export default function HurtigPage() {
         ],
         courts: [],
       });
-      setCreated(result);
+      myTournaments.remember({ ...result, title });
+      router.replace(`/arrangor/${result.id}`);
     } catch {
       setBusy(false);
       alert(no.common.error);
     }
   }
-
-  if (created)
-    return <Created result={created} onBoard={() => router.push(`/board/${created.id}`)} />;
 
   return (
     <main className="center-screen">
