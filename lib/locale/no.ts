@@ -121,6 +121,11 @@ export const no = {
     setsBestOf: "Best av hvor mange sett?",
     allowDraw: "Tillat uavgjort?",
     points: "Poeng (seier / uavgjort / tap)",
+    pointsLabel: {
+      pointsWin: "Poeng for seier",
+      pointsDraw: "Poeng for uavgjort",
+      pointsLoss: "Poeng for tap",
+    },
 
     s4Title: "Lag",
     s4Add: "Legg til lag",

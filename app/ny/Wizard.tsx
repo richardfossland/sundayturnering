@@ -309,12 +309,12 @@ export function Wizard() {
                 </div>
               )}
               <div className="field">
-                <label className="label">{no.wizard.s1Name}</label>
-                <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={no.wizard.s1NamePlaceholder} autoFocus />
+                <label className="label" htmlFor="w-title">{no.wizard.s1Name}</label>
+                <input id="w-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={no.wizard.s1NamePlaceholder} autoFocus />
               </div>
               <div className="field">
-                <label className="label">{no.wizard.s1Sport}</label>
-                <input className="input" value={sport} onChange={(e) => setSport(e.target.value)} placeholder={no.wizard.s1SportPlaceholder} />
+                <label className="label" htmlFor="w-sport">{no.wizard.s1Sport}</label>
+                <input id="w-sport" className="input" value={sport} onChange={(e) => setSport(e.target.value)} placeholder={no.wizard.s1SportPlaceholder} />
               </div>
               <div className="chips">
                 {no.wizard.chips.map((c) => (
@@ -351,8 +351,8 @@ export function Wizard() {
               </div>
               {scoring.profile === "sets" && (
                 <div className="field">
-                  <label className="label">{no.wizard.setsBestOf}</label>
-                  <select className="select" value={scoring.setsBestOf} onChange={(e) => setScoring({ ...scoring, setsBestOf: Number(e.target.value) })}>
+                  <label className="label" htmlFor="w-bestof">{no.wizard.setsBestOf}</label>
+                  <select id="w-bestof" className="select" value={scoring.setsBestOf} onChange={(e) => setScoring({ ...scoring, setsBestOf: Number(e.target.value) })}>
                     {[3, 5, 7].map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </div>
@@ -367,7 +367,8 @@ export function Wizard() {
                 <label className="label">{no.wizard.points}</label>
                 <div className="row">
                   {(["pointsWin", "pointsDraw", "pointsLoss"] as const).map((k) => (
-                    <input key={k} className="input" type="number" min={0} style={{ width: 80 }}
+                    <input key={k} className="input" type="number" min={0} max={100} style={{ width: 80 }}
+                      aria-label={no.wizard.pointsLabel[k]}
                       value={scoring[k]} onChange={(e) => setScoring({ ...scoring, [k]: Number(e.target.value) })}
                       disabled={k === "pointsDraw" && !(scoring.profile === "simple" && scoring.allowDraw)} />
                   ))}
@@ -379,9 +380,10 @@ export function Wizard() {
           {step === 4 && (
             <Step title={no.wizard.s4Title}>
               <div className="panel stack" style={{ gap: 10 }}>
-                <label className="label">{no.wizard.s4HowMany}</label>
+                <label className="label" htmlFor="w-count">{no.wizard.s4HowMany}</label>
                 <div className="row">
                   <input
+                    id="w-count"
                     className="input"
                     type="number"
                     min={2}
@@ -412,14 +414,17 @@ export function Wizard() {
                   <div className="panel" key={i} style={{ padding: 10 }}>
                     <div className="row">
                       <input type="color" value={t.colour} onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, colour: e.target.value } : x))}
-                        style={{ width: 42, height: 42, border: "none", borderRadius: 10, background: "none" }} aria-label="farge" />
+                        style={{ width: 42, height: 42, border: "none", borderRadius: 10, background: "none" }}
+                        aria-label={`Farge, lag ${i + 1}`} />
                       <input className="input grow" value={t.name} placeholder={no.wizard.s4Name}
+                        aria-label={`${no.wizard.s4Name} ${i + 1}`}
                         onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
                       <LogoUpload
                         url={t.logo_url}
                         onUrl={(u) => setTeams(teams.map((x, j) => j === i ? { ...x, logo_url: u } : x))}
                       />
-                      <button className="btn btn-ghost" onClick={() => setTeams(teams.filter((_, j) => j !== i))}>✕</button>
+                      <button className="btn btn-ghost" aria-label={`Fjern lag ${t.name || i + 1}`}
+                        onClick={() => setTeams(teams.filter((_, j) => j !== i))}>✕</button>
                     </div>
                     {t.members.length > 0 && (
                       <div className="chips" style={{ marginTop: 8 }}>
@@ -480,8 +485,8 @@ export function Wizard() {
               {parallelism === "parallel" && (
                 <>
                   <div className="field">
-                    <label className="label">{no.wizard.courtCount}</label>
-                    <input className="input" type="number" min={1} max={12} value={courtCount} style={{ width: 100 }}
+                    <label className="label" htmlFor="w-courts">{no.wizard.courtCount}</label>
+                    <input id="w-courts" className="input" type="number" min={1} max={12} value={courtCount} style={{ width: 100 }}
                       onChange={(e) => {
                         const n = Math.max(1, Math.min(12, Number(e.target.value) || 1));
                         setCourtCount(n);
@@ -491,6 +496,7 @@ export function Wizard() {
                   <div className="stack" style={{ gap: 8 }}>
                     {Array.from({ length: courtCount }, (_, i) => (
                       <input key={i} className="input" value={courtNames[i] ?? `Bane ${i + 1}`}
+                        aria-label={`${no.wizard.courtName} ${i + 1}`}
                         onChange={(e) => setCourtNames(courtNames.map((c, j) => j === i ? e.target.value : c))} />
                     ))}
                   </div>
