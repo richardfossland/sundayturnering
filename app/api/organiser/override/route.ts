@@ -1,4 +1,4 @@
-import { ok, fail, readJson } from "@/lib/server/http";
+import { ok, fail, readJson, organiserLimit } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { db, getMatch } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
@@ -16,6 +16,8 @@ import {
 // and re-propagates the bracket. Authorised by EITHER the organiser code OR a
 // signed-in admin who owns it.
 export async function POST(req: Request) {
+  const limited = organiserLimit(req);
+  if (limited) return limited;
   const body = await readJson<{
     tournamentId?: string;
     organiserCode?: string;

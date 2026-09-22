@@ -39,17 +39,33 @@ export function BoardClient({
     // own board wants the result the moment it lands.
     jitterMs: spectator ? 1500 : 0,
     onEvent: (event, payload) => {
-      // Celebrate a freshly entered result: chime + a brief, subtle border flash.
-      if (event === events.matchUpdated) {
-        playDing();
-        setFlash(true);
-        if (flashTimer.current) clearTimeout(flashTimer.current);
-        flashTimer.current = setTimeout(() => setFlash(false), 450);
-      }
       // Spectator cheer → float emoji on the board (no refetch, see useTournament).
       if (event === events.reaction) wallRef.current?.push(payload);
     },
   });
+
+  // Celebrate what the refetched STATE shows, not the broadcast itself: the
+  // realtime channel is public, so a forged match_updated must not make the
+  // projector chime. A saved result (result_version bump) → chime + a brief
+  // border flash; a goal on a live running score → chime only.
+  const sig = state ? celebrationSignature(state.matches) : null;
+  const lastSig = useRef<{ results: number; goals: number } | null>(null);
+  const resultsSig = sig?.results;
+  const goalsSig = sig?.goals;
+  useEffect(() => {
+    if (resultsSig === undefined || goalsSig === undefined) return;
+    const prev = lastSig.current;
+    lastSig.current = { results: resultsSig, goals: goalsSig };
+    if (!prev) return;
+    if (resultsSig > prev.results) {
+      playDing();
+      setFlash(true);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash(false), 450);
+    } else if (goalsSig > prev.goals) {
+      playDing();
+    }
+  }, [resultsSig, goalsSig]);
   const [showCodes, setShowCodes] = useState(false);
 
   const baseUrl =
@@ -78,8 +94,8 @@ export function BoardClient({
   const live = liveMatches(matches);
   const next = upcoming(matches, 6);
   // The on-screen QR is the READ-ONLY spectator link — anyone in the room can
-  // scan it safely. Points at /se/ (phone view + tap-to-cheer); referees join by
-  // typing the control code (shown as text).
+  // scan it safely. Points at /se/ (phone view + tap-to-cheer); referees get
+  // the control code from the organiser or the ⚿ codes overlay.
   const followUrl = `${baseUrl}/se/${tournament.id}`;
 
   // Commentator stays mounted in a stable tree position across the league →
@@ -96,7 +112,7 @@ export function BoardClient({
       {wall}
       {showCodes && !spectator && (
         <CodesOverlay
-          tournament={tournament}
+          tournamentId={tournament.id}
           baseUrl={baseUrl}
           onClose={() => setShowCodes(false)}
         />
@@ -115,8 +131,9 @@ export function BoardClient({
             <div className="board-qr-label">{no.board.follow}</div>
           </div>
         ) : (
-          // Full codes live in the CodesOverlay (⚿ in the controls cluster); the
-          // header keeps just the scannable follow QR + a compact code chip.
+          // The control code is NOT on the projector by default — anyone in the
+          // room could read it and enter results. The header keeps just the
+          // read-only follow QR; the codes live behind ⚿ (CodesOverlay).
           <button
             className="board-code-chip"
             onClick={() => setShowCodes(true)}
@@ -126,10 +143,6 @@ export function BoardClient({
               <QRCode value={followUrl} size={88} />
               <div className="board-qr-label">{no.board.follow}</div>
             </div>
-            <span className="board-code-mini">
-              <span className="board-code-mini-label">{no.board.controlCode}</span>
-              <span className="board-code-mini-val">{tournament.control_code}</span>
-            </span>
           </button>
         )}
       </header>
@@ -191,4 +204,19 @@ function NextRow({
       {court && <span className="next-court">{court.name}</span>}
     </div>
   );
+}
+
+/** Monotonic counters the board celebrates on: total result_version across
+ * matches (bumps on every save/override/correction) and total goals on live
+ * running scores. */
+function celebrationSignature(matches: Match[]): { results: number; goals: number } {
+  let results = 0;
+  let goals = 0;
+  for (const m of matches) {
+    results += m.result_version ?? 0;
+    const r = m.result as { home?: unknown; away?: unknown } | null;
+    if (m.status === "live" && r && typeof r.home === "number" && typeof r.away === "number")
+      goals += r.home + r.away;
+  }
+  return { results, goals };
 }

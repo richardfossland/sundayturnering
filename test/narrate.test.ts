@@ -8,8 +8,6 @@ import type { Match, StandingRow, Team } from "@/lib/types";
 function tournament(over: Partial<TournamentDTO> = {}): TournamentDTO {
   return {
     id: "t1",
-    control_code: "111111",
-    board_code: "222222",
     title: "Cup",
     sport_label: "Fotball",
     format: "league_playoff",

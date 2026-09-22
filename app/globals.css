@@ -193,6 +193,18 @@ textarea {
 }
 
 /* ============ layout primitives ============ */
+/* visible to screen readers only (labels for inputs with a visual caption) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .wrap {
   width: 100%;
   max-width: var(--maxw);
@@ -1913,8 +1925,8 @@ textarea {
   }
 }
 
-/* compact header chip (follow QR + small control-code) — the full code card is
-   in CodesOverlay, so the header stays clean. */
+/* compact header chip (follow QR only) — the codes are in CodesOverlay (⚿),
+   never on the projector by default. */
 .board-code-chip {
   display: flex;
   align-items: center;
@@ -1932,27 +1944,6 @@ textarea {
   transform: scale(1.02);
   background: var(--s-hover);
 }
-.board-code-mini {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  text-align: left;
-}
-.board-code-mini-label {
-  font-size: 0.64rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--txt-dim);
-}
-.board-code-mini-val {
-  font-family: var(--mono);
-  font-size: clamp(1.1rem, 1.8vw, 1.5rem);
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  color: var(--gold-ink);
-  line-height: 1.05;
-}
-
 /* one-time "tap for sound" prompt on the board */
 .sound-hint {
   position: fixed;
