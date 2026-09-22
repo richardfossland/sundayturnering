@@ -9,6 +9,7 @@ const DEVICE_NAME = "turnering:deviceName";
 const ORG_CODE = (id: string) => `turnering:org:${id}`;
 const PINNED_COURT = (id: string) => `turnering:court:${id}`;
 const CONTROL_CODE = (id: string) => `turnering:ctl:${id}`;
+const BOARD_CODE = (id: string) => `turnering:board:${id}`;
 
 function rid(): string {
   try {
@@ -52,7 +53,8 @@ export const identity = {
   },
   setOrganiserCode(id: string, code: string) {
     try {
-      localStorage.setItem(ORG_CODE(id), code);
+      if (code) localStorage.setItem(ORG_CODE(id), code);
+      else localStorage.removeItem(ORG_CODE(id));
     } catch {}
   },
   /** The six-digit control code this device attached with, per tournament.
@@ -69,6 +71,29 @@ export const identity = {
     try {
       if (code) localStorage.setItem(CONTROL_CODE(id), code);
       else localStorage.removeItem(CONTROL_CODE(id));
+    } catch {}
+  },
+  /** The word board code for a tournament this device created or reopened via
+   * /tavle. Held so the board can show its codes overlay (the public state
+   * endpoint never carries them). */
+  boardCode(id: string): string | null {
+    try {
+      return localStorage.getItem(BOARD_CODE(id));
+    } catch {
+      return null;
+    }
+  },
+  setBoardCode(id: string, code: string | null) {
+    try {
+      if (code) localStorage.setItem(BOARD_CODE(id), code);
+      else localStorage.removeItem(BOARD_CODE(id));
+    } catch {}
+  },
+  /** Remove every per-tournament key this device holds. */
+  forget(id: string) {
+    try {
+      for (const key of [ORG_CODE(id), CONTROL_CODE(id), BOARD_CODE(id), PINNED_COURT(id)])
+        localStorage.removeItem(key);
     } catch {}
   },
   pinnedCourt(id: string): string | null {

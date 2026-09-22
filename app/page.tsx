@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { no } from "@/lib/locale/no";
+import { MyTournaments } from "./MyTournaments";
 
 export default function Home() {
   return (
@@ -31,6 +32,7 @@ export default function Home() {
             {no.landing.boardCta}
           </Link>
         </div>
+        <MyTournaments />
       </div>
     </main>
   );

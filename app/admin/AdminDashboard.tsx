@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { identity } from "@/lib/client/identity";
+import { boardPath, openBoardWindow } from "@/lib/client/boardWindow";
 import { api, ApiError } from "@/lib/client/api";
 import { createAuthBrowserClient } from "@/lib/supabase/auth-browser";
 import { no } from "@/lib/locale/no";
@@ -144,7 +145,12 @@ export function AdminDashboard({
                     <div className="btn-row">
                       <button
                         className="btn"
-                        onClick={() => router.push(`/board/${t.id}`)}
+                        onClick={() => {
+                          // Board codes overlay reads them from this device.
+                          identity.setControlCode(t.id, t.control_code);
+                          identity.setBoardCode(t.id, t.board_code);
+                          if (!openBoardWindow(t.id)) router.push(boardPath(t.id));
+                        }}
                         type="button"
                       >
                         {no.admin.openBoard}

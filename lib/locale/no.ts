@@ -43,6 +43,39 @@ export const no = {
     devices: "Tilkoblede enheter",
   },
 
+  // organiser page (/arrangor/[id]) + "Mine turneringer" on the landing page
+  hub: {
+    eyebrow: "Arrangørside",
+    controlCode: "Kontrollkode (dommere)",
+    boardCode: "Tavlekode",
+    organiserNote:
+      "Ta vare på arrangørkoden — den kreves for å starte sluttspill, overstyre resultater og avslutte. Del bare kontrollkoden med dommerne.",
+    savedNote:
+      "Kodene er lagret på denne enheten. Du finner siden igjen under «Mine turneringer» på forsiden.",
+    openBoard: "🖥 Åpne tavla på storskjerm",
+    boardOpened:
+      "Tavla er åpnet i et eget vindu. Dra vinduet over til projektoren — denne siden blir stående her.",
+    boardBlocked: "Nettleseren stoppet det nye vinduet.",
+    boardBlockedLink: "Åpne tavla i ny fane",
+    control: "📱 Registrer resultater og arrangørpanel",
+    follow: "📣 Kopier følge-lenke (publikum)",
+    followCopied: "Lenke kopiert!",
+    results: "🏆 Resultater og diplom",
+    toLanding: "← Til forsiden",
+    copy: "trykk for å kopiere",
+    copied: "Kopiert!",
+    missingTitle: "Kodene finnes ikke på denne enheten",
+    missingBody:
+      "Kodene lagres bare på enheten som opprettet turneringen. Tavla kan åpnes med tavlekoden, og dommere kobler seg til med kontrollkoden.",
+    gone: "Turneringen finnes ikke lenger (den kan være slettet).",
+    mineTitle: "Mine turneringer",
+    mineHint: "Lagret på denne enheten",
+    untitled: "Uten tittel",
+    forget: "Glem",
+    forgetConfirm:
+      "Glemme turneringen på denne enheten? Arrangørkoden forsvinner herfra, men turneringen slettes ikke.",
+  },
+
   // wizard
   wizard: {
     title: "Ny turnering",

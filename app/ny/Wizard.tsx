@@ -27,7 +27,7 @@ import type {
   ScoringConfig,
   ScoringProfileKey,
 } from "@/lib/types";
-import { Created } from "./Created";
+import { myTournaments } from "@/lib/client/myTournaments";
 
 interface DraftTeam {
   name: string;
@@ -42,12 +42,6 @@ export function Wizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [creating, setCreating] = useState(false);
-  const [created, setCreated] = useState<{
-    id: string;
-    control_code: string;
-    board_code: string;
-    organiser_code: string;
-  } | null>(null);
 
   // draft
   const [title, setTitle] = useState("");
@@ -240,14 +234,15 @@ export function Wizard() {
             ? courtNames.slice(0, courtCount).map((name) => ({ name }))
             : [],
       });
-      setCreated(result);
+      // Codes go to device storage BEFORE leaving the wizard: the organiser
+      // page reads them from there, so Back/reload can never lose them.
+      myTournaments.remember({ ...result, title: title.trim() });
+      router.replace(`/arrangor/${result.id}`);
     } catch {
       setCreating(false);
       alert(no.common.error);
     }
   }
-
-  if (created) return <Created result={created} onBoard={() => router.push(`/board/${created.id}`)} />;
 
   const canNext = stepValid(step, { title, validTeams, courtNames, courtCount, parallelism });
 
