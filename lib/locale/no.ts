@@ -153,6 +153,10 @@ export const no = {
     groupCount: "Antall grupper",
     advancePerGroup: "Videre fra hver gruppe",
     thirdPlace: "Spill om 3.-plass (bronsefinale)",
+    groupNeedsFour: "Gruppespill trenger minst 4 lag (to grupper à to).",
+    saveTemplate: "Lagre som mal",
+    saveTemplateDo: "Lagre",
+    templateName: "Navn på mal",
     groupPreview: (groups: number, per: number) =>
       `${groups} grupper · ${per} videre fra hver → ${groups * per} i sluttspill`,
 

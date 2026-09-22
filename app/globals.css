@@ -414,6 +414,32 @@ textarea {
   font-size: 0.92rem;
   transition: all 0.15s var(--ease);
 }
+/* a chip holding two actions (template: load + delete) */
+.chip-btn {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 999px;
+}
+/* upload error shown under the team's logo button */
+.logo-err {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 2;
+  width: max-content;
+  max-width: 220px;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  background: var(--danger, #d2554d);
+  color: #fff;
+}
 .chip[data-on="true"] {
   background: var(--gold-grad);
   color: var(--on-gold);

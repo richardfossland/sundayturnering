@@ -24,9 +24,9 @@ export function sanitiseLogoUrl(
   return null;
 }
 
-const HEX = /^#[0-9a-f]{6}$/i;
+const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
-/** Team colours end up in inline styles; accept only #rrggbb. */
+/** Team colours end up in inline styles; accept only #rgb / #rrggbb. */
 export function sanitiseColour(c: unknown): string {
   return typeof c === "string" && HEX.test(c) ? c : "#888888";
 }

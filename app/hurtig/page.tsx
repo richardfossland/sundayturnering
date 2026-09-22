@@ -8,6 +8,7 @@ import { paletteColour } from "@/lib/palette";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import type { ScoringProfileKey } from "@/lib/types";
 import { myTournaments } from "@/lib/client/myTournaments";
+import { errorMessage } from "@/lib/locale/errors";
 
 // Quick 1v1: a single knockout match (a 2-team "cup" = one final), created
 // instantly with no wizard. Reuses the standard create path + the post-create
@@ -18,12 +19,14 @@ export default function HurtigPage() {
   const [away, setAway] = useState("");
   const [profile, setProfile] = useState<ScoringProfileKey>("simple");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function start() {
     const h = home.trim() || no.hurtig.home;
     const a = away.trim() || no.hurtig.away;
     const title = `${h} ${no.common.vs} ${a}`;
     setBusy(true);
+    setErr(null);
     try {
       const result = await api.create({
         title,
@@ -40,9 +43,9 @@ export default function HurtigPage() {
       });
       myTournaments.remember({ ...result, title });
       router.replace(`/arrangor/${result.id}`);
-    } catch {
+    } catch (e) {
       setBusy(false);
-      alert(no.common.error);
+      setErr(errorMessage(e));
     }
   }
 
@@ -55,7 +58,9 @@ export default function HurtigPage() {
         </div>
 
         <div className="field">
+          <label className="sr-only" htmlFor="hurtig-home">{no.hurtig.home}</label>
           <input
+            id="hurtig-home"
             className="input"
             value={home}
             onChange={(e) => setHome(e.target.value)}
@@ -65,7 +70,9 @@ export default function HurtigPage() {
         </div>
         <div className="center faint" style={{ fontWeight: 700 }}>{no.common.vs}</div>
         <div className="field">
+          <label className="sr-only" htmlFor="hurtig-away">{no.hurtig.away}</label>
           <input
+            id="hurtig-away"
             className="input"
             value={away}
             onChange={(e) => setAway(e.target.value)}
@@ -83,6 +90,11 @@ export default function HurtigPage() {
           </button>
         </div>
 
+        {err && (
+          <div className="toast-danger" role="alert" style={{ fontSize: ".9rem" }}>
+            {err}
+          </div>
+        )}
         <button className="btn btn-gold btn-lg btn-block" onClick={start} disabled={busy}>
           {busy ? <span className="spin" /> : null}
           {busy ? no.hurtig.starting : no.hurtig.start}

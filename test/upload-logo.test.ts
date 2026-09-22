@@ -42,7 +42,8 @@ describe("sanitiseLogoUrl", () => {
 });
 
 describe("sanitiseColour", () => {
-  it("accepts #rrggbb only", () => {
+  it("accepts #rgb / #rrggbb only", () => {
+    expect(sanitiseColour("#111")).toBe("#111");
     expect(sanitiseColour("#2e7cf6")).toBe("#2e7cf6");
     expect(sanitiseColour("red; background:url(x)")).toBe("#888888");
     expect(sanitiseColour(undefined)).toBe("#888888");

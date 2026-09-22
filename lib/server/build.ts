@@ -199,15 +199,17 @@ function sanitiseScoring(s: ScoringConfig): ScoringConfig {
   const base = defaultScoringConfig(s.profile);
   return {
     profile: s.profile,
-    setsBestOf: s.profile === "sets" ? (s.setsBestOf ?? base.setsBestOf) : undefined,
-    pointsWin: numOr(s.pointsWin, 3),
-    pointsDraw: numOr(s.pointsDraw, 1),
-    pointsLoss: numOr(s.pointsLoss, 0),
+    setsBestOf:
+      s.profile === "sets"
+        ? [3, 5, 7].includes(s.setsBestOf as number)
+          ? s.setsBestOf
+          : base.setsBestOf
+        : undefined,
+    pointsWin: clampInt(s.pointsWin, 0, 100, 3),
+    pointsDraw: clampInt(s.pointsDraw, 0, 100, 1),
+    pointsLoss: clampInt(s.pointsLoss, 0, 100, 0),
     allowDraw: s.profile === "simple" ? !!s.allowDraw : false,
   };
-}
-function numOr(v: unknown, d: number): number {
-  return typeof v === "number" && Number.isFinite(v) ? v : d;
 }
 
 async function buildLeagueMatches(
