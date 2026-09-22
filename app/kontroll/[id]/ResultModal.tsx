@@ -188,6 +188,7 @@ export function ResultModal({
           home={h}
           away={a}
           initial={match.result}
+          knockout={match.phase === "playoff"}
           onSubmit={submit}
           submitting={submitting}
           onLive={liveEnabled ? pushLive : undefined}

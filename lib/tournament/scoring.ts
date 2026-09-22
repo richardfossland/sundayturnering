@@ -42,8 +42,18 @@ export interface LeaguePoints {
 }
 
 const EN_DASH = "–";
+/** Upper bound for any single score/set value (the live route already capped
+ * at this; a final result had no limit). */
+export const MAX_SCORE = 999;
 
 // ---------- validation ----------
+
+/** Where a result is being entered. A knockout match must crown a winner, so
+ * a level score there needs a `decider` (penalties / extra time) instead of
+ * being a draw — a draw left the bracket with nobody to advance. */
+export interface ResultContext {
+  knockout?: boolean;
+}
 
 /** Validate a raw result object against the active profile. Returns an error
  * string (Norwegian) or null if valid. Used by the API before persisting. */
@@ -51,6 +61,7 @@ export function validateResult(
   profile: ScoringProfileKey,
   result: unknown,
   cfg: ScoringConfig,
+  ctx: ResultContext = {},
 ): string | null {
   if (result == null || typeof result !== "object")
     return "Mangler resultat.";
@@ -74,8 +85,16 @@ export function validateResult(
     if (!isInt(r.home) || !isInt(r.away)) return "Begge lag må ha et tall.";
     if ((r.home as number) < 0 || (r.away as number) < 0)
       return "Tall kan ikke være negative.";
-    if (r.home === r.away && !cfg.allowDraw)
-      return "Uavgjort er ikke tillatt i denne turneringen.";
+    if ((r.home as number) > MAX_SCORE || (r.away as number) > MAX_SCORE)
+      return "Urimelig høy score.";
+    if (r.home === r.away) {
+      if (ctx.knockout) {
+        if (r.decider !== "home" && r.decider !== "away")
+          return "Lik stilling i en utslagskamp — velg hvem som gikk videre (straffer/forlengning).";
+        return null;
+      }
+      if (!cfg.allowDraw) return "Uavgjort er ikke tillatt i denne turneringen.";
+    }
     return null;
   }
 
@@ -90,7 +109,9 @@ export function validateResult(
         !isInt(s[0]) ||
         !isInt(s[1]) ||
         s[0] < 0 ||
-        s[1] < 0
+        s[1] < 0 ||
+        s[0] > MAX_SCORE ||
+        s[1] > MAX_SCORE
       )
         return "Hvert sett må ha to gyldige tall.";
       if (s[0] === s[1]) return "Et sett kan ikke ende uavgjort.";
@@ -165,6 +186,7 @@ function isInt(v: unknown): v is number {
 export function canonicaliseResult(
   profile: ScoringProfileKey,
   raw: Record<string, unknown>,
+  ctx: ResultContext = {},
 ): MatchResult {
   if ("special" in raw) {
     const kind = raw.special as SpecialResult["special"];
@@ -172,8 +194,14 @@ export function canonicaliseResult(
       ? { special: "abandoned" }
       : { special: kind, winner: raw.winner as "home" | "away" };
   }
-  if (profile === "simple")
-    return { home: raw.home as number, away: raw.away as number };
+  if (profile === "simple") {
+    const home = raw.home as number;
+    const away = raw.away as number;
+    // decider only survives where it means something: a level knockout score.
+    return ctx.knockout && home === away && (raw.decider === "home" || raw.decider === "away")
+      ? { home, away, decider: raw.decider }
+      : { home, away };
+  }
   if (profile === "sets") {
     const sets = raw.sets as [number, number][];
     const { home, away } = countSets(sets);
@@ -214,10 +242,11 @@ export function resolve(
   }
 
   if (profile === "simple") {
-    const { home, away } = result as SimpleResult;
+    const { home, away, decider } = result as SimpleResult;
+    const decided = home === away && (decider === "home" || decider === "away");
     return {
-      winner: home > away ? "home" : away > home ? "away" : "draw",
-      display: `${home}${EN_DASH}${away}`,
+      winner: home > away ? "home" : away > home ? "away" : decided ? (decider as "home" | "away") : "draw",
+      display: `${home}${EN_DASH}${away}${decided ? " (str.)" : ""}`,
       homeScore: home,
       awayScore: away,
     };

@@ -1,6 +1,6 @@
 import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
-import { propagateResult } from "@/lib/server/playoff";
+import { propagateResult, resetDownstream } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
@@ -47,17 +47,29 @@ export async function POST(req: Request) {
   const t = await getTournament(m.tournament_id);
   if (!t) return fail(404, "finnes_ikke");
   if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
+  if (t.status === "finished") return fail(409, "turnering_avsluttet");
 
-  const err = validateResult(t.scoring.profile, body.result, t.scoring);
+  const knockout = m.phase === "playoff";
+  const err = validateResult(t.scoring.profile, body.result, t.scoring, { knockout });
   if (err) return fail(422, "ugyldig_resultat", { detail: err });
-  const result = canonicaliseResult(t.scoring.profile, body.result);
-  if (m.phase === "playoff" && isVoid(result))
+  const result = canonicaliseResult(t.scoring.profile, body.result, { knockout });
+  if (knockout && isVoid(result))
     return fail(422, "ugyldig_resultat", {
       detail: "Sluttspillkamper må kåre en vinner.",
     });
   const { winner } = resolve(t.scoring.profile, result, t.scoring);
   const winnerTeamId =
     winner === "home" ? m.home_team_id : winner === "away" ? m.away_team_id : null;
+  // A referee may not rewrite the bracket under a match that already started;
+  // that takes the organiser (override + confirm).
+  if (
+    knockout &&
+    winnerTeamId !== m.winner_team_id &&
+    (await resetDownstream(t, m.id, { dryRun: true })) > 0
+  )
+    return fail(409, "neste_kamp_spilt", {
+      detail: "Neste sluttspillkamp har allerede startet — be arrangøren endre resultatet.",
+    });
 
   const resultBy = body.deviceName
     ? `${body.deviceId}|${body.deviceName}`

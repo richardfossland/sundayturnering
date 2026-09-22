@@ -26,6 +26,9 @@ interface Props {
    * and sets profiles, never in special-result mode). The caller debounces
    * and pushes it to the board as a live score. */
   onLive?: (result: MatchResult) => void;
+  /** Knockout (playoff/cup) match: a level score is not a draw — the referee
+   * picks who went through (penalties / extra time). */
+  knockout?: boolean;
 }
 
 // A few common scorelines offered as one-tap chips (simple profile).
@@ -45,6 +48,7 @@ export function ResultInput({
   onSubmit,
   submitting,
   onLive,
+  knockout = false,
 }: Props) {
   const profile = scoring.profile;
   const initSpecial =
@@ -57,6 +61,12 @@ export function ResultInput({
   const [as, setAs] = useState<number>(
     initial && "away" in initial && !("sets" in initial) ? initial.away : 0,
   );
+
+  // simple, knockout only: who went through on a level score
+  const [decider, setDecider] = useState<"home" | "away" | null>(
+    initial && "decider" in initial ? (initial.decider ?? null) : null,
+  );
+  const level = hs === as;
 
   // sets
   const [sets, setSets] = useState<[number, number][]>(
@@ -99,7 +109,8 @@ export function ResultInput({
       if (!specialWinner) return null;
       return { special, winner: specialWinner };
     }
-    if (profile === "simple") return { home: hs, away: as };
+    if (profile === "simple")
+      return knockout && level && decider ? { home: hs, away: as, decider } : { home: hs, away: as };
     if (profile === "sets") return { sets, home: 0, away: 0 } as MatchResult;
     if (winner) return { winner };
     return null;
@@ -111,7 +122,7 @@ export function ResultInput({
       setErr(special ? no.control.pickTeam : "Velg hvem som vant.");
       return;
     }
-    const v = validateResult(profile, r, scoring);
+    const v = validateResult(profile, r, scoring, { knockout });
     if (v) {
       setErr(v);
       return;
@@ -145,13 +156,31 @@ export function ResultInput({
             >
               {no.control.reset}
             </button>
-            {scoring.allowDraw && (
+            {scoring.allowDraw && !knockout && (
               <QuickChip h={0} a={0} hs={hs} as={as} onPick={pickScore} />
             )}
             {QUICK_SCORES.map(([h, a]) => (
               <QuickChip key={`${h}-${a}`} h={h} a={a} hs={hs} as={as} onPick={pickScore} />
             ))}
           </div>
+          {knockout && level && (
+            <div className="stack" style={{ gap: 8 }} role="group" aria-label={no.control.deciderTitle}>
+              <span className="label" style={{ margin: 0 }}>
+                {no.control.deciderTitle}
+              </span>
+              <span className="faint" style={{ fontSize: ".85rem", marginTop: -4 }}>
+                {no.control.deciderHint}
+              </span>
+              <div className="bigchoice">
+                <button data-on={decider === "home"} aria-pressed={decider === "home"} onClick={() => setDecider("home")}>
+                  <TeamLabel team={home} />
+                </button>
+                <button data-on={decider === "away"} aria-pressed={decider === "away"} onClick={() => setDecider("away")}>
+                  <TeamLabel team={away} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -43,6 +43,14 @@ export interface CreateResult {
   organiser_code: string;
 }
 
+/** Every write in a build must land, or the caller's rollback (delete the
+ * tournament / revert the playoff claim) has to run. supabase-js reports a
+ * failed insert in `error` instead of throwing — ignoring it used to leave a
+ * "created" tournament with no schedule, or a playoff with no bracket. */
+function must(res: { error: { message: string } | null }, what: string): void {
+  if (res.error) throw new Error(`${what}: ${res.error.message}`);
+}
+
 /** Create a tournament: insert the row + teams + courts, then build and persist
  * the initial schedule (league round-robin, or a cup bracket). */
 export async function createTournament(
@@ -132,7 +140,7 @@ async function buildRest(
   // --- courts (parallel only) ---
   let courtIds: string[] = [];
   if (input.parallelism === "parallel" && input.courts.length > 0) {
-    const { data: crows } = await sb
+    const { data: crows, error: courtErr } = await sb
       .from("courts")
       .insert(
         input.courts.map((c, i) => ({
@@ -142,6 +150,7 @@ async function buildRest(
         })),
       )
       .select("*");
+    must({ error: courtErr }, "insert courts");
     courtIds = (crows ?? [])
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((c) => c.id as string);
@@ -225,7 +234,7 @@ async function buildLeagueMatches(
     status: (p.awayId === null ? "bye" : "scheduled") as "bye" | "scheduled",
     winner_team_id: p.awayId === null ? p.homeId : null,
   }));
-  if (rows.length) await db().from("matches").insert(rows);
+  if (rows.length) must(await db().from("matches").insert(rows), "insert league matches");
 }
 
 /** Build the group stage: split seeded teams into balanced groups, persist each
@@ -246,7 +255,8 @@ async function buildGroupMatches(
     for (const id of ids)
       updates.push(sb.from("teams").update({ group_no: g }).eq("id", id));
   });
-  await Promise.all(updates);
+  for (const res of (await Promise.all(updates)) as { error: { message: string } | null }[])
+    must(res, "set group");
 
   // Round-robin within each group; queue_order stays globally monotonic.
   let queue = 0;
@@ -275,7 +285,7 @@ async function buildGroupMatches(
       });
     }
   });
-  if (rows.length) await sb.from("matches").insert(rows);
+  if (rows.length) must(await sb.from("matches").insert(rows), "insert group matches");
 }
 
 /** Build a seeded single-elim bracket and persist matches + winner-flow links
@@ -309,7 +319,7 @@ export async function buildCupMatches(
       winner_team_id: m.winnerId,
     };
   });
-  await sb.from("matches").insert(rows);
+  must(await sb.from("matches").insert(rows), "insert bracket matches");
 
   // Read back to get ids keyed by (round, slot).
   const persisted = await getMatches(tournamentId);
@@ -332,5 +342,6 @@ export async function buildCupMatches(
       };
     })
     .filter(Boolean);
-  if (links.length) await sb.from("bracket_links").insert(links as object[]);
+  if (links.length)
+    must(await sb.from("bracket_links").insert(links as object[]), "insert bracket links");
 }

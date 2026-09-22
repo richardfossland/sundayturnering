@@ -41,6 +41,11 @@ export async function POST(req: Request) {
     return fail(409, "kamp_ferdig");
 
   const action = body.action ?? "lock";
+  // A finished tournament takes no new play; releasing a stale lock is fine.
+  if (t.status === "finished" && action !== "unlock")
+    return fail(409, "turnering_avsluttet");
+  if (m.phase === "league" && t.status === "playoff" && action !== "unlock")
+    return fail(409, "serien_avsluttet");
   const tag = body.deviceName
     ? `${body.deviceId}|${body.deviceName}`
     : body.deviceId;

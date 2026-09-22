@@ -31,6 +31,7 @@ export async function POST(req: Request) {
   // Referee credential: the control code. The tournament id is in every
   // public follow link, so it must not be enough to drive the board's clock.
   if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
+  if (t.status === "finished") return fail(409, "turnering_avsluttet");
 
   const action = body.action ?? "start";
 

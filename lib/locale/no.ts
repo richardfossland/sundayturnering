@@ -208,6 +208,14 @@ export const no = {
 
   // control
   control: {
+    deciderTitle: "Hvem gikk videre?",
+    deciderHint: "Lik stilling i en utslagskamp — velg vinneren etter straffer eller forlengning.",
+    advanceUnplayed: (n: number) =>
+      `${n} ${n === 1 ? "kamp er" : "kamper er"} ikke spilt ennå. Sluttspillet seedes fra tabellen slik den er nå, og de uspilte kampene kan ikke lenger registreres. Starte likevel?`,
+    cascadeConfirm: "Fortsette?",
+    reopen: "Gjenåpne turneringen",
+    reopenConfirm: "Gjenåpne turneringen? Tavla går tilbake fra vinnerskjermen, og resultater kan rettes.",
+    reopened: "Turneringen er gjenåpnet.",
     matches: "Kamper",
     scheduled: "Planlagt",
     live: "Spilles",

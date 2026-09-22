@@ -44,6 +44,9 @@ export interface TournamentConfig {
 export interface SimpleResult {
   home: number;
   away: number;
+  /** Knockout only: who went through on a level score (penalties / extra
+   * time). Absent in the league phase, where a level score is a draw. */
+  decider?: "home" | "away";
 }
 export interface SetsResult {
   sets: [number, number][]; // [[25,20],[23,25],...]

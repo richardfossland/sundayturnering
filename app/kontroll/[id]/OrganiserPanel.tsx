@@ -58,6 +58,7 @@ export function OrganiserPanel({
       tournament.format === "group_playoff") &&
     tournament.status === "league";
   const canFinish = tournament.status !== "finished";
+  const canReopen = tournament.status === "finished";
   const doneMatches = matches.filter((m) => m.status === "done");
 
   if (!openPanel)
@@ -103,7 +104,17 @@ export function OrganiserPanel({
             disabled={busy || !code}
             onClick={async () => {
               if (!confirm(no.control.advanceConfirm)) return;
-              const r = await guard(() => api.advance(tournament.id, code));
+              const r = await guard(async () => {
+                try {
+                  return await api.advance(tournament.id, code);
+                } catch (e) {
+                  // Unplayed league/group matches: only on purpose.
+                  if (!(e instanceof ApiError && e.code === "uspilte_kamper")) throw e;
+                  if (!confirm(no.control.advanceUnplayed(Number(e.data?.count ?? 0))))
+                    return null;
+                  return await api.advance(tournament.id, code, { force: true });
+                }
+              });
               if (r) flash(no.control.advancePlayoff);
             }}
           >
@@ -120,6 +131,19 @@ export function OrganiserPanel({
             }}
           >
             {no.control.finish}
+          </button>
+        )}
+        {canReopen && (
+          <button
+            className="btn"
+            disabled={busy || !code}
+            onClick={async () => {
+              if (!confirm(no.control.reopenConfirm)) return;
+              const r = await guard(() => api.reopen(tournament.id, code));
+              if (r) flash(no.control.reopened);
+            }}
+          >
+            {no.control.reopen}
           </button>
         )}
       </div>
@@ -235,10 +259,27 @@ function OverrideModal({
   async function submit(result: MatchResult) {
     setSubmitting(true);
     try {
-      await api.override(tournament.id, code, match.id, result);
+      try {
+        await api.override(tournament.id, code, match.id, result);
+      } catch (e) {
+        // New knockout winner after later rounds were played: say what will
+        // be reset and only then resend with cascade.
+        if (!(e instanceof ApiError && e.code === "neste_kamp_spilt")) throw e;
+        if (!confirm(`${e.detail ?? ""} ${no.control.cascadeConfirm}`.trim())) {
+          setSubmitting(false);
+          return;
+        }
+        await api.override(tournament.id, code, match.id, result, { cascade: true });
+      }
       onDone();
     } catch (e) {
-      onError(e instanceof ApiError && e.status === 403 ? no.control.wrongOrganiserCode : no.common.error);
+      onError(
+        e instanceof ApiError && e.status === 403
+          ? no.control.wrongOrganiserCode
+          : e instanceof ApiError && e.detail
+            ? e.detail
+            : no.common.error,
+      );
       setSubmitting(false);
     }
   }
@@ -255,6 +296,7 @@ function OverrideModal({
           home={h}
           away={a}
           initial={match.result}
+          knockout={match.phase === "playoff"}
           onSubmit={submit}
           submitting={submitting}
         />
