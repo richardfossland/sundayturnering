@@ -2,7 +2,7 @@
 
 Big-screen, sport-agnostic tournament manager for schools and events. One
 device runs a **board** on a projector; phones/tablets enter results as
-**control** devices. Part of the Sunday Suite — sibling to
+**control** devices. Part of the SundaySuite — sibling to
 [SundaySjakk](../sundaysjakk). Target: `turnering.sundaysuite.app`.
 
 - **Formats:** Liga (round-robin), Liga + sluttspill (round-robin → top-N
