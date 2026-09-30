@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.108.1",
-    "next": "16.3.5",
+    "@supabase/supabase-js": "^2.117.2",
+    "next": "16.3.6",
     "qrcode": "^1.5.4",
     "react": "19.3.0",
     "react-dom": "19.3.0"
@@ -29,9 +29,9 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.1",
     "esbuild": "^0.28.2",
-    "eslint": "^10.10.0",
-    "eslint-config-next": "16.3.5",
+    "eslint": "^10.11.0",
+    "eslint-config-next": "16.3.6",
     "typescript": "^5",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.2"
   }
 }
