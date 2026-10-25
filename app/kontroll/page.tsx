@@ -29,7 +29,7 @@ function AttachInner() {
       identity.setControlCode(tournament.id, c);
       router.push(`/kontroll/${tournament.id}`);
     } catch (e) {
-      setErr(e instanceof ApiError ? no.pair.badCode : no.common.error);
+      setErr(e instanceof ApiError && e.status !== 0 ? no.pair.badCode : no.common.error);
       setBusy(false);
     }
   }

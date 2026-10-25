@@ -20,6 +20,43 @@ export class ApiError extends Error {
   }
 }
 
+// A half-open connection (flaky venue wifi) never errors — fetch just hangs,
+// the Refetcher's in-flight slot stays taken and the projector board freezes
+// silently. So every call is bounded, and the bound covers the BODY read too
+// (headers can arrive and the body still stall).
+let timeoutMs = 8000;
+/** Test seam: shrink the bound so a hang can be proven without waiting 8 s. */
+export function __setFetchTimeout(ms: number): void {
+  timeoutMs = ms;
+}
+
+type JsonBody = { error?: string; detail?: string; [k: string]: unknown };
+
+/** fetch + res.json() under one timeout. Resolves { res, json } (json = {} when
+ * the body is not JSON); a timeout throws ApiError(0, "tidsavbrudd"). Other
+ * errors (network down → TypeError) propagate unchanged. */
+async function fetchJson(
+  input: string,
+  init?: RequestInit,
+): Promise<{ res: Response; json: JsonBody }> {
+  try {
+    const res = await fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+    const json = await res.json().catch((e) => {
+      // A stalled body aborts here — that must NOT be swallowed as "not JSON".
+      if (isAbort(e)) throw e;
+      return {};
+    });
+    return { res, json };
+  } catch (e) {
+    if (isAbort(e)) throw new ApiError(0, "tidsavbrudd");
+    throw e;
+  }
+}
+
+function isAbort(e: unknown): boolean {
+  return e instanceof DOMException && (e.name === "TimeoutError" || e.name === "AbortError");
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   return send<T>("POST", path, body);
 }
@@ -30,12 +67,11 @@ async function send<T>(
   path: string,
   body?: unknown,
 ): Promise<T> {
-  const res = await fetch(path, {
+  const { res, json } = await fetchJson(path, {
     method,
     headers: body === undefined ? undefined : { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const json = await res.json().catch(() => ({}));
   if (!res.ok)
     throw new ApiError(res.status, json.error ?? "feil", json.detail, json);
   return json as T;
@@ -43,9 +79,9 @@ async function send<T>(
 
 export const api = {
   async fetchState(id: string): Promise<StateDTO> {
-    const res = await fetch(`/api/tournament/${id}`, { cache: "no-store" });
+    const { res, json } = await fetchJson(`/api/tournament/${id}`, { cache: "no-store" });
     if (!res.ok) throw new ApiError(res.status, "kunne_ikke_hente");
-    return (await res.json()) as StateDTO;
+    return json as unknown as StateDTO;
   },
 
   create(input: CreateInput) {
@@ -210,16 +246,14 @@ export const api = {
   async uploadLogo(file: File): Promise<string> {
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
-    const json = await res.json().catch(() => ({}));
+    const { res, json } = await fetchJson("/api/upload", { method: "POST", body: fd });
     if (!res.ok) throw new ApiError(res.status, json.error ?? "feil");
     return json.url as string;
   },
 
   // ---- Sunday Account admin (session-gated; no organiser code needed) ----
   async listMyTournaments(): Promise<OrganiserTournamentRow[]> {
-    const res = await fetch("/api/admin/tournaments", { cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
+    const { res, json } = await fetchJson("/api/admin/tournaments", { cache: "no-store" });
     if (!res.ok) throw new ApiError(res.status, json.error ?? "feil");
     return (json.tournaments ?? []) as OrganiserTournamentRow[];
   },
