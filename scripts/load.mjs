@@ -5,13 +5,14 @@
 //   npm run dev                       # in another terminal
 //   node scripts/load.mjs [baseUrl]   # default http://localhost:3000, or BASE=…
 //
-// Env knobs: PHONES (30), UPDATES (10 per phone), LIVE_INTERVAL_MS (8000 —
-// the pace of one phone's live score pushes; 30 phones × 1 per 8 s ≈ 225/min,
-// just under the 240/min per-IP cap on /api/match/live).
+// Env knobs: PHONES (30), UPDATES (10 per phone), LIVE_INTERVAL_MS (1000 —
+// the pace of one phone's live score pushes; 30 phones × 1/s = 1800/min, under
+// the 2400/min per-IP cap on /api/match/live. Paired phones also skip the
+// failed-code lockout via their pairing token.)
 //
 // What it asserts (exit 1 on any failure):
 //   1. PHONES parallel /api/attach with the correct control code → all 200,
-//      zero 429s (the limiter allows 30/min per IP).
+//      zero 429s (attach allows 300/min per IP).
 //   2. PHONES × UPDATES /api/match/live with the correct code → all 200, zero
 //      429s (the correct-code traffic of a whole room must never be throttled).
 //   3. Two simultaneous /api/match/result on the SAME match with the same
@@ -19,12 +20,12 @@
 //
 // All requests come from this one process, i.e. one IP — exactly the school
 // scenario. Rate-limit buckets are in-memory per server process, so restart the
-// dev server between runs (the attach bucket is 30 per minute).
+// dev server between runs.
 
 const BASE = (process.argv[2] || process.env.BASE || "http://localhost:3000").replace(/\/$/, "");
 const PHONES = Number(process.env.PHONES || 30);
 const UPDATES = Number(process.env.UPDATES || 10);
-const LIVE_INTERVAL_MS = Number(process.env.LIVE_INTERVAL_MS || 8000);
+const LIVE_INTERVAL_MS = Number(process.env.LIVE_INTERVAL_MS || 1000);
 
 let failures = 0;
 const check = (name, cond, extra = "") => {
