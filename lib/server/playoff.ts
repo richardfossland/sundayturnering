@@ -34,13 +34,13 @@ export async function advanceToPlayoff(t: Tournament): Promise<void> {
     let seedIds: string[];
     if (isGroup) {
       const perGroup = t.config?.advancePerGroup ?? 2;
-      const groups = computeGroupStandings(teams, matches, t.scoring, perGroup);
+      const groups = computeGroupStandings(teams, matches, t.scoring, perGroup, t.config?.tiebreak);
       const qualifiers = groups.map((g) =>
         g.rows.slice(0, perGroup).map((r) => r.team_id),
       );
       seedIds = seedKnockoutFromGroups(qualifiers);
     } else {
-      const standings = computeStandings(teams, matches, t.scoring, size);
+      const standings = computeStandings(teams, matches, t.scoring, size, t.config?.tiebreak);
       seedIds = standings.slice(0, size).map((s) => s.team_id);
     }
     if (seedIds.length < 2) throw new Error("For få lag til sluttspill.");

@@ -9,6 +9,7 @@ import { generateRoundRobin } from "@/lib/tournament/roundRobin";
 import { buildBracket } from "@/lib/tournament/bracket";
 import { splitIntoGroups } from "@/lib/tournament/groups";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
+import { sanitiseTiebreak } from "@/lib/tournament/standings";
 import { assignSlots, sanitiseSchedule, type SlotLink } from "@/lib/tournament/schedule";
 import type {
   Format,
@@ -102,6 +103,8 @@ export async function createTournament(
   // Tidsplan er valgfri; ugyldig oppsett ignoreres (ruta avviser det først).
   const schedule = sanitiseSchedule(input.config.schedule);
   if (schedule && schedule !== "invalid") config.schedule = schedule;
+  const tiebreak = sanitiseTiebreak(input.config.tiebreak);
+  if (tiebreak && tiebreak !== "invalid" && input.format !== "cup") config.tiebreak = tiebreak;
   const status = input.format === "cup" ? "playoff" : "league";
 
   const { data: trow, error: terr } = await sb

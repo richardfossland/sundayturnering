@@ -100,6 +100,29 @@ describe("POST /api/tournament — wizard config survives the route", () => {
     });
   });
 
+  it("carries a tiebreak preset/array, and rejects unknown ones with 400", async () => {
+    const base = {
+      title: "x", sport_label: "", format: "league", scoring,
+      parallelism: "sequential", teams: teams(4), courts: [],
+    };
+    await post({ ...base, config: { playoffSize: 0, roundRobinDouble: false } });
+    expect(captured!.config).not.toHaveProperty("tiebreak");
+
+    let res = await post({ ...base, config: { playoffSize: 0, roundRobinDouble: false, tiebreak: "uefa" } });
+    expect(res.status).toBe(200);
+    expect(captured!.config.tiebreak).toBe("uefa");
+
+    res = await post({ ...base, config: { playoffSize: 0, roundRobinDouble: false, tiebreak: ["points", "h2h_diff", "name"] } });
+    expect(res.status).toBe(200);
+    expect(captured!.config.tiebreak).toEqual(["points", "h2h_diff", "name"]);
+
+    for (const bad of ["fifa", ["points", "buchholz"], [], 5]) {
+      res = await post({ ...base, config: { playoffSize: 0, roundRobinDouble: false, tiebreak: bad } });
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe("ugyldig_tiebreak");
+    }
+  });
+
   it("rejects an invalid schedule with 400", async () => {
     const res = await post({
       title: "x", sport_label: "", format: "league", scoring,
