@@ -538,6 +538,9 @@ function MatchCard({
       }}
     >
       <div className="match-teams">
+        {m.status !== "done" && matchTime(m.scheduled_at) && (
+          <span className="match-time">{matchTime(m.scheduled_at)}</span>
+        )}
         <TeamLine team={h} win={m.status === "done" && homeWon} />
         <TeamLine team={a} win={m.status === "done" && awayWon} />
       </div>

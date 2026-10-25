@@ -1,7 +1,7 @@
 "use client";
 
 import { no } from "@/lib/locale/no";
-import { initials } from "@/lib/client/view";
+import { initials, matchTime } from "@/lib/client/view";
 import { resolve } from "@/lib/tournament/scoring";
 import { BoardTimer } from "./BoardTimer";
 import type { Court, Match, ScoringConfig, Team } from "@/lib/types";
@@ -103,6 +103,9 @@ function Versus({
         <span className="versus-mid">{no.common.vs}</span>
         <Side team={a} score={r?.awayScore} compact={compact} right />
       </div>
+      {matchTime(m.scheduled_at) && (
+        <div className="match-time">{no.board.plannedAt(matchTime(m.scheduled_at)!)}</div>
+      )}
       {setLine && (
         <div className="versus-sets" style={{ fontSize: compact ? ".85rem" : "1.1rem" }}>
           {setLine}

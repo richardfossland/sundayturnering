@@ -854,6 +854,12 @@ textarea {
   color: var(--txt-faint);
   font-size: 0.85em;
 }
+.match-time {
+  color: var(--txt-faint);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.85em;
+}
 .next-court {
   margin-left: auto;
   color: var(--gold-ink);

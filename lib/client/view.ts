@@ -140,3 +140,15 @@ export function finalRanking(state: StateDTO): Team[] {
     return (a.seed ?? 99) - (b.seed ?? 99);
   });
 }
+
+/** Klokkeslett (HH:MM, norsk tid) for en planlagt kamp, eller null uten tidsplan. */
+export function matchTime(scheduledAt: string | null | undefined): string | null {
+  if (!scheduledAt) return null;
+  const d = new Date(scheduledAt);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat("nb-NO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Oslo",
+  }).format(d);
+}

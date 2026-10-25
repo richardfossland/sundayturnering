@@ -199,6 +199,7 @@ function NextRow({
   const court = courts.find((c) => c.id === m.court_id);
   return (
     <div className="next-row">
+      {matchTime(m.scheduled_at) && <span className="match-time">{matchTime(m.scheduled_at)}</span>}
       <span className="team">
         <span className="team-swatch" style={{ background: h?.colour }} />
         <span className="team-name">{h?.name ?? no.board.tbd}</span>

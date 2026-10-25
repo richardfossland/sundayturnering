@@ -59,6 +59,12 @@ export function Wizard() {
   const [groupCount, setGroupCount] = useState(2);
   const [advancePerGroup, setAdvancePerGroup] = useState(2);
   const [thirdPlace, setThirdPlace] = useState(false);
+  // Valgfri tidsplan (av som standard). Starttid i lokal tid, "YYYY-MM-DDTHH:mm".
+  const [scheduleOn, setScheduleOn] = useState(false);
+  const [startLocal, setStartLocal] = useState(defaultStartLocal);
+  const [matchMinutes, setMatchMinutes] = useState(15);
+  const [breakMinutes, setBreakMinutes] = useState(5);
+  const [minRestMinutes, setMinRestMinutes] = useState(10);
   const [teams, setTeams] = useState<DraftTeam[]>([]);
   const [bulk, setBulk] = useState("");
   const [count, setCount] = useState(8);
@@ -239,6 +245,16 @@ export function Wizard() {
           roundRobinDouble: false,
           thirdPlace: showStep6 ? thirdPlace : false,
           ...(isGroup ? { groupCount: effectiveGroups, advancePerGroup } : {}),
+          ...(scheduleOn && startLocal && !Number.isNaN(new Date(startLocal).getTime())
+            ? {
+                schedule: {
+                  startAt: new Date(startLocal).toISOString(),
+                  matchMinutes,
+                  breakMinutes,
+                  minRestMinutes,
+                },
+              }
+            : {}),
         },
         teams: validTeams.map((t) => ({
           name: t.name.trim(),
@@ -502,6 +518,26 @@ export function Wizard() {
                   </div>
                 </>
               )}
+              <div className="divider" />
+              <label className="row" style={{ gap: 10, cursor: "pointer" }}>
+                <input type="checkbox" checked={scheduleOn} onChange={(e) => setScheduleOn(e.target.checked)} />
+                <span>{no.wizard.scheduleToggle}</span>
+              </label>
+              {scheduleOn && (
+                <div className="stack" style={{ gap: 10 }}>
+                  <p className="muted">{no.wizard.scheduleBlurb}</p>
+                  <div className="field">
+                    <label className="label" htmlFor="w-start">{no.wizard.scheduleStart}</label>
+                    <input id="w-start" className="input" type="datetime-local" value={startLocal}
+                      onChange={(e) => setStartLocal(e.target.value)} />
+                  </div>
+                  <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                    <MinuteField id="w-dur" label={no.wizard.scheduleMatch} value={matchMinutes} min={1} max={240} onChange={setMatchMinutes} />
+                    <MinuteField id="w-brk" label={no.wizard.scheduleBreak} value={breakMinutes} min={0} max={120} onChange={setBreakMinutes} />
+                    <MinuteField id="w-rest" label={no.wizard.scheduleRest} value={minRestMinutes} min={0} max={480} onChange={setMinRestMinutes} />
+                  </div>
+                </div>
+              )}
             </Step>
           )}
 
@@ -750,6 +786,29 @@ function LogoUpload({ url, onUrl }: { url: string | null; onUrl: (u: string | nu
         <span className="btn btn-ghost" style={{ padding: "10px 12px" }}>🖼</span>
       )}
     </label>
+  );
+}
+
+/** Neste hele time i lokal tid, som "YYYY-MM-DDTHH:mm" (datetime-local). */
+function defaultStartLocal(): string {
+  const d = new Date();
+  d.setHours(d.getHours() + 1, 0, 0, 0);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function MinuteField({
+  id, label, value, min, max, onChange,
+}: {
+  id: string; label: string; value: number; min: number; max: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div className="field">
+      <label className="label" htmlFor={id}>{label}</label>
+      <input id={id} className="input" type="number" min={min} max={max} value={value} style={{ width: 100 }}
+        onChange={(e) => onChange(Math.max(min, Math.min(max, Math.floor(Number(e.target.value)) || min)))} />
+    </div>
   );
 }
 

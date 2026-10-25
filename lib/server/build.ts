@@ -9,9 +9,11 @@ import { generateRoundRobin } from "@/lib/tournament/roundRobin";
 import { buildBracket } from "@/lib/tournament/bracket";
 import { splitIntoGroups } from "@/lib/tournament/groups";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
+import { assignSlots, sanitiseSchedule, type SlotLink } from "@/lib/tournament/schedule";
 import type {
   Format,
   Parallelism,
+  ScheduleConfig,
   ScoringConfig,
   TournamentConfig,
   Tournament,
@@ -97,6 +99,9 @@ export async function createTournament(
         }
       : {}),
   };
+  // Tidsplan er valgfri; ugyldig oppsett ignoreres (ruta avviser det først).
+  const schedule = sanitiseSchedule(input.config.schedule);
+  if (schedule && schedule !== "invalid") config.schedule = schedule;
   const status = input.format === "cup" ? "playoff" : "league";
 
   const { data: trow, error: terr } = await sb
@@ -180,6 +185,7 @@ async function buildRest(
   if (input.format === "cup") {
     await buildCupMatches(t.id, teamIds, courtIds, {
       thirdPlace: t.config.thirdPlace,
+      schedule: t.config.schedule,
     });
   } else if (input.format === "group_playoff") {
     await buildGroupMatches(t, teamIds, courtIds);
@@ -188,6 +194,33 @@ async function buildRest(
   }
 
   return { id: t.id, control_code, board_code, organiser_code };
+}
+
+/** Sett `scheduled_at` på radene (ingen tidsplan ⇒ null, som før). `key` gir
+ * hver rad en stabil nøkkel; `links` er brakettkoblinger over de samme nøklene. */
+function withSchedule<R extends {
+  court_id: string | null;
+  queue_order: number;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  status: string;
+}>(
+  rows: R[],
+  key: (r: R, i: number) => string,
+  courtIds: string[],
+  cfg: ScheduleConfig | undefined,
+  links: SlotLink[] = [],
+  notBefore?: Date,
+): (R & { scheduled_at: string | null })[] {
+  const slots = cfg
+    ? assignSlots(
+        rows.map((r, i) => ({ ...r, id: key(r, i), status: r.status as "scheduled" })),
+        courtIds,
+        cfg,
+        { links, notBefore },
+      )
+    : new Map<string, string>();
+  return rows.map((r, i) => ({ ...r, scheduled_at: slots.get(key(r, i)) ?? null }));
 }
 
 function clampInt(v: unknown, lo: number, hi: number, dflt: number): number {
@@ -221,7 +254,7 @@ async function buildLeagueMatches(
     double: t.config.roundRobinDouble,
     courtCount: t.parallelism === "parallel" ? courtIds.length : 0,
   });
-  const rows = pairings.map((p) => ({
+  const plain = pairings.map((p) => ({
     tournament_id: t.id,
     phase: "league" as const,
     round: p.round,
@@ -236,6 +269,7 @@ async function buildLeagueMatches(
     status: (p.awayId === null ? "bye" : "scheduled") as "bye" | "scheduled",
     winner_team_id: p.awayId === null ? p.homeId : null,
   }));
+  const rows = withSchedule(plain, (_, i) => String(i), courtIds, t.config.schedule);
   if (rows.length) must(await db().from("matches").insert(rows), "insert league matches");
 }
 
@@ -262,14 +296,20 @@ async function buildGroupMatches(
 
   // Round-robin within each group; queue_order stays globally monotonic.
   let queue = 0;
-  const rows: object[] = [];
+  const plain: {
+    court_id: string | null;
+    queue_order: number;
+    home_team_id: string | null;
+    away_team_id: string | null;
+    status: "bye" | "scheduled";
+  }[] = [];
   groups.forEach((ids, g) => {
     const pairings = generateRoundRobin(ids, {
       double: t.config.roundRobinDouble,
       courtCount: t.parallelism === "parallel" ? courtIds.length : 0,
     });
     for (const p of pairings) {
-      rows.push({
+      plain.push({
         tournament_id: t.id,
         phase: "league" as const,
         round: p.round,
@@ -284,9 +324,10 @@ async function buildGroupMatches(
         away_team_id: p.awayId,
         status: p.awayId === null ? "bye" : "scheduled",
         winner_team_id: p.awayId === null ? p.homeId : null,
-      });
+      } as (typeof plain)[number]);
     }
   });
+  const rows = withSchedule(plain, (_, i) => String(i), courtIds, t.config.schedule);
   if (rows.length) must(await sb.from("matches").insert(rows), "insert group matches");
 }
 
@@ -296,14 +337,14 @@ export async function buildCupMatches(
   tournamentId: string,
   seededTeamIds: string[],
   courtIds: string[],
-  opts?: { thirdPlace?: boolean },
+  opts?: { thirdPlace?: boolean; schedule?: ScheduleConfig; notBefore?: Date },
 ): Promise<void> {
   const sb = db();
   const bracket = buildBracket(seededTeamIds, { thirdPlace: opts?.thirdPlace });
 
   // Insert matches; remember (round,slot) → queue_order so we can map ids back.
   let queue = 0;
-  const rows = bracket.matches.map((m) => {
+  const plain = bracket.matches.map((m) => {
     const courtId =
       courtIds.length > 0 && m.status !== "bye"
         ? courtIds[m.slot % courtIds.length]
@@ -321,6 +362,20 @@ export async function buildCupMatches(
       winner_team_id: m.winnerId,
     };
   });
+  // Brakettkoblingene nøkles på (runde:slot) så tidsplanen kan kjøres før insert.
+  const bracketKey = (r: { round: number; bracket_slot: number }) =>
+    `${r.round}:${r.bracket_slot}`;
+  const rows = withSchedule(
+    plain,
+    bracketKey,
+    courtIds,
+    opts?.schedule,
+    bracket.links.map((l) => ({
+      from_match_id: `${l.fromRound}:${l.fromSlot}`,
+      to_match_id: `${l.toRound}:${l.toSlot}`,
+    })),
+    opts?.notBefore,
+  );
   must(await sb.from("matches").insert(rows), "insert bracket matches");
 
   // Read back to get ids keyed by (round, slot).
