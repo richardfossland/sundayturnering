@@ -23,7 +23,7 @@ export default function BoardEntry() {
       identity.setBoardCode(tournament.id, tournament.board_code ?? null);
       router.push(`/board/${tournament.id}`);
     } catch (e) {
-      setErr(e instanceof ApiError ? no.pair.badCode : no.common.error);
+      setErr(e instanceof ApiError && e.status !== 0 ? no.pair.badCode : no.common.error);
       setBusy(false);
     }
   }

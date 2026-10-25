@@ -40,6 +40,8 @@ const MESSAGES: Record<string, string> = {
   for_sent: "Det er for sent å rette selv — be arrangøren endre resultatet.",
   ikke_din_kamp: "Bare enheten som lagret resultatet kan rette det.",
   kunne_ikke_lagre: "Klarte ikke å lagre. Prøv igjen.",
+  // network
+  tidsavbrudd: "Tjenesten svarer ikke — sjekk nettet og prøv igjen.",
   // organiser
   allerede_avansert: "Sluttspillet er allerede startet.",
   ikke_sluttspillformat: "Denne turneringen har ikke sluttspill.",
