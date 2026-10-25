@@ -143,6 +143,7 @@ export function BoardClient({
             className="board-code-chip"
             onClick={() => setShowCodes(true)}
             title={no.board.codesBtn}
+            aria-label={no.board.codesBtn}
           >
             <div className="board-qr">
               <QRCode value={followUrl} size={88} />

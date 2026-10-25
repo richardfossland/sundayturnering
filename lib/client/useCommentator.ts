@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { diffSnapshots, type Storyline } from "@/lib/tournament/narrate";
 import type { StateDTO } from "@/lib/dto";
+import { addBounded } from "@/lib/client/boundedSet";
+
+/** Dedup memory cap: a tournament day can emit thousands of storyline keys. */
+export const SEEN_CAP = 500;
 
 /**
  * Turns the stream of tournament snapshots into a live commentator feed.
@@ -32,7 +36,7 @@ export function useCommentator(state: StateDTO | null, opts?: { maxTicker?: numb
 
     const fresh = lines.filter((l) => !seen.current.has(l.key));
     if (fresh.length === 0) return;
-    for (const l of fresh) seen.current.add(l.key);
+    for (const l of fresh) addBounded(seen.current, l.key, SEEN_CAP);
 
     setTicker((t) => [...fresh, ...t].slice(0, maxTicker));
     const cutins = fresh.filter((l) => l.display === "cutin");
