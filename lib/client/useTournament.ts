@@ -80,9 +80,8 @@ export function useTournament(id: string, opts: UseTournamentOptions = {}) {
   useChannel(
     id ? channels.tournament(id) : null,
     (event, payload) => {
-      // Reactions are ephemeral theatre with no authoritative state — refetching
-      // on every cheer would hammer the API. Forward to the caller (board uses
-      // it to float emoji) but skip the refetch.
+      // Reactions live on the cheer topic now (the board listens there), but
+      // never refetch on one should it show up here: it carries no state.
       if (event !== events.reaction) hint();
       onEventRef.current?.(event, payload);
     },

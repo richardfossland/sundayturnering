@@ -6,17 +6,17 @@ import { channels, events, ReactionThrottle } from "@/lib/realtime";
 import type { ReactionKind } from "@/lib/realtime";
 
 /** Phone-side reaction sender: pushes ephemeral `reaction` broadcasts on the
- * tournament topic — never a DB write.
+ * cheer topic (`channels.cheer`) — never a DB write. The hint topic is
+ * receive-only for clients (migr 0011), so cheers live on their own topic.
  *
- * Shares the tournament channel with useTournament through the registry (one
- * channel per topic, ref-counted), so this hook no longer opens a second
- * subscription on the same topic that either hook's cleanup could tear down
- * under the other. Taps are coalesced through a {@link ReactionThrottle} so a
+ * Acquires the channel through the registry (one channel per topic,
+ * ref-counted), so a remount reuses it instead of racing a second subscribe.
+ * Taps are coalesced through a {@link ReactionThrottle} so a
  * spectator mashing a button emits at most one message per window; anything
  * still buffered is flushed on a short timer and on unmount. */
 export function useReactionSender(tournamentId: string | null): (kind: ReactionKind) => void {
   const [throttle] = useState(() => new ReactionThrottle());
-  const topic = tournamentId ? channels.tournament(tournamentId) : null;
+  const topic = tournamentId ? channels.cheer(tournamentId) : null;
 
   const send = useCallback(
     (payloads: ReturnType<ReactionThrottle["flush"]>) => {

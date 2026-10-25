@@ -10,6 +10,27 @@ import type { ReactionKind, ReactionPayload } from "@/lib/realtime";
 // Failures are swallowed (logged): realtime is a hint layer; if a broadcast is
 // lost, clients still recover by refetching authoritative state on their next
 // action or reconnect.
+//
+// Messages go out `private: true` (clients subscribe to private channels, migr
+// 0011). service_role bypasses Realtime RLS, so the server may send anywhere.
+
+/** TRANSITION (remove in the follow-up PR): also send a PUBLIC copy so boards /
+ * phones still running the previous bundle (public channels) keep getting live
+ * hints until they reload. Public and private channels on one topic are
+ * separate, so the copy never reaches the new private subscribers twice. */
+export const LEGACY_PUBLIC_COPY = true;
+
+/** The REST `messages` body for one broadcast: the private message, plus the
+ * public legacy copy while {@link LEGACY_PUBLIC_COPY} is on. */
+export function broadcastMessages(
+  topic: string,
+  event: string,
+  payload: Record<string, unknown>,
+): Array<{ topic: string; event: string; payload: Record<string, unknown>; private: boolean }> {
+  const msgs = [{ topic, event, payload, private: true }];
+  if (LEGACY_PUBLIC_COPY) msgs.push({ topic, event, payload, private: false });
+  return msgs;
+}
 
 export async function broadcast(
   topic: string,
@@ -34,9 +55,7 @@ export async function broadcast(
         apikey: key,
         Authorization: `Bearer ${key}`,
       },
-      body: JSON.stringify({
-        messages: [{ topic, event, payload }],
-      }),
+      body: JSON.stringify({ messages: broadcastMessages(topic, event, payload) }),
       signal: controller.signal,
     });
     if (!res.ok) {
@@ -49,7 +68,7 @@ export async function broadcast(
   }
 }
 
-/** Push an EPHEMERAL spectator reaction onto the tournament channel. Reactions
+/** Push an EPHEMERAL spectator reaction onto the cheer channel. Reactions
  * are normally sent client-side (no server round-trip), but exposing the typed
  * server emitter keeps the `reaction` event a first-class part of the broadcast
  * surface and lets a future server-driven cheer (e.g. an auto goal-horn on a
@@ -62,7 +81,7 @@ export function broadcastReaction(
 ): Promise<void> {
   const payload: ReactionPayload = { kind, n };
   return broadcast(
-    channels.tournament(tournamentId),
+    channels.cheer(tournamentId),
     events.reaction,
     payload as unknown as Record<string, unknown>,
   );

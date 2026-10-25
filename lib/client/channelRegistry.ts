@@ -145,11 +145,18 @@ export function __setChannelDriver(d: ChannelDriver | null): void {
   if (!d) entries.clear();
 }
 
+/** Channel options for every topic. private: Realtime authorizes the join
+ * against RLS on realtime.messages (migr 0011) — receive-only on hint topics,
+ * so clients can't forge hints. */
+export function channelConfig(trackKey: string) {
+  return {
+    config: { private: true, broadcast: { self: false }, presence: { key: trackKey } },
+  };
+}
+
 function createChannel(topic: string, trackKey: string): RealtimeChannel {
   if (driver) return driver.create(topic, trackKey);
-  return createClient().channel(topic, {
-    config: { broadcast: { self: false }, presence: { key: trackKey } },
-  });
+  return createClient().channel(topic, channelConfig(trackKey));
 }
 
 function destroyChannel(channel: RealtimeChannel): void {
