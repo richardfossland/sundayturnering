@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { OfflineBanner } from "@/lib/client/OfflineBanner";
 import { useTournament } from "@/lib/client/useTournament";
 import { useWakeLock } from "@/lib/client/useWakeLock";
 import { QRCode } from "@/lib/client/QRCode";
@@ -37,7 +38,7 @@ export function BoardClient({
   const [wallRef, wall] = useReactionWall();
   // A projector that dims or sleeps mid-tournament is the classic failure.
   useWakeLock();
-  const { state, error } = useTournament(id, {
+  const { state, error, failures, lastOkAt } = useTournament(id, {
     // Public /live boards may be many; spread their refetches. The organiser's
     // own board wants the result the moment it lands.
     jitterMs: spectator ? 1500 : 0,
@@ -106,6 +107,7 @@ export function BoardClient({
   // "champion crowned" cut-in still plays over the celebration screen.
   return (
     <>
+      <OfflineBanner failures={failures} lastOkAt={lastOkAt} />
       <Commentator state={state} />
       {finished ? (
         <Champion state={state} />

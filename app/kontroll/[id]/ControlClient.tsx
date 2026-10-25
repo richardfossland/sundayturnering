@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { OfflineBanner } from "@/lib/client/OfflineBanner";
 import { useTournament } from "@/lib/client/useTournament";
 import { ApiError } from "@/lib/client/api";
 import { usePresence } from "@/lib/client/usePresence";
@@ -23,7 +24,7 @@ function fmtClock(ms: number): string {
 }
 
 export function ControlClient({ id }: { id: string }) {
-  const { state, error, refetch } = useTournament(id);
+  const { state, error, failures, lastOkAt, refetch } = useTournament(id);
   const [tab, setTab] = useState<Tab>("scheduled");
   const [courtId, setCourtId] = useState<string | null>(null); // filter
   const [open, setOpen] = useState<Match | null>(null);
@@ -189,6 +190,7 @@ export function ControlClient({ id }: { id: string }) {
 
   return (
     <main className="control">
+      <OfflineBanner failures={failures} lastOkAt={lastOkAt} />
       <div className="control-head stack" style={{ gap: 10 }}>
         <div className="spread">
           <span className="brand" style={{ fontSize: ".95rem" }}>

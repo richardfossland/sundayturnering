@@ -35,3 +35,24 @@ export function computeTimer(
     running: true,
   };
 }
+
+/** Board-side view of a running timer at `nowMs`. PURE. The buzzer must only
+ * sound when the expiry was observed live: a reload, reconnect or new tab that
+ * loads an already-expired timer would otherwise buzz every time. «TID!» is
+ * likewise dropped after a minute — a forgotten timer must not shout all day. */
+export const BUZZ_WINDOW_MS = 3_000;
+export const DONE_VISIBLE_MS = 60_000;
+
+export function timerView(
+  endsAtMs: number,
+  nowMs: number,
+): { remaining: number; expired: boolean; buzz: boolean; hidden: boolean } {
+  const pastMs = nowMs - endsAtMs;
+  const expired = pastMs >= 0;
+  return {
+    remaining: Math.max(0, Math.round((endsAtMs - nowMs) / 1000)),
+    expired,
+    buzz: expired && pastMs < BUZZ_WINDOW_MS,
+    hidden: pastMs > DONE_VISIBLE_MS,
+  };
+}
