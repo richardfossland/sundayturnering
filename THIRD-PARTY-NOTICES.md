@@ -50,3 +50,13 @@ SOFTWARE.
 - Lisens: MIT
 - Brukt i: `lib/tournament/consolation.ts` — kun idéene (taperne av første runde, eller lagene
   som ikke kom til hovedbraketten, spiller en egen brakett). Ingen kode er portet.
+
+## brackets-manager.js og nadersafa1/double-elimination (dobbel utslag)
+
+- Kilder: brackets-manager.js av Drarig29 (rekkefølgen taperne slippes inn i taperbraketten) og
+  nadersafa1/double-elimination (kobling av taperrutene), begge på GitHub
+- Lisens: MIT
+- Brukt i: `lib/tournament/doubleElim.ts` — kun idéene (taperbrakettens form, at inndroppet snus
+  annenhver gang for å unngå omkamper, storfinale med omkamp). Koden er skrevet på nytt for våre
+  typer og koblinger; ingen kode er portet, så MIT-teksten er ikke gjengitt på nytt (den står under
+  CourtHive-seksjonen).
