@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import QR from "qrcode";
 
 /** Renders a QR code for `value` as an <img>. Generated client-side. */
-export function QRCode({ value, size = 200 }: { value: string; size?: number }) {
+export function QRCode({
+  value,
+  size = 200,
+  alt = "QR-kode for å bli med",
+}: {
+  value: string;
+  size?: number;
+  alt?: string;
+}) {
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,7 +57,7 @@ export function QRCode({ value, size = 200 }: { value: string; size?: number }) 
       src={src}
       width={size}
       height={size}
-      alt="QR-kode for å bli med"
+      alt={alt}
       style={{ borderRadius: 12, background: "var(--paper)" }}
     />
   );
