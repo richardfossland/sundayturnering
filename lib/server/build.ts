@@ -6,7 +6,12 @@ import {
   generateWordCode,
 } from "@/lib/codes";
 import { generateRoundRobin } from "@/lib/tournament/roundRobin";
-import { buildBracket } from "@/lib/tournament/bracket";
+import {
+  buildCupConsolationSet,
+  buildPlayoffSet,
+  cupConsolationFeasible,
+  type BracketSet,
+} from "@/lib/tournament/consolation";
 import { splitIntoGroups } from "@/lib/tournament/groups";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import { sanitiseTiebreak } from "@/lib/tournament/standings";
@@ -19,6 +24,7 @@ import type {
   TournamentConfig,
   Tournament,
 } from "@/lib/types";
+import type { Consolation } from "@/lib/types";
 
 export interface CreateInput {
   title: string;
@@ -105,6 +111,8 @@ export async function createTournament(
   if (schedule && schedule !== "invalid") config.schedule = schedule;
   const tiebreak = sanitiseTiebreak(input.config.tiebreak);
   if (tiebreak && tiebreak !== "invalid" && input.format !== "cup") config.tiebreak = tiebreak;
+  const consolation = validConsolation(input);
+  if (consolation !== "none") config.consolation = consolation;
   const status = input.format === "cup" ? "playoff" : "league";
 
   const { data: trow, error: terr } = await sb
@@ -135,6 +143,24 @@ export async function createTournament(
     await sb.from("tournaments").delete().eq("id", t.id);
     throw e;
   }
+}
+
+/** Ekstra sluttspill som faktisk lar seg bygge: færre enn to lag i B (eller en
+ * trøsterunde uten nok førsterundetapere) blir stille til «ingen», som
+ * `clampPlayoffSize` gjør for sluttspillstørrelsen. */
+function validConsolation(input: CreateInput): Consolation {
+  const c = input.config.consolation;
+  const n = input.teams.length;
+  if (input.format === "cup")
+    return c === "first_round_losers" && cupConsolationFeasible(n) ? c : "none";
+  if (input.format === "league_playoff")
+    return c === "b_playoff" && n - (input.config.playoffSize ?? 0) >= 2 ? c : "none";
+  if (input.format === "group_playoff") {
+    const groups = clampInt(input.config.groupCount, 2, 8, 2);
+    const adv = clampInt(input.config.advancePerGroup, 1, 4, 2);
+    return c === "b_playoff" && n - groups * adv >= 2 ? c : "none";
+  }
+  return "none";
 }
 
 async function buildRest(
@@ -189,6 +215,7 @@ async function buildRest(
     await buildCupMatches(t.id, teamIds, courtIds, {
       thirdPlace: t.config.thirdPlace,
       schedule: t.config.schedule,
+      consolation: t.config.consolation,
     });
   } else if (input.format === "group_playoff") {
     await buildGroupMatches(t, teamIds, courtIds);
@@ -334,20 +361,38 @@ async function buildGroupMatches(
   if (rows.length) must(await sb.from("matches").insert(rows), "insert group matches");
 }
 
-/** Build a seeded single-elim bracket and persist matches + winner-flow links
- * (plus loser-flow links into the bronze final when `opts.thirdPlace`). */
+/** Build a seeded single-elim bracket (plus an optional B bracket) and persist
+ * matches + winner-flow links (and loser-flow links into the bronze final or, for
+ * a cup consolation, from the first round into B). All brackets are scheduled in
+ * ONE pass so they share the courts. `bSeeds` = B-sluttspill for the rest after a
+ * league/group stage; `consolation: "first_round_losers"` = cup trøsterunde. */
 export async function buildCupMatches(
   tournamentId: string,
   seededTeamIds: string[],
   courtIds: string[],
-  opts?: { thirdPlace?: boolean; schedule?: ScheduleConfig; notBefore?: Date },
+  opts?: {
+    thirdPlace?: boolean;
+    schedule?: ScheduleConfig;
+    notBefore?: Date;
+    consolation?: Consolation;
+    bSeeds?: string[];
+  },
 ): Promise<void> {
   const sb = db();
-  const bracket = buildBracket(seededTeamIds, { thirdPlace: opts?.thirdPlace });
+  const set: BracketSet =
+    opts?.consolation === "first_round_losers"
+      ? buildCupConsolationSet(seededTeamIds, { thirdPlace: opts.thirdPlace })
+      : buildPlayoffSet(seededTeamIds, { thirdPlace: opts?.thirdPlace, bSeeds: opts?.bSeeds });
 
-  // Insert matches; remember (round,slot) → queue_order so we can map ids back.
+  // Spillerekkefølge: runde for runde, A før B, så B-runde 1 kommer rett etter
+  // A-runde 1 (og ikke etter hele A). Med bare A er dette samme rekkefølge som før.
+  const flat = set.brackets.flatMap(({ id, bracket }, bi) =>
+    bracket.matches.map((m) => ({ id, bi, m })),
+  );
+  flat.sort((x, y) => x.m.round - y.m.round || x.bi - y.bi || x.m.slot - y.m.slot);
+
   let queue = 0;
-  const plain = bracket.matches.map((m) => {
+  const plain = flat.map(({ id, m }) => {
     const courtId =
       courtIds.length > 0 && m.status !== "bye"
         ? courtIds[m.slot % courtIds.length]
@@ -357,6 +402,8 @@ export async function buildCupMatches(
       phase: "playoff" as const,
       round: m.round,
       bracket_slot: m.slot,
+      // 'A' er kolonnens default; utelatt så insert virker også før migrasjon 0016.
+      ...(id === "A" ? {} : { bracket: id }),
       court_id: courtId,
       queue_order: queue++,
       home_team_id: m.homeId,
@@ -365,39 +412,57 @@ export async function buildCupMatches(
       winner_team_id: m.winnerId,
     };
   });
-  // Brakettkoblingene nøkles på (runde:slot) så tidsplanen kan kjøres før insert.
-  const bracketKey = (r: { round: number; bracket_slot: number }) =>
-    `${r.round}:${r.bracket_slot}`;
-  const rows = withSchedule(
-    plain,
-    bracketKey,
-    courtIds,
-    opts?.schedule,
-    bracket.links.map((l) => ({
-      from_match_id: `${l.fromRound}:${l.fromSlot}`,
-      to_match_id: `${l.toRound}:${l.toSlot}`,
+  // Nøkkel (brakett:runde:slot) så tidsplanen kan kjøres før insert, på tvers av braketter.
+  const key = (b: string, r: number, s: number) => `${b}:${r}:${s}`;
+  const rowKey = (r: { bracket?: string; round: number; bracket_slot: number }) =>
+    key(r.bracket ?? "A", r.round, r.bracket_slot);
+  const slotLinks = [
+    ...set.brackets.flatMap(({ id, bracket }) =>
+      bracket.links.map((l) => ({
+        from_match_id: key(id, l.fromRound, l.fromSlot),
+        to_match_id: key(id, l.toRound, l.toSlot),
+      })),
+    ),
+    ...set.cross.map((c) => ({
+      from_match_id: key(c.fromBracket, c.fromRound, c.fromSlot),
+      to_match_id: key(c.toBracket, c.toRound, c.toSlot),
     })),
-    opts?.notBefore,
-  );
+  ];
+  const rows = withSchedule(plain, rowKey, courtIds, opts?.schedule, slotLinks, opts?.notBefore);
   must(await sb.from("matches").insert(rows), "insert bracket matches");
 
-  // Read back to get ids keyed by (round, slot).
+  // Read back to get ids keyed by (bracket, round, slot).
   const persisted = await getMatches(tournamentId);
   const idOf = new Map<string, string>();
   for (const m of persisted)
     if (m.phase === "playoff")
-      idOf.set(`${m.round}:${m.bracket_slot}`, m.id);
+      idOf.set(key(m.bracket ?? "A", m.round, m.bracket_slot as number), m.id);
 
-  const links = bracket.links
+  const links = [
+    ...set.brackets.flatMap(({ id, bracket }) =>
+      bracket.links.map((l) => ({
+        from: key(id, l.fromRound, l.fromSlot),
+        to: key(id, l.toRound, l.toSlot),
+        side: l.toSide,
+        feed: l.feed,
+      })),
+    ),
+    ...set.cross.map((c) => ({
+      from: key(c.fromBracket, c.fromRound, c.fromSlot),
+      to: key(c.toBracket, c.toRound, c.toSlot),
+      side: c.toSide,
+      feed: c.feed,
+    })),
+  ]
     .map((l) => {
-      const from = idOf.get(`${l.fromRound}:${l.fromSlot}`);
-      const to = idOf.get(`${l.toRound}:${l.toSlot}`);
+      const from = idOf.get(l.from);
+      const to = idOf.get(l.to);
       if (!from || !to) return null;
       return {
         tournament_id: tournamentId,
         from_match_id: from,
         to_match_id: to,
-        to_slot: l.toSide,
+        to_slot: l.side,
         feed: l.feed,
       };
     })

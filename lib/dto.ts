@@ -6,6 +6,7 @@
 // device that has just proved one. organiser_code never leaves the server.
 
 import type {
+  BracketLink,
   Court,
   Match,
   StandingRow,
@@ -70,4 +71,6 @@ export interface StateDTO {
   standings: StandingRow[];
   /** Per-group tables, present only for the group_playoff format. */
   groupStandings?: { group_no: number; rows: StandingRow[] }[];
+  /** Brakettkoblinger (hvem mater hvem). Uten: tavla utleder dem fra runde/slot. */
+  links?: Pick<BracketLink, "from_match_id" | "to_match_id" | "to_slot" | "feed">[];
 }

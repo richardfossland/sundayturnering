@@ -92,10 +92,11 @@ export async function getMatch(id: string): Promise<Match | null> {
 /** Assemble the full state a board/control device renders, with standings
  * computed server-side from the active scoring profile. */
 export async function getState(t: Tournament): Promise<StateDTO> {
-  const [teams, courts, matches] = await Promise.all([
+  const [teams, courts, matches, links] = await Promise.all([
     getTeams(t.id),
     getCourts(t.id),
     getMatches(t.id),
+    getLinks(t.id),
   ]);
   const standings = computeStandings(
     teams,
@@ -121,7 +122,18 @@ export async function getState(t: Tournament): Promise<StateDTO> {
     matches,
     standings,
     groupStandings,
+    links,
   };
+}
+
+/** Brakettkoblinger til tavla (hvem mater hvem); tom liste uten sluttspill. */
+async function getLinks(tournamentId: string): Promise<NonNullable<StateDTO["links"]>> {
+  const { data, error } = await db()
+    .from("bracket_links")
+    .select("from_match_id,to_match_id,to_slot,feed")
+    .eq("tournament_id", tournamentId);
+  if (error) throw error;
+  return (data ?? []) as NonNullable<StateDTO["links"]>;
 }
 
 /** Bump the structural version (board cache-busting + structure broadcast).

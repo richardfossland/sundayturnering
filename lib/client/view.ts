@@ -37,10 +37,24 @@ export function upcoming(matches: Match[], limit = 5): Match[] {
     .slice(0, limit);
 }
 
+/** Hovedbraketten (A) alene — B-sluttspillets finale kroner aldri mesteren. */
+const inA = (m: Match) => (m.bracket ?? "A") === "A";
+
+/** Vinneren av B-sluttspillet / trøsterunden, ellers null (ingen B, eller ikke avgjort). */
+export function bChampionId(matches: Match[]): string | null {
+  const b = matches.filter((m) => m.phase === "playoff" && m.bracket === "B");
+  if (b.length === 0) return null;
+  const finalRound = Math.max(...b.map((m) => m.round));
+  return (
+    b.find((m) => m.round === finalRound && m.bracket_slot === 0 && m.status === "done")
+      ?.winner_team_id ?? null
+  );
+}
+
 /** The champion's team id: playoff final winner if a bracket exists, else the
  * rank-1 league standing. Null until decided. */
 export function championId(state: StateDTO): string | null {
-  const playoff = state.matches.filter((m) => m.phase === "playoff");
+  const playoff = state.matches.filter((m) => m.phase === "playoff" && inA(m));
   if (playoff.length > 0) {
     const finalRound = Math.max(...playoff.map((m) => m.round));
     // The final is at bracket_slot 0; the bronze final (slot 1) shares the round
@@ -99,7 +113,7 @@ export function knockoutPodium(playoff: Match[]): string[] {
  * better), then seed. */
 export function finalRanking(state: StateDTO): Team[] {
   const { teams, standings, matches } = state;
-  const playoff = matches.filter((m) => m.phase === "playoff");
+  const playoff = matches.filter((m) => m.phase === "playoff" && inA(m));
   const hasStandings =
     standings.length > 0 && standings.some((s) => s.played > 0);
 

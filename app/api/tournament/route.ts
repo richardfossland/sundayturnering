@@ -6,6 +6,7 @@ import { sanitiseColour, sanitiseLogoUrl } from "@/lib/server/logo";
 import { clampPlayoffSize } from "@/lib/tournament/playoffSize";
 import { sanitiseSchedule } from "@/lib/tournament/schedule";
 import { sanitiseTiebreak } from "@/lib/tournament/standings";
+import { sanitiseConsolation } from "@/lib/tournament/consolation";
 
 // POST /api/tournament — create a tournament from the onboarding wizard (and
 // /hurtig). This route is the seam between the wizard and lib/server/build:
@@ -78,6 +79,11 @@ async function handlePOST(req: Request) {
   const tiebreak = sanitiseTiebreak(cfg.tiebreak);
   if (tiebreak === "invalid") return fail(400, "ugyldig_tiebreak");
 
+  // Ekstra sluttspill er valgfritt; ukjent verdi eller et valg som ikke passer
+  // formatet avvises. (For få lag til å bygge det blir stille «ingen» i build.ts.)
+  const consolation = sanitiseConsolation(cfg.consolation, body.format);
+  if (consolation === "invalid") return fail(400, "ugyldig_ekstra_sluttspill");
+
   try {
     const result = await createTournament({
       title: (body.title ?? "").trim().slice(0, 80),
@@ -92,6 +98,7 @@ async function handlePOST(req: Request) {
         ...(isGroup ? { groupCount, advancePerGroup } : {}),
         ...(schedule ? { schedule } : {}),
         ...(tiebreak ? { tiebreak } : {}),
+        ...(consolation ? { consolation } : {}),
       },
       organiserId: admin?.id ?? null,
       teams: body.teams.map((t) => ({

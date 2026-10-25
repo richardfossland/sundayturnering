@@ -362,7 +362,8 @@ function statusStorylines(
 
 /** The playoff final match if it transitioned to live in this diff. */
 function finalKickoff(before: StateDTO, after: StateDTO): Match | null {
-  const playoff = after.matches.filter((m) => m.phase === "playoff");
+  // Bare hovedbraketten har «finalen» — en B-finale er ingen sluttspillfinale.
+  const playoff = after.matches.filter((m) => m.phase === "playoff" && (m.bracket ?? "A") === "A");
   if (playoff.length === 0) return null;
   const finalRound = Math.max(...playoff.map((m) => m.round));
   const final = playoff.find(
@@ -378,7 +379,7 @@ function finalKickoff(before: StateDTO, after: StateDTO): Match | null {
  * (Local copy — narrate is pure and must not import the client `view` module,
  * which pulls in "use client" deps.) */
 function championId(state: StateDTO): string | null {
-  const playoff = state.matches.filter((m) => m.phase === "playoff");
+  const playoff = state.matches.filter((m) => m.phase === "playoff" && (m.bracket ?? "A") === "A");
   if (playoff.length > 0) {
     const finalRound = Math.max(...playoff.map((m) => m.round));
     const final = playoff.find(
