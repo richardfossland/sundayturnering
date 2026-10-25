@@ -19,7 +19,8 @@ import { Commentator } from "./Commentator";
 import { BoardControls } from "./BoardControls";
 import { BoardStandingsPanel } from "./BoardStandingsPanel";
 import { useReactionWall } from "./ReactionWall";
-import { events } from "@/lib/realtime";
+import { channels, events } from "@/lib/realtime";
+import { useChannel } from "@/lib/client/useChannel";
 import { playDing } from "@/lib/client/sound";
 import type { Match } from "@/lib/types";
 
@@ -42,15 +43,15 @@ export function BoardClient({
     // Public /live boards may be many; spread their refetches. The organiser's
     // own board wants the result the moment it lands.
     jitterMs: spectator ? 1500 : 0,
-    onEvent: (event, payload) => {
-      // Spectator cheer → float emoji on the board (no refetch, see useTournament).
-      if (event === events.reaction) wallRef.current?.push(payload);
-    },
+  });
+  // Spectator cheers arrive on their own topic → float emoji (no refetch).
+  useChannel(channels.cheer(id), (event, payload) => {
+    if (event === events.reaction) wallRef.current?.push(payload);
   });
 
-  // Celebrate what the refetched STATE shows, not the broadcast itself: the
-  // realtime channel is public, so a forged match_updated must not make the
-  // projector chime. A saved result (result_version bump) → chime + a brief
+  // Celebrate what the refetched STATE shows, not the broadcast itself: a hint
+  // only ever means "refetch" (and clients can't send hints since migr 0011),
+  // so the chime follows authoritative state. A saved result (result_version bump) → chime + a brief
   // border flash; a goal on a live running score → chime only.
   const sig = state ? celebrationSignature(state.matches) : null;
   const lastSig = useRef<{ results: number; goals: number } | null>(null);

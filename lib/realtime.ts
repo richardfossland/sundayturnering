@@ -2,10 +2,18 @@
 // (broadcast). Payloads are minimal hints to refetch authoritative state, never
 // the source of truth (spec §4 step 4). Event volume is low.
 
+// All three topics are PRIVATE channels (Realtime Authorization, migr 0011):
+// RLS on realtime.messages decides who may receive/send on each.
 export const channels = {
   // Broadcast channel: board + all control devices subscribe here for refetch
-  // hints (match_updated / structure / lock_changed).
+  // hints (match_updated / structure / lock_changed). Clients may only
+  // RECEIVE here — only the server (service_role REST) can send, so a hint
+  // can't be forged.
   tournament: (tournamentId: string) => `t:${tournamentId}`,
+  // Spectator cheers. The one topic clients may broadcast on (migr 0011);
+  // split off the hint topic so allowing client sends here can't let a forged
+  // hint through. Only the board listens.
+  cheer: (tournamentId: string) => `t:${tournamentId}:cheer`,
   // Presence lives on its OWN channel — a Supabase channel can't take new
   // callbacks once subscribed, and the broadcast channel is already subscribed,
   // so presence must not share that topic.
