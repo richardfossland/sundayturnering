@@ -1,7 +1,7 @@
 // Domain types — mirror the Postgres tables (spec §2). DB rows use snake_case;
 // these are the shapes the service-role client reads/writes and the API serves.
 
-export type Format = "league" | "league_playoff" | "cup" | "group_playoff" | "double_elim";
+export type Format = "league" | "league_playoff" | "cup" | "group_playoff" | "double_elim" | "swiss";
 
 /** Optional board countdown timer (spec extension). endsAt is an ISO instant. */
 export interface TimerState {
@@ -44,8 +44,11 @@ export type TiebreakKey =
   | "h2h_points"
   | "h2h_diff"
   | "h2h_scored"
+  | "buchholz"
+  | "buchholz_cut1"
+  | "sonneborn_berger"
   | "name";
-export type TiebreakPreset = "standard" | "uefa";
+export type TiebreakPreset = "standard" | "uefa" | "swiss";
 /** Forhåndsvalg eller eksplisitt rekkefølge. Uten verdi = "standard". */
 export type TiebreakConfig = TiebreakPreset | TiebreakKey[];
 
@@ -67,6 +70,8 @@ export interface TournamentConfig {
   consolation?: Consolation;
   /** double_elim only: omkamp i finalen hvis taperbraketten vinner (default true). */
   doubleElim?: { grandFinalReset: boolean };
+  /** swiss only: antall runder (1..N−1). Hver runde parres ut når forrige er ferdig. */
+  swiss?: { rounds: number };
 }
 
 /** Tidsplan-oppsett (lagres i `tournaments.config.schedule`). Alle tidspunkt er ISO. */
@@ -207,5 +212,7 @@ export interface StandingRow {
   diff: number; // scoreFor - scoreAgainst
   rank: number;
   inPlayoff: boolean; // above the top-N cut line
+  /** Swiss only: summen av motstandernes poeng (Buchholz). */
+  buchholz?: number;
   form?: ("W" | "D" | "L")[]; // last few league results, oldest → newest
 }

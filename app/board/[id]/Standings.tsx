@@ -98,6 +98,7 @@ function StandingsTable({
 }) {
   const th = no.board.th;
   const rows = capRows(standings, limit);
+  const showBuchholz = rows.some((r) => r.buchholz !== undefined);
   const showForm = !compact && rows.some((r) => (r.form?.length ?? 0) > 0);
   return (
     <table className={`standings${compact ? " standings-compact" : ""}`}>
@@ -111,6 +112,7 @@ function StandingsTable({
           <th>{th.l}</th>
           <th>{th.diff}</th>
           <th>{th.pts}</th>
+          {showBuchholz && <th title={no.board.buchholzTitle}>{th.buchholz}</th>}
           {showForm && <th className="form-col">{th.form}</th>}
         </tr>
       </thead>
@@ -143,6 +145,7 @@ function StandingsTable({
               <td>{r.lost}</td>
               <td>{r.diff > 0 ? `+${r.diff}` : r.diff}</td>
               <td className="pts">{r.points}</td>
+              {showBuchholz && <td>{r.buchholz ?? 0}</td>}
               {showForm && (
                 <td className="form-col">
                   <FormDots form={r.form ?? []} />

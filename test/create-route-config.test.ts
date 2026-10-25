@@ -156,7 +156,7 @@ describe("POST /api/tournament — wizard config survives the route", () => {
     expect(res.status).toBe(200);
     expect(captured!.config.tiebreak).toEqual(["points", "h2h_diff", "name"]);
 
-    for (const bad of ["fifa", ["points", "buchholz"], [], 5]) {
+    for (const bad of ["fifa", ["points", "bogus"], [], 5]) {
       res = await post({ ...base, config: { playoffSize: 0, roundRobinDouble: false, tiebreak: bad } });
       expect(res.status).toBe(400);
       expect((await res.json()).error).toBe("ugyldig_tiebreak");
@@ -242,7 +242,7 @@ describe("POST /api/tournament — wizard config survives the route", () => {
     const res = await post({
       title: "x",
       sport_label: "",
-      format: "swiss",
+      format: "bogus",
       scoring,
       parallelism: "sequential",
       config: {},
@@ -303,5 +303,22 @@ describe("POST /api/tournament — wizard config survives the route", () => {
       courts: [{ name: "  Hall A " }, null, { name: 7 }],
     });
     expect(captured!.courts).toEqual([{ name: "Hall A" }, { name: "Bane 2" }, { name: "Bane 3" }]);
+  });
+
+  it("swiss: bærer antall runder, defaulter til ceil(log2 N), avviser 0 / N / for få lag", async () => {
+    const base = { title: "x", sport_label: "", format: "swiss", scoring, parallelism: "sequential", courts: [] };
+    const cfg = (swiss?: unknown) => ({ playoffSize: 0, roundRobinDouble: false, ...(swiss ? { swiss } : {}) });
+    const ok = await post({ ...base, teams: teams(7), config: cfg({ rounds: 4 }) });
+    expect(ok.status).toBe(200);
+    expect(captured!.config.swiss).toEqual({ rounds: 4 });
+    await post({ ...base, teams: teams(8), config: cfg() });
+    expect(captured!.config.swiss).toEqual({ rounds: 3 });
+    for (const rounds of [0, 8, 1.5, "3"]) {
+      const res = await post({ ...base, teams: teams(8), config: cfg({ rounds }) });
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe("ugyldig_antall_runder");
+    }
+    const few = await post({ ...base, teams: teams(2), config: cfg() });
+    expect((await few.json()).error).toBe("for_fa_lag_swiss");
   });
 });

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { no } from "@/lib/locale/no";
 import { Standings, GroupStandings } from "./Standings";
 import { Bracket, bracketLabels } from "./Bracket";
+import { swissProgress } from "@/lib/tournament/swiss";
 import { byBracketOrder } from "@/lib/tournament/bracketLayout";
 import type { StateDTO } from "@/lib/dto";
 import type { BracketId, Team } from "@/lib/types";
@@ -31,6 +32,11 @@ export function BoardStandingsPanel({
   // the cut line is always kept (see capRows in Standings.tsx).
   const standingsLimit = hasBracket ? 8 : undefined;
 
+  const swiss =
+    tournament.format === "swiss"
+      ? swissProgress(matches, tournament.config?.swiss?.rounds ?? 0)
+      : null;
+
   // Dobbel utslag har ingen tabell: braketten får hele kolonnen.
   const noTable = tournament.format === "double_elim";
 
@@ -40,6 +46,7 @@ export function BoardStandingsPanel({
       <div className="card card-pad board-standings-region">
         <div className="section-title" style={{ marginBottom: 8 }}>
           {no.board.standings}
+          {swiss && ` · ${no.board.swissRound(swiss.round, swiss.total)}`}
         </div>
         <div className="board-standings-scroll">
           {groupStandings && groupStandings.length > 0 ? (

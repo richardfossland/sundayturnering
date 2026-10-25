@@ -9,6 +9,7 @@ import { no } from "@/lib/locale/no";
 import { errorMessage } from "@/lib/locale/errors";
 import { useEscape } from "@/lib/client/useEscape";
 import { matchTime } from "@/lib/client/view";
+import { swissProgress } from "@/lib/tournament/swiss";
 import { previewShift } from "@/lib/tournament/schedule";
 import { callCandidates, matchRest, suggestNext } from "@/lib/tournament/courts";
 import type { Court, Match, MatchResult, Team } from "@/lib/types";
@@ -62,6 +63,12 @@ export function OrganiserPanel({
     (tournament.format === "league_playoff" ||
       tournament.format === "group_playoff") &&
     tournament.status === "league";
+  const swiss =
+    tournament.format === "swiss" && tournament.status === "league"
+      ? swissProgress(matches, tournament.config?.swiss?.rounds ?? 0)
+      : null;
+  // «Start neste runde» når runden er ferdig og det er flere igjen.
+  const canNextRound = !!swiss && swiss.complete && swiss.round < swiss.total;
   const canFinish = tournament.status !== "finished";
   const canReopen = tournament.status === "finished";
   const doneMatches = matches.filter((m) => m.status === "done");
@@ -126,6 +133,24 @@ export function OrganiserPanel({
             }}
           >
             {no.control.advancePlayoff}
+          </button>
+        )}
+        {swiss && (
+          <div className="faint" style={{ alignSelf: "center" }}>
+            {no.board.swissRound(swiss.round, swiss.total)}
+          </div>
+        )}
+        {canNextRound && (
+          <button
+            className="btn btn-gold"
+            disabled={busy || !code}
+            onClick={async () => {
+              if (!confirm(no.control.nextRoundConfirm)) return;
+              const r = await guard(() => api.advance(tournament.id, code));
+              if (r) flash(no.control.nextRoundDone(swiss!.round + 1));
+            }}
+          >
+            {no.control.nextRound}
           </button>
         )}
         {canFinish && (
