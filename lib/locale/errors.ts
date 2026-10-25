@@ -12,6 +12,8 @@ const MESSAGES: Record<string, string> = {
   for_mange_lag: "For mange lag — maks 64.",
   for_fa_lag_dobbel: "Dobbel utslag trenger minst tre lag.",
   for_mange_lag_dobbel: "Dobbel utslag støtter maks 32 lag.",
+  for_fa_lag_swiss: "Swiss trenger minst tre lag.",
+  ugyldig_antall_runder: "Velg mellom 1 og antall lag minus 1 runder.",
   lag_mangler_navn: "Alle lag må ha et navn.",
   for_mange_grupper: "For mange grupper for antall lag — hver gruppe trenger minst to lag.",
   ugyldig_antall_grupper: "Velg mellom 2 og 8 grupper.",
@@ -46,6 +48,8 @@ const MESSAGES: Record<string, string> = {
   tidsavbrudd: "Tjenesten svarer ikke — sjekk nettet og prøv igjen.",
   // organiser
   allerede_avansert: "Sluttspillet er allerede startet.",
+  runden_pagar: "Runden er ikke ferdig ennå — alle kamper må være spilt.",
+  alle_runder_spilt: "Alle rundene er allerede lagt. Avslutt turneringen.",
   ikke_sluttspillformat: "Denne turneringen har ikke sluttspill.",
   ikke_avsluttet: "Turneringen er ikke avsluttet.",
   finnes_ikke: "Fant ikke turneringen.",

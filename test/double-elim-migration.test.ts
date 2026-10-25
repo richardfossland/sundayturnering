@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { buildDoubleElim } from "@/lib/tournament/doubleElim";
 
 // Migrasjon 0017 (format 'double_elim' + omkamp i propagate_playoff_result) mot en
-// ekte Postgres i minnet: hele 0001…0017 kjøres, så spilles dobbel utslag gjennom
+// ekte Postgres i minnet: hele 0001…0018 kjøres, så spilles dobbel utslag gjennom
 // RPC-ene `propagate_playoff_result` og `override_match_result`.
 
 const MIGRATIONS = join(__dirname, "..", "supabase", "migrations");
@@ -132,7 +132,7 @@ beforeAll(async () => {
     create table storage.buckets (id text primary key, name text, public boolean);
   `);
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
-  expect(files.at(-1)).toBe("0017_double_elim.sql");
+  expect(files.at(-1)).toBe("0018_swiss.sql");
   for (const f of files) await db.exec(readFileSync(join(MIGRATIONS, f), "utf8"));
   // Idempotent: 0017 på nytt skal ikke feile.
   await db.exec(readFileSync(join(MIGRATIONS, "0017_double_elim.sql"), "utf8"));
@@ -144,7 +144,7 @@ describe("0017 format", () => {
     await expect(
       db.query(
         `insert into turnering.tournaments (id, control_code, board_code, organiser_code, format)
-         values (gen_random_uuid(), '111222', 'b', 'o', 'swiss')`,
+         values (gen_random_uuid(), '111222', 'b', 'o', 'bogus')`,
       ),
     ).rejects.toThrow();
   });

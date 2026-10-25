@@ -6,6 +6,7 @@ import { sanitiseColour, sanitiseLogoUrl } from "@/lib/server/logo";
 import { clampPlayoffSize } from "@/lib/tournament/playoffSize";
 import { sanitiseSchedule } from "@/lib/tournament/schedule";
 import { sanitiseTiebreak } from "@/lib/tournament/standings";
+import { sanitiseSwissRounds } from "@/lib/tournament/swiss";
 import { sanitiseConsolation } from "@/lib/tournament/consolation";
 import { DOUBLE_ELIM_MAX_TEAMS, DOUBLE_ELIM_MIN_TEAMS } from "@/lib/tournament/doubleElim";
 
@@ -16,7 +17,7 @@ import { DOUBLE_ELIM_MAX_TEAMS, DOUBLE_ELIM_MIN_TEAMS } from "@/lib/tournament/d
 // group stage + bronze final: the wizard offered them, build.ts supported them,
 // and this route dropped them — see test/create-route-config.test.ts.)
 
-const FORMATS: readonly Format[] = ["league", "league_playoff", "cup", "group_playoff", "double_elim"];
+const FORMATS: readonly Format[] = ["league", "league_playoff", "cup", "group_playoff", "double_elim", "swiss"];
 const PROFILES: readonly ScoringProfileKey[] = ["simple", "sets", "winner"];
 
 function intOr(v: unknown, dflt: number): number {
@@ -56,6 +57,8 @@ async function handlePOST(req: Request) {
     if (body.teams.length < DOUBLE_ELIM_MIN_TEAMS) return fail(400, "for_fa_lag_dobbel");
     if (body.teams.length > DOUBLE_ELIM_MAX_TEAMS) return fail(400, "for_mange_lag_dobbel");
   }
+  // Swiss trenger minst tre lag (med to lag er det bare én mulig kamp).
+  if (body.format === "swiss" && body.teams.length < 3) return fail(400, "for_fa_lag_swiss");
   if (body.teams.some((t) => typeof t?.name !== "string" || !t.name.trim()))
     return fail(400, "lag_mangler_navn");
 
@@ -76,6 +79,10 @@ async function handlePOST(req: Request) {
     if (advancePerGroup < 1 || advancePerGroup > 4)
       return fail(400, "ugyldig_antall_videre");
   }
+
+  // Swiss: antall runder 1..N−1 (uten verdi: ceil(log2 N)).
+  const swissRounds = sanitiseSwissRounds(cfg.swiss?.rounds, body.teams.length);
+  if (body.format === "swiss" && swissRounds === "invalid") return fail(400, "ugyldig_antall_runder");
 
   // Tidsplan er valgfri; er den sendt må den være gyldig.
   const schedule = sanitiseSchedule(cfg.schedule);
@@ -105,6 +112,7 @@ async function handlePOST(req: Request) {
         ...(schedule ? { schedule } : {}),
         ...(tiebreak ? { tiebreak } : {}),
         ...(consolation ? { consolation } : {}),
+        ...(body.format === "swiss" && swissRounds !== "invalid" ? { swiss: { rounds: swissRounds } } : {}),
         ...(body.format === "double_elim"
           ? { doubleElim: { grandFinalReset: cfg.doubleElim?.grandFinalReset !== false } }
           : {}),

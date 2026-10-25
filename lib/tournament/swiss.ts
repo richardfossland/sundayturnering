@@ -15,6 +15,8 @@
 // lik rangering avgjøres av seed og navn.
 
 import blossom from "@/lib/vendor/edmonds-blossom";
+import { computeStandings } from "@/lib/tournament/standings";
+import type { Match, ScoringConfig, Team, TiebreakConfig } from "@/lib/types";
 
 export interface SwissPairing {
   homeId: string;
@@ -147,4 +149,51 @@ function orient(a: string, b: string, homes: Map<string, number>, idx: Map<strin
   const hb = homes.get(b) ?? 0;
   const aHome = ha !== hb ? ha < hb : idx.get(a)! < idx.get(b)!;
   return aHome ? { homeId: a, awayId: b } : { homeId: b, awayId: a };
+}
+
+// ---------- runde-oversikt og neste runde (rene funksjoner over lagrede kamper) ----------
+
+/** Hvor langt Swiss-turneringen er kommet. */
+export interface SwissProgress {
+  /** Siste lagte runde (0 = ingen kamper ennå). */
+  round: number;
+  /** Totalt antall runder (config.swiss.rounds). */
+  total: number;
+  /** Kamper i siste runde som ikke er ferdige. */
+  open: number;
+  /** Siste runde er ferdigspilt. */
+  complete: boolean;
+  /** Alle runder er lagt og spilt: turneringen kan avsluttes. */
+  finished: boolean;
+}
+
+export function swissProgress(matches: Match[], total: number): SwissProgress {
+  const league = matches.filter((m) => m.phase === "league");
+  const round = league.reduce((mx, m) => Math.max(mx, m.round), 0);
+  const open = league.filter((m) => m.round === round && m.status !== "done" && m.status !== "bye").length;
+  const complete = round > 0 && open === 0;
+  return { round, total, open, complete, finished: complete && round >= total };
+}
+
+/** Parringene for neste runde, ut fra lagene og kampene så langt. Runde 1 følger
+ * seed; senere runder følger tabellen (inkl. bye-poeng og tiebreak). */
+export function planSwissRound(
+  teams: Team[],
+  matches: Match[],
+  scoring: ScoringConfig,
+  tiebreak?: TiebreakConfig,
+): SwissPairing[] {
+  const league = matches.filter((m) => m.phase === "league" && m.home_team_id != null);
+  const bySeed = [...teams].sort(
+    (a, b) => (a.seed ?? 1e9) - (b.seed ?? 1e9) || a.sort_order - b.sort_order || a.name.localeCompare(b.name, "no"),
+  );
+  if (league.length === 0)
+    return pairSwissRound({ ranked: bySeed.map((t) => t.id), points: new Map(), pointsWin: scoring.pointsWin, played: [] });
+  const rows = computeStandings(teams, matches, scoring, 0, tiebreak, { byeIsWin: true });
+  return pairSwissRound({
+    ranked: rows.map((r) => r.team_id),
+    points: new Map(rows.map((r) => [r.team_id, r.points])),
+    pointsWin: scoring.pointsWin,
+    played: league.map((m) => ({ home: m.home_team_id!, away: m.away_team_id })),
+  });
 }

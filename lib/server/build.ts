@@ -16,6 +16,8 @@ import { buildDoubleElim, doubleElimOrder } from "@/lib/tournament/doubleElim";
 import { splitIntoGroups } from "@/lib/tournament/groups";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import { sanitiseTiebreak } from "@/lib/tournament/standings";
+import { defaultSwissRounds, sanitiseSwissRounds } from "@/lib/tournament/swiss";
+import { insertSwissRound } from "@/lib/server/swiss";
 import { assignSlots, sanitiseSchedule, type SlotLink } from "@/lib/tournament/schedule";
 import type {
   Format,
@@ -96,6 +98,9 @@ export async function createTournament(
   const scoring = sanitiseScoring(input.scoring);
   const hasPlayoff =
     input.format === "league_playoff" || input.format === "group_playoff";
+  // Ugyldig antall runder avvises av ruta; her faller det bare tilbake til standard.
+  const rawRounds = sanitiseSwissRounds(input.config.swiss?.rounds, input.teams.length);
+  const swissRounds = rawRounds === "invalid" ? defaultSwissRounds(input.teams.length) : rawRounds;
   const config: TournamentConfig = {
     playoffSize: hasPlayoff ? input.config.playoffSize : 0,
     roundRobinDouble: !!input.config.roundRobinDouble,
@@ -103,6 +108,7 @@ export async function createTournament(
     ...(input.format === "double_elim"
       ? { doubleElim: { grandFinalReset: input.config.doubleElim?.grandFinalReset !== false } }
       : {}),
+    ...(input.format === "swiss" ? { swiss: { rounds: swissRounds } } : {}),
     ...(input.format === "group_playoff"
       ? {
           groupCount: clampInt(input.config.groupCount, 2, 8, 2),
@@ -115,6 +121,8 @@ export async function createTournament(
   if (schedule && schedule !== "invalid") config.schedule = schedule;
   const tiebreak = sanitiseTiebreak(input.config.tiebreak);
   if (tiebreak && tiebreak !== "invalid" && input.format !== "cup" && input.format !== "double_elim") config.tiebreak = tiebreak;
+  // Swiss uten eget valg rangeres Buchholz → Sonneborn-Berger (ikke «standard»).
+  if (input.format === "swiss" && !config.tiebreak) config.tiebreak = "swiss";
   const consolation = validConsolation(input);
   if (consolation !== "none") config.consolation = consolation;
   const status = input.format === "cup" || input.format === "double_elim" ? "playoff" : "league";
@@ -226,6 +234,8 @@ async function buildRest(
       schedule: t.config.schedule,
       grandFinalReset: t.config.doubleElim?.grandFinalReset !== false,
     });
+  } else if (input.format === "swiss") {
+    await insertSwissRound(t, 1); // bare runde 1; resten legges via organiser/advance
   } else if (input.format === "group_playoff") {
     await buildGroupMatches(t, teamIds, courtIds);
   } else {
