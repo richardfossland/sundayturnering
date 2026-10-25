@@ -196,3 +196,71 @@ export function sanitiseSchedule(raw: unknown): ScheduleConfig | undefined | "in
     ...(courtBreaks.length ? { courtBreaks } : {}),
   };
 }
+
+// ---------- Skyv tidsplanen (A2) ----------
+// Samme regler som RPC `turnering.shift_schedule` (migrasjon 0013). Brukes til
+// forhåndsvisning i arrangørpanelet og til å gi pene feil i ruta; databasen
+// har siste ord.
+
+/** Maks skyv i minutter (begge retninger). */
+export const MAX_SHIFT_MINUTES = 240;
+/** Slingringsmonn mot «nå» (ms), som `now() - 1 minute` i RPC-en. */
+const SHIFT_PAST_SLACK = MIN;
+
+export type ShiftError =
+  | "ugyldig_skyv" // manglende/ugyldig input, eller 0 minutter
+  | "for_stort_skyv" // |minutter| > MAX_SHIFT_MINUTES
+  | "skyv_for_tidlig" // en kamp ville havnet før «nå»
+  | "ingen_kamper"; // ingenting å skyve
+
+export interface ShiftChange {
+  matchId: string;
+  before: string;
+  after: string;
+}
+
+export interface ShiftRequest {
+  /** Bane-id, eller null for alle baner. */
+  courtId: string | null;
+  /** Skyv kamper som starter på/etter dette tidspunktet (ISO). */
+  fromIso: string;
+  /** Positivt = utsett, negativt = framskynd. */
+  minutes: number;
+  nowIso: string;
+}
+
+/** Hvilke kamper som flyttes (og til når) om tidsplanen skyves. Ferdige/bye-/live-
+ * kamper og kamper uten klokkeslett røres aldri. */
+export function previewShift(
+  matches: Pick<Match, "id" | "court_id" | "status" | "scheduled_at">[],
+  req: ShiftRequest,
+): { changes: ShiftChange[]; error: ShiftError | null } {
+  const from = Date.parse(req.fromIso);
+  const now = Date.parse(req.nowIso);
+  if (
+    !Number.isInteger(req.minutes) ||
+    req.minutes === 0 ||
+    !Number.isFinite(from) ||
+    !Number.isFinite(now)
+  )
+    return { changes: [], error: "ugyldig_skyv" };
+  if (Math.abs(req.minutes) > MAX_SHIFT_MINUTES)
+    return { changes: [], error: "for_stort_skyv" };
+
+  const changes: ShiftChange[] = [];
+  for (const m of matches) {
+    if (m.status === "done" || m.status === "bye" || m.status === "live" || !m.scheduled_at) continue;
+    if (req.courtId !== null && m.court_id !== req.courtId) continue;
+    const t = Date.parse(m.scheduled_at);
+    if (!Number.isFinite(t) || t < from) continue;
+    changes.push({
+      matchId: m.id,
+      before: m.scheduled_at,
+      after: new Date(t + req.minutes * MIN).toISOString(),
+    });
+  }
+  if (changes.length === 0) return { changes, error: "ingen_kamper" };
+  if (req.minutes < 0 && changes.some((c) => Date.parse(c.after) < now - SHIFT_PAST_SLACK))
+    return { changes, error: "skyv_for_tidlig" };
+  return { changes, error: null };
+}

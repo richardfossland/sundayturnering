@@ -294,6 +294,16 @@ export const no = {
     finish: "Avslutt turnering",
     wrongOrganiserCode: "Feil arrangørkode.",
     needOrganiser: "Denne handlingen krever arrangørkoden.",
+
+    shiftTitle: "Skyv tidsplanen",
+    shiftCourt: "Bane",
+    shiftAllCourts: "Alle baner",
+    shiftFrom: "Fra",
+    shiftFromNow: "Alle kommende kamper",
+    shiftMinutes: "Minutter (− tidligere, + senere)",
+    shiftPreview: (n: number) => `${n} ${n === 1 ? "kamp" : "kamper"} flyttes`,
+    shiftConfirm: "Bekreft",
+    shiftDone: (n: number) => `Tidsplanen er skjøvet (${n} ${n === 1 ? "kamp" : "kamper"}).`,
   },
 
   // commentator / announcer auto-feed (storskjerm-speaker)

@@ -283,6 +283,21 @@ export const api = {
     });
   },
 
+  /** Skyv tidsplanen (minutter, negativt = framskynd) for én bane eller alle. */
+  shift(
+    tournamentId: string,
+    organiserCode: string,
+    opts: { courtId: string | null; from: string; minutes: number },
+  ) {
+    return post<{ ok: true; count: number }>("/api/organiser/shift", {
+      tournamentId,
+      organiserCode,
+      courtId: opts.courtId,
+      from: opts.from,
+      minutes: opts.minutes,
+    });
+  },
+
   async uploadLogo(file: File): Promise<string> {
     const fd = new FormData();
     fd.append("file", file);

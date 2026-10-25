@@ -382,6 +382,7 @@ export function ControlClient({ id }: { id: string }) {
           tournament={tournament}
           matches={matches}
           teams={teams}
+          courts={courts}
           onChanged={refetch}
           flash={flash}
         />
