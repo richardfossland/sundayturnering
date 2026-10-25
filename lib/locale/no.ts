@@ -328,6 +328,15 @@ export const no = {
     connected: "Tilkoblet",
     editJustSaved: "Endre",
     editWindowGone: "Tidsvinduet er utløpt — be arrangøren om å endre.",
+
+    // referee outbox (A5): results queued on the phone while the net is down
+    queuedToast: "Lagret på telefonen – sendes når nettet er tilbake",
+    unsentBadge: (n: number) => `Ikke sendt ennå (${n})`,
+    unsentRetry: "Prøv nå",
+    unsentRetrying: "Sender …",
+    unsentCard: (score: string) => `Ikke sendt: ${score}`,
+    unsentSent: "Resultatet er sendt.",
+    unsentRejected: "Et lagret resultat kunne ikke sendes, fordi kampen er endret av en annen enhet. Sjekk kampen på nytt.",
     codeRejected: "Kontrollkoden ble avvist — tast den på nytt.",
     targetDone: "Den kampen er allerede ferdig.",
     targetNotReady: "Lagene i den kampen er ikke avgjort ennå.",

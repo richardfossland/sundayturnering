@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OfflineBanner } from "@/lib/client/OfflineBanner";
 import { useTournament } from "@/lib/client/useTournament";
+import { useOutbox, type OutboxEntry, type OutboxEvent } from "@/lib/client/outbox";
 import { ApiError } from "@/lib/client/api";
 import { errorMessage, pairErrorMessage } from "@/lib/locale/errors";
 import { usePresence } from "@/lib/client/usePresence";
@@ -140,6 +141,23 @@ export function ControlClient({ id }: { id: string }) {
     return false;
   }
 
+  // Results queued on this phone while the net was down (lib/client/outbox.ts).
+  const onOutbox = useCallback(
+    (e: OutboxEvent) => {
+      if (e.type === "sent") {
+        flash(no.control.unsentSent);
+      } else if (!codeRejected(e.error)) {
+        flash(e.error.code === "konflikt" ? no.control.unsentRejected : errorMessage(e.error));
+      }
+      refetch();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refetch, id],
+  );
+  const { entries: unsent, flush: flushOutbox } = useOutbox(id, onOutbox);
+  const unsentByMatch = useMemo(() => new Map(unsent.map((e) => [e.matchId, e])), [unsent]);
+  const [retrying, setRetrying] = useState(false);
+
   const devices = usePresence(id, self);
   const teams = useMemo(() => teamMap(state?.teams ?? []), [state?.teams]);
 
@@ -275,6 +293,22 @@ export function ControlClient({ id }: { id: string }) {
     <main className="control">
       <OfflineBanner failures={failures} lastOkAt={lastOkAt} />
       <div className="control-head stack" style={{ gap: 10 }}>
+        {unsent.length > 0 && (
+          <div className="unsent-bar" role="status" aria-live="polite">
+            <span>{no.control.unsentBadge(unsent.length)}</span>
+            <button
+              className="btn btn-sm"
+              disabled={retrying}
+              onClick={() => {
+                setRetrying(true);
+                flushOutbox();
+                setTimeout(() => setRetrying(false), 1500);
+              }}
+            >
+              {retrying ? no.control.unsentRetrying : no.control.unsentRetry}
+            </button>
+          </div>
+        )}
         <div className="spread">
           <span className="brand" style={{ fontSize: ".95rem" }}>
             <span className="brand-mark" style={{ width: 26, height: 26, fontSize: ".8rem" }}>T</span>
@@ -401,6 +435,7 @@ export function ControlClient({ id }: { id: string }) {
               courts={courts}
               profile={tournament.scoring.profile}
               selfDeviceId={self?.deviceId ?? null}
+              unsent={unsentByMatch.get(m.id) ?? null}
               onTap={() => openMatch(m)}
               onStart={m.status === "scheduled" || m.status === "called" ? () => startMatch(m) : undefined}
             />
@@ -437,6 +472,7 @@ export function ControlClient({ id }: { id: string }) {
             setOpen(null);
             refetch();
           }}
+          onQueued={() => flash(no.control.queuedToast)}
           onConflict={() => {
             flash(openMode === "correct" ? no.control.editWindowGone : no.control.conflict);
             refetch();
@@ -526,6 +562,7 @@ function MatchCard({
   courts,
   profile,
   selfDeviceId,
+  unsent,
   onTap,
   onStart,
 }: {
@@ -534,6 +571,8 @@ function MatchCard({
   courts: Court[];
   profile: import("@/lib/types").ScoringProfileKey;
   selfDeviceId: string | null;
+  /** A result for this match waits in the outbox: show it, block a second entry. */
+  unsent: OutboxEntry | null;
   onTap: () => void;
   onStart?: () => void;
 }) {
@@ -550,7 +589,8 @@ function MatchCard({
   const lockName = locked ? m.locked_by!.split("|")[1] : null;
   const r = m.result ? resolve(profile, m.result) : null;
   const ready = h && a;
-  const tappable = (ready && m.status !== "done") || correctMsLeft != null;
+  const tappable = !unsent && ((ready && m.status !== "done") || correctMsLeft != null);
+  const unsentScore = unsent ? resolve(profile, unsent.payload.result).display : null;
   const homeWon = !!(m.winner_team_id && m.winner_team_id === m.home_team_id);
   const awayWon = !!(m.winner_team_id && m.winner_team_id === m.away_team_id);
 
@@ -577,7 +617,9 @@ function MatchCard({
         <TeamLine team={a} win={m.status === "done" && awayWon} />
       </div>
       <div className="match-meta stack" style={{ gap: 4, alignItems: "flex-end" }}>
-        {m.status === "done" && r ? (
+        {unsentScore ? (
+          <span className="pill pill-unsent">{no.control.unsentCard(unsentScore)}</span>
+        ) : m.status === "done" && r ? (
           // Full scoreline (e.g. "2–1 (25–20, 23–25, 15–10)") — no longer
           // truncated to the set tally, so judges see exactly what was entered.
           <span className="match-result">{r.display}</span>

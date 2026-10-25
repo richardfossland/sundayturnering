@@ -170,6 +170,9 @@ export const api = {
     result: MatchResult,
     device: { deviceId: string; deviceName?: string },
     controlCode: string,
+    /** Idempotency key (lib/client/outbox.ts): a repeat of the same id returns
+     * the first outcome instead of committing or 409-ing again. */
+    requestId?: string,
   ) {
     return post<{ match: Match }>("/api/match/result", {
       matchId,
@@ -178,6 +181,7 @@ export const api = {
       deviceId: device.deviceId,
       deviceName: device.deviceName,
       controlCode,
+      requestId,
     });
   },
 
