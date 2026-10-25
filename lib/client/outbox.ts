@@ -11,7 +11,11 @@ import type { Match, MatchResult } from "@/lib/types";
 // then repeated commits exactly once and never 409s against itself.
 //
 //   2xx                → remove
-//   network / timeout / 5xx / 429 → keep, back off, retry (order preserved)
+//   network / timeout / 5xx / 429 → keep, back off, retry. Order is kept per
+//                      match only: a stuck entry never blocks other matches.
+//                      After MAX_ATTEMPTS the entry is marked `failed`: it is
+//                      no longer sent, stays visible (the referee re-enters
+//                      the score or tells the organiser) until dismissed.
 //   409 konflikt, other 4xx → remove and report (the match was changed by
 //                      someone else, or the entry can never succeed)
 //
@@ -34,6 +38,8 @@ export type OutboxEntry = {
   createdAt: number;
   attempts: number;
   lastError: string | null;
+  /** Gave up after MAX_ATTEMPTS: kept for the UI, never sent again. */
+  failed?: boolean;
 };
 
 export type OutboxEvent =
@@ -51,6 +57,7 @@ export interface OutboxStore {
 
 export const BACKOFF_BASE_MS = 1000;
 export const BACKOFF_CAP_MS = 30_000;
+export const MAX_ATTEMPTS = 8;
 
 /** Delay before attempt number `attempts + 1` (attempts = failed sends so far). */
 export function backoffMs(attempts: number): number {
@@ -229,6 +236,7 @@ export class Outbox {
       ...input,
       createdAt: this.now(),
     };
+    await this.discardFailed(entry.matchId);
     this.entries = [...this.entries.filter((x) => x.requestId !== entry.requestId), entry];
     this.emit();
     try {
@@ -253,10 +261,14 @@ export class Outbox {
 
   private async run(): Promise<void> {
     await this.loaded;
-    let failed = 0;
+    let retryIn = 0;
+    // Ordering only matters within one match: after a transient failure its
+    // later entries wait, other matches carry on.
+    const blocked = new Set<string>();
     for (const entry of [...this.entries].sort((a, b) => a.createdAt - b.createdAt)) {
       // Removed or replaced while an earlier entry was in flight.
       if (!this.entries.some((x) => x.requestId === entry.requestId)) continue;
+      if (entry.failed || blocked.has(entry.matchId)) continue;
       try {
         const match = await this.deps.send(entry);
         await this.drop(entry);
@@ -271,11 +283,13 @@ export class Outbox {
           });
           continue;
         }
-        // Network is down: stop here, keep the order, back off.
+        blocked.add(entry.matchId);
+        const attempts = entry.attempts + 1;
         const next: OutboxEntry = {
           ...entry,
-          attempts: entry.attempts + 1,
+          attempts,
           lastError: e instanceof ApiError ? e.code : "nett",
+          ...(attempts >= MAX_ATTEMPTS ? { failed: true } : {}),
         };
         this.entries = this.entries.map((x) => (x.requestId === next.requestId ? next : x));
         this.emit();
@@ -284,11 +298,24 @@ export class Outbox {
         } catch {
           /* memory copy is still correct */
         }
-        failed = next.attempts;
-        break;
+        if (!next.failed) {
+          const d = backoffMs(attempts);
+          retryIn = retryIn === 0 ? d : Math.min(retryIn, d);
+        }
       }
     }
-    if (failed > 0) this.schedule(backoffMs(failed));
+    if (retryIn > 0) this.schedule(retryIn);
+  }
+
+  /** Remove an entry the referee has given up on (or re-entered). */
+  async dismiss(requestId: string): Promise<void> {
+    const entry = this.entries.find((x) => x.requestId === requestId);
+    if (entry) await this.drop(entry);
+  }
+
+  /** Drop the failed entries of one match (a new send for it succeeded/queued). */
+  async discardFailed(matchId: string): Promise<void> {
+    for (const e of this.entries.filter((x) => x.failed && x.matchId === matchId)) await this.drop(e);
   }
 
   private async drop(entry: OutboxEntry) {
@@ -407,6 +434,7 @@ export async function submitResultOrQueue(
       args.controlCode,
       requestId,
     );
+    await outbox.discardFailed(args.matchId);
     return { queued: false, match: r.match };
   } catch (e) {
     if (!isNetworkFailure(e)) throw e;
@@ -448,5 +476,9 @@ export function useOutbox(tournamentId: string, onEvent?: (e: OutboxEvent) => vo
     return outbox.on(onEvent);
   }, [outbox, onEvent]);
   const entries = all.filter((e) => e.tournamentId === tournamentId);
-  return { entries, flush: () => void outbox?.flush() };
+  return {
+    entries,
+    flush: () => void outbox?.flush(),
+    dismiss: (requestId: string) => void outbox?.dismiss(requestId),
+  };
 }
