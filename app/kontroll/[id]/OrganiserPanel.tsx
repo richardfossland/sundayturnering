@@ -10,6 +10,7 @@ import { errorMessage } from "@/lib/locale/errors";
 import { useEscape } from "@/lib/client/useEscape";
 import { matchTime } from "@/lib/client/view";
 import { previewShift } from "@/lib/tournament/schedule";
+import { callCandidates, matchRest, suggestNext } from "@/lib/tournament/courts";
 import type { Court, Match, MatchResult, Team } from "@/lib/types";
 import type { TournamentDTO } from "@/lib/dto";
 
@@ -183,6 +184,19 @@ export function OrganiserPanel({
         </button>
       </div>
 
+      {courts.length > 0 && (
+        <CourtsSection
+          tournament={tournament}
+          matches={matches}
+          teams={teams}
+          courts={courts}
+          code={code}
+          busy={busy}
+          guard={guard}
+          flash={flash}
+        />
+      )}
+
       {tournament.config?.schedule && (
         <ShiftSection
           tournament={tournament}
@@ -249,6 +263,147 @@ export function OrganiserPanel({
         />
       )}
     </div>
+  );
+}
+
+/** «Baner»: per bane hva som spilles, hvem som er kalt opp og foreslått neste
+ * kamp (tidligst med uthvilte lag). Kall opp / angre. Velger arrangøren en kamp
+ * med lag som fortsatt hviler, vises nedtellingen og det kreves bekreftelse. */
+function CourtsSection({
+  tournament,
+  matches,
+  teams,
+  courts,
+  code,
+  busy,
+  guard,
+  flash,
+}: {
+  tournament: TournamentDTO;
+  matches: Match[];
+  teams: Map<string, Team>;
+  courts: Court[];
+  code: string;
+  busy: boolean;
+  guard: <T>(fn: () => Promise<T>) => Promise<T | null>;
+  flash: (m: string) => void;
+}) {
+  const [picked, setPicked] = useState<Record<string, string>>({});
+  // Hvile-nedtellingen tickes hvert 15. sekund.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(id);
+  }, []);
+  const nowIso = new Date(now).toISOString();
+  const minRest = tournament.config?.schedule?.minRestMinutes ?? 0;
+
+  const teamName = (id: string | null) => (id ? (teams.get(id)?.name ?? "?") : "?");
+  const label = (m: Match) => `${teamName(m.home_team_id)} – ${teamName(m.away_team_id)}`;
+  const timed = (m: Match) => (matchTime(m.scheduled_at) ? `${matchTime(m.scheduled_at)} · ` : "");
+
+  return (
+    <>
+      <div className="divider" />
+      <h3 className="label" id="courts-title">{no.control.courtsTitle}</h3>
+      <div className="stack" style={{ gap: 10 }} role="group" aria-labelledby="courts-title">
+        {courts.map((c) => {
+          const here = matches.filter((m) => m.court_id === c.id);
+          const live = here.find((m) => m.status === "live");
+          const called = here.find((m) => m.status === "called");
+          const candidates = callCandidates(c.id, matches);
+          const suggested = suggestNext(c.id, matches, nowIso, minRest);
+          const chosen =
+            candidates.find((m) => m.id === picked[c.id]) ?? suggested ?? candidates[0] ?? null;
+          const rest = chosen ? matchRest(chosen, matches, nowIso, minRest) : null;
+          const restMin = rest && rest.ms > 0 ? Math.ceil(rest.ms / 60_000) : 0;
+
+          return (
+            <div className="match-card" key={c.id} style={{ cursor: "default", alignItems: "stretch" }}>
+              <div className="stack" style={{ gap: 6, flex: 1, minWidth: 0 }}>
+                <strong>{c.name}</strong>
+                {live && (
+                  <div>
+                    <span className="pill pill-live"><span className="dot" />{no.control.courtLive}</span>{" "}
+                    {label(live)}
+                  </div>
+                )}
+                {called && (
+                  <div>
+                    <span className="pill pill-called">{no.control.courtCalled}</span> {label(called)}
+                  </div>
+                )}
+                {!live && !called && <span className="faint">{no.control.courtEmpty}</span>}
+
+                {!live && !called && (
+                  <>
+                    {candidates.length === 0 ? (
+                      <span className="faint" style={{ fontSize: ".88rem" }}>
+                        {no.control.courtNoSuggestion}
+                      </span>
+                    ) : (
+                      <select
+                        className="select"
+                        aria-label={`${no.control.courtSuggested} – ${c.name}`}
+                        value={chosen?.id ?? ""}
+                        onChange={(e) => setPicked((p) => ({ ...p, [c.id]: e.target.value }))}
+                      >
+                        {candidates.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.id === suggested?.id ? "★ " : ""}
+                            {timed(m)}
+                            {label(m)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {restMin > 0 && rest?.teamId && (
+                      <span role="status" style={{ color: "var(--warn)", fontSize: ".88rem" }}>
+                        {no.control.restWarning(teamName(rest.teamId), restMin)}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="stack" style={{ gap: 6, justifyContent: "center" }}>
+                {called && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={busy || !code}
+                    onClick={async () => {
+                      const r = await guard(() =>
+                        api.call(tournament.id, code, { matchId: called.id, courtId: c.id, undo: true }),
+                      );
+                      if (r) flash(no.control.callUndone);
+                    }}
+                  >
+                    {no.control.callUndo}
+                  </button>
+                )}
+                {!live && !called && chosen && (
+                  <button
+                    type="button"
+                    className="btn btn-gold"
+                    disabled={busy || !code}
+                    onClick={async () => {
+                      if (restMin > 0 && rest?.teamId && !confirm(no.control.restConfirm(teamName(rest.teamId), restMin)))
+                        return;
+                      const r = await guard(() =>
+                        api.call(tournament.id, code, { matchId: chosen.id, courtId: c.id }),
+                      );
+                      if (r) flash(no.control.calledDone(c.name));
+                    }}
+                  >
+                    {no.control.callUp}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

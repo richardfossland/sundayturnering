@@ -13,7 +13,8 @@ export type ScoringProfileKey = "simple" | "sets" | "winner";
 export type Parallelism = "sequential" | "parallel";
 export type TournamentStatus = "setup" | "league" | "playoff" | "finished";
 export type MatchPhase = "league" | "playoff";
-export type MatchStatus = "scheduled" | "live" | "done" | "bye";
+/** `called` = kalt opp til en bane, ikke startet ennå (A3). */
+export type MatchStatus = "scheduled" | "called" | "live" | "done" | "bye";
 
 /** Scoring config persisted on the tournament (drives input UI + standings). */
 export interface ScoringConfig {
@@ -156,6 +157,8 @@ export interface Match {
   queue_order: number;
   /** Planlagt starttid (ISO). Null uten tidsplan, for byes og for ferdige kamper. */
   scheduled_at: string | null;
+  /** Når kampen ble kalt opp til banen (status `called`), ellers null. */
+  called_at: string | null;
   home_team_id: string | null;
   away_team_id: string | null; // null = bye / TBD
   status: MatchStatus;

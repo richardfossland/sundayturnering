@@ -67,7 +67,7 @@ function makeMatch(over: Partial<Match> = {}): Match {
     bracket_slot: null,
     group_no: null,
     court_id: null,
-    queue_order: 0, scheduled_at: null,
+    queue_order: 0, scheduled_at: null, called_at: null,
     home_team_id: "h",
     away_team_id: "a",
     status: "scheduled",
@@ -119,7 +119,7 @@ describe("POST /api/match/lock — status side effects", () => {
   it("unlock WITH revert demotes the lock-promoted match back to scheduled", async () => {
     matchRow = makeMatch({ status: "live", locked_by: "d1|Bane 1" });
     await lock({ action: "unlock", revert: true });
-    expect(patches).toEqual([{ locked_by: null, status: "scheduled", result: null }]);
+    expect(patches).toEqual([{ locked_by: null, status: "scheduled", result: null, called_at: null }]);
   });
 
   it("unlock WITHOUT revert only releases the lock — a started match stays live", async () => {
@@ -139,6 +139,17 @@ describe("POST /api/match/lock — status side effects", () => {
     matchRow = makeMatch();
     await lock({ action: "start" });
     expect(patches).toEqual([{ status: "live" }]);
+  });
+
+  it("a CALLED match goes live on start and on lock (promoted:true)", async () => {
+    matchRow = makeMatch({ status: "called" });
+    await lock({ action: "start" });
+    expect(patches).toEqual([{ status: "live" }]);
+    patches.length = 0;
+    const r = await lock({ action: "lock" });
+    expect(r.json.promoted).toBe(true);
+    expect(patches).toEqual([{ locked_by: "d1|Bane 1", status: "live" }]);
+    expect(conditions[0]).toEqual(expect.arrayContaining(["eq:status:called"]));
   });
 
   it("lock is a compare-and-set on the free lock (is null) and current status", async () => {

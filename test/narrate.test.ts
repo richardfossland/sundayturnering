@@ -51,7 +51,7 @@ function match(over: Partial<Match> = {}): Match {
     bracket_slot: null,
     group_no: null,
     court_id: null,
-    queue_order: 0, scheduled_at: null,
+    queue_order: 0, scheduled_at: null, called_at: null,
     home_team_id: "a",
     away_team_id: "b",
     status: "scheduled",
@@ -96,6 +96,16 @@ const find = (lines: Storyline[], kind: string) =>
   lines.find((l) => l.kind === kind);
 
 // ---------- tests ----------
+
+describe("diffSnapshots — called (A3)", () => {
+  it("scheduled → called narrates nothing; called → live is a kick-off", () => {
+    const m = match({ id: "x", status: "scheduled" });
+    const called = { ...m, status: "called" as const };
+    expect(diffSnapshots(state({ matches: [m] }), state({ matches: [called] }))).toHaveLength(0);
+    const lines = diffSnapshots(state({ matches: [called] }), state({ matches: [{ ...m, status: "live" }] }));
+    expect(find(lines, "live")).toBeTruthy();
+  });
+});
 
 describe("diffSnapshots — results", () => {
   it("narrates a newly completed win", () => {

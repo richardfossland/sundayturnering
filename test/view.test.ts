@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { championId, finalRanking, knockoutPodium } from "@/lib/client/view";
+import { championId, finalRanking, knockoutPodium, upcoming, liveMatches } from "@/lib/client/view";
 import type { StateDTO, TournamentDTO } from "@/lib/dto";
 import type { Match, StandingRow, Team } from "@/lib/types";
 
@@ -41,7 +41,7 @@ function pmatch(round: number, home: string | null, away: string | null, winner:
     bracket_slot: 0,
     group_no: null,
     court_id: null,
-    queue_order: 0, scheduled_at: null,
+    queue_order: 0, scheduled_at: null, called_at: null,
     home_team_id: home,
     away_team_id: away,
     status: winner ? "done" : "scheduled",
@@ -159,5 +159,15 @@ describe("finalRanking", () => {
     expect(knockoutPodium(s.matches)).toEqual([]);
     // No champion yet → table order stands.
     expect(finalRanking(s).map((t) => t.id)).toEqual(["a", "b", "c", "d"]);
+  });
+});
+
+describe("upcoming / liveMatches with a called match (A3)", () => {
+  it("a called match is still 'next up' (not live); done/bye are not", () => {
+    const a = { ...pmatch(1, "a", "b", null), queue_order: 1, status: "called" as const };
+    const b = { ...pmatch(1, "c", "d", null), queue_order: 2 };
+    const c = { ...pmatch(1, "e", "f", "e"), queue_order: 0 };
+    expect(upcoming([b, c, a]).map((m) => m.id)).toEqual([a.id, b.id]);
+    expect(liveMatches([a, b, c])).toEqual([]);
   });
 });

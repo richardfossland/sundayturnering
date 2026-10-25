@@ -29,10 +29,10 @@ export function liveMatches(matches: Match[]): Match[] {
   return matches.filter((m) => m.status === "live");
 }
 
-/** The next scheduled matches in queue order (board "next up"). */
+/** The next scheduled (or called-to-court) matches in queue order (board "next up"). */
 export function upcoming(matches: Match[], limit = 5): Match[] {
   return matches
-    .filter((m) => m.status === "scheduled" && m.home_team_id && m.away_team_id)
+    .filter((m) => (m.status === "scheduled" || m.status === "called") && m.home_team_id && m.away_team_id)
     .sort((a, b) => a.queue_order - b.queue_order)
     .slice(0, limit);
 }

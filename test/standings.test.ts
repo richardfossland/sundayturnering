@@ -37,7 +37,7 @@ function match(home: string, away: string | null, h: number, a: number): Match {
     bracket_slot: null,
     group_no: null,
     court_id: null,
-    queue_order: 0, scheduled_at: null,
+    queue_order: 0, scheduled_at: null, called_at: null,
     home_team_id: home,
     away_team_id: away,
     status: away === null ? "bye" : "done",
@@ -187,5 +187,14 @@ describe("computeGroupStandings", () => {
     expect(groups[0].rows[0].inPlayoff).toBe(true);
     expect(groups[0].rows[1].inPlayoff).toBe(false);
     expect(groups[1].rows[0].team_id).toBe("d"); // Delta won group 1
+  });
+});
+
+describe("computeStandings — called matches (A3)", () => {
+  it("a called (unplayed) match changes nothing in the table", () => {
+    const teams = [team("a", "Alfa"), team("b", "Bravo")];
+    const pending = { ...match("a", "b", 0, 0), status: "called" as const, result: null };
+    const s = computeStandings(teams, [pending], cfg);
+    expect(s.every((r) => r.played === 0 && r.points === 0)).toBe(true);
   });
 });

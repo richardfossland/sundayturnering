@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 
-// Applies every migration (0001…0013) to an in-memory Postgres with a stubbed
+// Applies every migration (0001…0014) to an in-memory Postgres with a stubbed
 // Supabase `realtime` schema, then replays what Realtime does at join time: a
 // SELECT / INSERT on realtime.messages AS the subscriber's role with
 // realtime.topic() set to the channel topic. The stub mirrors the real shape
@@ -76,12 +76,13 @@ beforeAll(async () => {
     create table storage.buckets (id text primary key, name text, public boolean);
   `);
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
-  expect(files.at(-1)).toBe("0013_shift_schedule.sql");
+  expect(files.at(-1)).toBe("0014_called.sql");
   for (const f of files) await db.exec(readFileSync(join(MIGRATIONS, f), "utf8"));
   // Re-applying must be a no-op (idempotent).
   await db.exec(readFileSync(join(MIGRATIONS, "0011_realtime_private.sql"), "utf8"));
   await db.exec(readFileSync(join(MIGRATIONS, "0012_schedule.sql"), "utf8"));
   await db.exec(readFileSync(join(MIGRATIONS, "0013_shift_schedule.sql"), "utf8"));
+  await db.exec(readFileSync(join(MIGRATIONS, "0014_called.sql"), "utf8"));
 
   await db.query(
     `insert into turnering.tournaments (id, control_code, board_code, organiser_code, format)
@@ -259,5 +260,132 @@ describe("0013 shift_schedule", () => {
               has_function_privilege('service_role', 'turnering.shift_schedule(uuid,uuid,timestamptz,int)', 'execute') as s`,
     );
     expect(r.rows[0]).toEqual({ a: false, s: true });
+  });
+});
+
+describe("0014 call_match / uncall_match", () => {
+  const T = "bbbbbbbb-2222-4333-8444-555555555555";
+  const C1 = "c1111111-3333-4333-8444-555555555555";
+  const C2 = "c2222222-3333-4333-8444-555555555555";
+  const OTHER_COURT = "c3333333-3333-4333-8444-555555555555";
+  const T2 = "bbbbbbbb-9999-4333-8444-555555555555";
+  const TEAMS = ["1", "2", "3", "4", "5", "6"].map((n) => `${n}1111111-3333-4333-8444-555555555555`);
+  const mid = (p: string) => `${p}0000000-3333-4333-8444-555555555555`;
+
+  const call = (match: string, court: string) =>
+    db.query("select (turnering.call_match($1, $2)).status as s", [match, court]);
+  const uncall = (match: string) =>
+    db.query("select (turnering.uncall_match($1)).status as s", [match]);
+  const row = async (p: string) =>
+    (
+      await db.query<{ status: string; court_id: string | null; called_at: string | null }>(
+        "select status, court_id, called_at from turnering.matches where id = $1",
+        [mid(p)],
+      )
+    ).rows[0];
+  const version = async () =>
+    (await db.query<{ v: number }>("select version as v from turnering.tournaments where id = $1", [T]))
+      .rows[0].v;
+
+  beforeAll(async () => {
+    for (const [id, code] of [[T, "111111"], [T2, "222222"]])
+      await db.query(
+        `insert into turnering.tournaments (id, control_code, board_code, organiser_code, format)
+         values ($1, $2, $2, $2, 'cup')`,
+        [id, code],
+      );
+    for (const [id, tid] of [[C1, T], [C2, T], [OTHER_COURT, T2]])
+      await db.query("insert into turnering.courts (id, tournament_id, name) values ($1, $2, 'B')", [id, tid]);
+    for (const [i, id] of TEAMS.entries())
+      await db.query("insert into turnering.teams (id, tournament_id, name) values ($1, $2, $3)", [id, T, `L${i}`]);
+    const rows: [string, string, string | null, string | null][] = [
+      ["a", "scheduled", TEAMS[0], TEAMS[1]],
+      ["b", "scheduled", TEAMS[2], TEAMS[3]],
+      ["c", "scheduled", TEAMS[4], null], // TBD
+      ["d", "live", TEAMS[4], TEAMS[5]],
+      ["e", "done", TEAMS[0], TEAMS[2]],
+    ];
+    for (const [p, status, h, a] of rows)
+      await db.query(
+        `insert into turnering.matches (id, tournament_id, status, home_team_id, away_team_id)
+         values ($1, $2, $3, $4, $5)`,
+        [mid(p), T, status, h, a],
+      );
+  });
+
+  it("the status check accepts 'called' and still refuses junk", async () => {
+    await expect(
+      db.query("update turnering.matches set status = 'nope' where id = $1", [mid("a")]),
+    ).rejects.toThrow();
+  });
+
+  it("calls a scheduled match: status, court, called_at, version bump", async () => {
+    const v0 = await version();
+    expect((await call(mid("a"), C1)).rows[0]).toEqual({ s: "called" });
+    const r = await row("a");
+    expect(r.court_id).toBe(C1);
+    expect(r.called_at).not.toBeNull();
+    expect(await version()).toBe(v0 + 1);
+  });
+
+  it("refuses a second match on the same court (called) and on a court with a live match", async () => {
+    await expect(call(mid("b"), C1)).rejects.toThrow(/court_busy/);
+    await db.query("update turnering.matches set court_id = $2 where id = $1", [mid("d"), C2]);
+    await expect(call(mid("b"), C2)).rejects.toThrow(/court_busy/);
+    expect((await row("b")).status).toBe("scheduled");
+  });
+
+  it("refuses non-scheduled / TBD matches, and a court from another tournament", async () => {
+    await expect(call(mid("c"), C1)).rejects.toThrow(/match_not_callable|court_busy/);
+    await expect(call(mid("e"), C1)).rejects.toThrow(/match_not_callable|court_busy/);
+    await expect(call(mid("a"), C2)).rejects.toThrow(/match_not_callable|court_busy/); // already called
+    await expect(call(mid("b"), OTHER_COURT)).rejects.toThrow(/court_not_found/);
+  });
+
+  it("un-calls only a called match, clearing called_at; version bumps", async () => {
+    const v0 = await version();
+    expect((await uncall(mid("a"))).rows[0]).toEqual({ s: "scheduled" });
+    expect((await row("a")).called_at).toBeNull();
+    expect(await version()).toBe(v0 + 1);
+    await expect(uncall(mid("a"))).rejects.toThrow(/match_not_callable/);
+    await expect(uncall(mid("d"))).rejects.toThrow(/match_not_callable/);
+  });
+
+  it("a called match can be started (→ live) and have its result submitted", async () => {
+    await call(mid("a"), C1);
+    await db.query("update turnering.matches set status = 'live' where id = $1 and status = 'called'", [mid("a")]);
+    expect((await row("a")).status).toBe("live");
+    await expect(call(mid("b"), C1)).rejects.toThrow(/court_busy/); // C1 now has a live match
+    const r = await db.query<{ s: string }>(
+      "select (turnering.submit_match_result($1, 0, '{\"home\":1,\"away\":0}'::jsonb, $2, 'done', 'dev')).status as s",
+      [mid("a"), TEAMS[0]],
+    );
+    expect(r.rows[0].s).toBe("done");
+    // The RPC does not look at the previous status: a called (never started)
+    // match accepts a result too.
+    await call(mid("b"), C1);
+    const r2 = await db.query<{ s: string }>(
+      "select (turnering.submit_match_result($1, 0, '{\"home\":0,\"away\":1}'::jsonb, $2, 'done', 'dev')).status as s",
+      [mid("b"), TEAMS[3]],
+    );
+    expect(r2.rows[0].s).toBe("done");
+  });
+
+  it("shift_schedule still shifts a called match", async () => {
+    await db.query("update turnering.matches set status = 'called', scheduled_at = now() + interval '10 minutes' where id = $1", [mid("c")]);
+    const before = (await db.query<{ t: string }>("select scheduled_at::text as t from turnering.matches where id = $1", [mid("c")])).rows[0].t;
+    await db.query("select turnering.shift_schedule($1, null, now(), 5)", [T]);
+    const after = (await db.query<{ t: string }>("select scheduled_at::text as t from turnering.matches where id = $1", [mid("c")])).rows[0].t;
+    expect(after).not.toBe(before);
+  });
+
+  it("is executable by service_role only and re-applying is a no-op", async () => {
+    const r = await db.query<{ a: boolean; s: boolean; u: boolean }>(
+      `select has_function_privilege('anon', 'turnering.call_match(uuid,uuid)', 'execute') as a,
+              has_function_privilege('service_role', 'turnering.call_match(uuid,uuid)', 'execute') as s,
+              has_function_privilege('service_role', 'turnering.uncall_match(uuid)', 'execute') as u`,
+    );
+    expect(r.rows[0]).toEqual({ a: false, s: true, u: true });
+    await db.exec(readFileSync(join(MIGRATIONS, "0014_called.sql"), "utf8"));
   });
 });

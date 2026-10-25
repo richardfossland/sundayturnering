@@ -283,6 +283,21 @@ export const api = {
     });
   },
 
+  /** Kall en kamp opp til en bane (eller angre oppkallingen med `undo`). */
+  call(
+    tournamentId: string,
+    organiserCode: string,
+    opts: { matchId: string; courtId: string; undo?: boolean },
+  ) {
+    return post<{ ok: true }>("/api/organiser/call", {
+      tournamentId,
+      organiserCode,
+      matchId: opts.matchId,
+      courtId: opts.courtId,
+      undo: opts.undo === true,
+    });
+  },
+
   /** Skyv tidsplanen (minutter, negativt = framskynd) for én bane eller alle. */
   shift(
     tournamentId: string,

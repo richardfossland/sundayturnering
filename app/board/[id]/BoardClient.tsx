@@ -13,6 +13,7 @@ import {
   matchTime,
 } from "@/lib/client/view";
 import { NowPlaying } from "./NowPlaying";
+import { CourtStrip } from "./CourtStrip";
 import { Champion } from "./Champion";
 import { BoardTimer } from "./BoardTimer";
 import { CodesOverlay } from "./CodesOverlay";
@@ -23,7 +24,7 @@ import { useReactionWall } from "./ReactionWall";
 import { channels, events } from "@/lib/realtime";
 import { useChannel } from "@/lib/client/useChannel";
 import { playDing } from "@/lib/client/sound";
-import type { Match } from "@/lib/types";
+import type { Court, Match, ScoringConfig, Team } from "@/lib/types";
 
 export function BoardClient({
   id,
@@ -157,12 +158,94 @@ export function BoardClient({
 
       <div className="board-body">
         <section className="stack" style={{ minHeight: 0 }}>
-          <NowPlaying
+          <BoardLeft
+            matches={matches}
             live={live}
+            next={next}
             teams={teams}
             courts={courts}
             scoring={tournament.scoring}
             parallel={tournament.parallelism === "parallel"}
+          />
+        </section>
+
+        <BoardStandingsPanel state={state} teams={teams} />
+      </div>
+    </main>
+      )}
+    </>
+  );
+}
+
+const COURT_VIEW_MS = 20_000;
+
+/** Left column. With ≥2 courts it alternates "Nå spiller + Neste" with the
+ * per-court «Baner» view every 20 s; a tap on a tab pins the choice. */
+function BoardLeft({
+  matches,
+  live,
+  next,
+  teams,
+  courts,
+  scoring,
+  parallel,
+}: {
+  matches: Match[];
+  live: Match[];
+  next: Match[];
+  teams: Map<string, Team>;
+  courts: Court[];
+  scoring: ScoringConfig;
+  parallel: boolean;
+}) {
+  const hasCourts = courts.length >= 2;
+  const [view, setView] = useState<"now" | "courts">("now");
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    if (!hasCourts || pinned) return;
+    const t = setInterval(() => setView((v) => (v === "now" ? "courts" : "now")), COURT_VIEW_MS);
+    return () => clearInterval(t);
+  }, [hasCourts, pinned]);
+
+  const called = matches.filter((m) => m.status === "called");
+  const showCourts = hasCourts && view === "courts";
+  return (
+    <>
+      {hasCourts && (
+        <div className="btn-row" role="tablist">
+          {(["now", "courts"] as const).map((v) => (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={view === v}
+              className="pill"
+              data-on={view === v}
+              onClick={() => {
+                setPinned(true);
+                setView(v);
+              }}
+            >
+              {v === "now" ? no.board.nowPlaying : no.board.courts}
+            </button>
+          ))}
+        </div>
+      )}
+      {showCourts ? (
+        <div className="panel">
+          <div className="section-title" style={{ fontSize: "1.1rem" }}>
+            {no.board.courts}
+          </div>
+          <CourtStrip matches={matches} courts={courts} teams={teams} scoring={scoring} />
+        </div>
+      ) : (
+        <>
+          <NowPlaying
+            live={live}
+            called={called}
+            teams={teams}
+            courts={courts}
+            scoring={scoring}
+            parallel={parallel}
           />
           {next.length > 0 && (
             <div className="panel">
@@ -176,11 +259,7 @@ export function BoardClient({
               </div>
             </div>
           )}
-        </section>
-
-        <BoardStandingsPanel state={state} teams={teams} />
-      </div>
-    </main>
+        </>
       )}
     </>
   );
@@ -192,8 +271,8 @@ function NextRow({
   courts,
 }: {
   m: Match;
-  teams: Map<string, import("@/lib/types").Team>;
-  courts: import("@/lib/types").Court[];
+  teams: Map<string, Team>;
+  courts: Court[];
 }) {
   const h = m.home_team_id ? teams.get(m.home_team_id) : null;
   const a = m.away_team_id ? teams.get(m.away_team_id) : null;
@@ -210,6 +289,7 @@ function NextRow({
         <span className="team-swatch" style={{ background: a?.colour }} />
         <span className="team-name">{a?.name ?? no.board.tbd}</span>
       </span>
+      {m.status === "called" && <span className="pill pill-called">{no.board.calledUp}</span>}
       {court && <span className="next-court">{court.name}</span>}
     </div>
   );

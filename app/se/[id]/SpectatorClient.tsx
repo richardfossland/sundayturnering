@@ -141,7 +141,12 @@ function MatchRow({
         <span className="team-swatch" style={{ background: a?.colour }} />
         <span className="team-name">{a?.name ?? no.board.tbd}</span>
       </span>
-      {court && <span className="next-court">{court.name}</span>}
+      {m.status === "called" && (
+        <span className="pill pill-called">
+          {court ? no.control.calledTo(court.name) : no.board.calledUp}
+        </span>
+      )}
+      {court && m.status !== "called" && <span className="next-court">{court.name}</span>}
     </div>
   );
 }

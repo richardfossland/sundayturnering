@@ -74,7 +74,7 @@ function makeMatch(over: Partial<Match> = {}): Match {
     bracket_slot: 0,
     group_no: null,
     court_id: null,
-    queue_order: 0, scheduled_at: null,
+    queue_order: 0, scheduled_at: null, called_at: null,
     home_team_id: "teamA",
     away_team_id: "teamB",
     status: "done",

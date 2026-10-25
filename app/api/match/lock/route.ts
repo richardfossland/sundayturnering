@@ -6,11 +6,11 @@ import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
 
 // POST /api/match/lock — soft lock for editing (spec §4.1). action:
-//   'lock'   set locked_by = deviceId; scheduled → live (response: promoted)
+//   'lock'   set locked_by = deviceId; scheduled/called → live (response: promoted)
 //   'force'  take an existing lock
 //   'unlock' clear lock; live → scheduled ONLY when the caller says `revert`
 //            (it was this lock that promoted the match — see below)
-//   'start'  mark scheduled → live WITHOUT holding a lock (referee "Start kamp")
+//   'start'  mark scheduled/called → live WITHOUT holding a lock (referee "Start kamp")
 //
 // Why `revert` is explicit: a match started with "Start kamp" is live on the
 // board. A referee who then opens the result modal (lock) and closes it again
@@ -54,13 +54,13 @@ async function handlePOST(req: Request) {
     ? `${body.deviceId}|${body.deviceName}`
     : body.deviceId;
 
-  // True when THIS call moved the match scheduled → live; the client echoes it
+  // True when THIS call moved the match scheduled/called → live; the client echoes it
   // back as `revert` on unlock so only a lock-induced live is undone.
   let promoted = false;
 
   if (action === "start") {
     // Go live without taking an edit lock (others can still register the result).
-    if (m.status === "scheduled")
+    if (m.status === "scheduled" || m.status === "called")
       must(await db().from("matches").update({ status: "live" }).eq("id", m.id));
   } else if (action === "unlock") {
     if (m.locked_by && m.locked_by.split("|")[0] !== body.deviceId)
@@ -69,7 +69,7 @@ async function handlePOST(req: Request) {
     must(await db()
       .from("matches")
       // A demoted match also drops any interim live score it was showing.
-      .update(demote ? { locked_by: null, status: "scheduled", result: null } : { locked_by: null })
+      .update(demote ? { locked_by: null, status: "scheduled", result: null, called_at: null } : { locked_by: null })
       .eq("id", m.id));
   } else {
     // lock / force
@@ -86,7 +86,7 @@ async function handlePOST(req: Request) {
     // "locked by another".
     let cur = m;
     for (let attempt = 0; ; attempt++) {
-      promoted = cur.status === "scheduled";
+      promoted = cur.status === "scheduled" || cur.status === "called";
       let q = db()
         .from("matches")
         .update({ locked_by: tag, status: promoted ? "live" : cur.status })
