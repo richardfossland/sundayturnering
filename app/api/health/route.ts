@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { clientIp, fail, ok, rateLimit } from "@/lib/server/http";
+import { ipKey, fail, ok, rateLimit } from "@/lib/server/http";
 
 // GET /api/health — liveness probe for the uptime monitor.
 //
@@ -27,7 +27,7 @@ export async function GET(req: Request): Promise<Response> {
   // the endpoint is unauthenticated. 60/min per IP is 60× what the monitor
   // needs (one probe a minute) while capping abuse. Same IP extraction as every
   // other route (CF-Connecting-IP, falling back to X-Forwarded-For).
-  if (!rateLimit(`health:${clientIp(req)}`, 60, 60_000)) {
+  if (!rateLimit(`health:${ipKey(req)}`, 60, 60_000)) {
     return fail(429, "rate_limited");
   }
 

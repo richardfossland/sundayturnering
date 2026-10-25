@@ -104,8 +104,8 @@ export function ResultModal({
         if (e instanceof ApiError && e.status === 409 && e.code === "laast_av_annen") {
           // surface force-take option
           setLockedByOther("en annen enhet");
-        } else if (active) {
-          onAuthError?.(e);
+        } else if (active && !onAuthError?.(e)) {
+          setErr(errorMessage(e));
         }
       }
     })();

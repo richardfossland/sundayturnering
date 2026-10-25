@@ -1,10 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { boundedFetch } from "@/lib/supabase/service";
+import { boundedFetch, DB_TIMEOUT_MS } from "@/lib/supabase/service";
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe("service client fetch", () => {
+  it("server bound (4 s) stays well under the client WRITE bound (15 s)", async () => {
+    const { WRITE_TIMEOUT_MS, READ_TIMEOUT_MS } = await import("@/lib/client/api");
+    expect(DB_TIMEOUT_MS).toBe(4000);
+    expect(WRITE_TIMEOUT_MS).toBe(15000);
+    expect(READ_TIMEOUT_MS).toBe(8000);
+    expect(DB_TIMEOUT_MS * 3).toBeLessThan(WRITE_TIMEOUT_MS);
+  });
+
   it("always passes a signal, and aborts a hung call", async () => {
     const seen: (AbortSignal | undefined)[] = [];
     vi.stubGlobal("fetch", (_u: unknown, init?: RequestInit) => {

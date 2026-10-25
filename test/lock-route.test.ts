@@ -10,6 +10,10 @@ const ID = "11111111-1111-1111-1111-111111111111";
 const MID = "22222222-2222-2222-2222-222222222222";
 let matchRow: Match;
 const patches: Record<string, unknown>[] = [];
+const conditions: string[][] = [];
+let raceLost = false;
+let raceLosses = 0; // number of CAS attempts to lose, then win
+let rereads: Match[] = []; // queued answers for getMatch after the first read
 
 vi.mock("@/lib/server/store", () => ({
   getTournament: async (): Promise<Tournament> => ({
@@ -29,15 +33,24 @@ vi.mock("@/lib/server/store", () => ({
     timer: null,
     created_at: "",
   }),
-  getMatch: async () => matchRow,
+  getMatch: async () => rereads.shift() ?? matchRow,
   db: () => ({
+    rpc: async () => ({ data: false, error: null }),
     from: () => ({
-      update: (patch: Record<string, unknown>) => ({
-        eq: async () => {
-          patches.push(patch);
-          return { error: null };
-        },
-      }),
+      update: (patch: Record<string, unknown>) => {
+        patches.push(patch);
+        const conds: string[] = [];
+        const q: Record<string, unknown> = {
+          eq: (col: string, v: unknown) => (conds.push(`eq:${col}:${v}`), q),
+          is: (col: string, v: unknown) => (conds.push(`is:${col}:${v}`), q),
+          select: async () => {
+            conditions.push(conds);
+            return { data: raceLost || raceLosses-- > 0 ? [] : [{ id: MID }], error: null };
+          },
+          then: (res: (v: unknown) => void) => res({ error: null }),
+        };
+        return q;
+      },
     }),
   }),
 }));
@@ -82,6 +95,10 @@ async function lock(body: Record<string, unknown>) {
 describe("POST /api/match/lock — status side effects", () => {
   beforeEach(() => {
     patches.length = 0;
+    conditions.length = 0;
+    raceLost = false;
+    raceLosses = 0;
+    rereads = [];
   });
 
   it("lock on a scheduled match promotes it and reports promoted:true", async () => {
@@ -122,5 +139,53 @@ describe("POST /api/match/lock — status side effects", () => {
     matchRow = makeMatch();
     await lock({ action: "start" });
     expect(patches).toEqual([{ status: "live" }]);
+  });
+
+  it("lock is a compare-and-set on the free lock (is null) and current status", async () => {
+    matchRow = makeMatch();
+    await lock({ action: "lock" });
+    expect(conditions[0]).toEqual(expect.arrayContaining([`eq:id:${MID}`, "is:locked_by:null", "eq:status:scheduled"]));
+  });
+
+  it("lock CAS on an existing own lock matches the old value", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "d1|Gammel" });
+    await lock({ action: "lock" });
+    expect(conditions[0]).toContain("eq:locked_by:d1|Gammel");
+  });
+
+  it("race loser (0 rows updated) gets the same answer as 'already locked'", async () => {
+    matchRow = makeMatch();
+    raceLost = true;
+    // by the time the loser re-reads, the winner holds the lock
+    const r = await lock({ action: "lock" });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe("laast_av_annen");
+  });
+
+  it("CAS miss, lock now free → retried once on the fresh row and wins", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "d1|Gammel" });
+    raceLosses = 1;
+    rereads = [matchRow, makeMatch({ status: "live", locked_by: null })]; // 1st = initial read
+    const r = await lock({ action: "lock" });
+    expect(r.status).toBe(200);
+    expect(conditions).toHaveLength(2);
+    expect(conditions[1]).toContain("is:locked_by:null");
+  });
+
+  it("CAS miss, now held by another → laast_av_annen with the REAL holder", async () => {
+    matchRow = makeMatch();
+    raceLost = true;
+    rereads = [matchRow, makeMatch({ status: "live", locked_by: "other|Bane 2" })];
+    const r = await lock({ action: "lock" });
+    expect(r.status).toBe(409);
+    expect(r.json).toEqual({ error: "laast_av_annen", lockedBy: "other|Bane 2" });
+    expect(conditions).toHaveLength(1); // no pointless retry on someone else's lock
+  });
+
+  it("force takes over unconditionally (no locked_by condition)", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "other|X" });
+    const r = await lock({ action: "force" });
+    expect(r.status).toBe(200);
+    expect(conditions[0].some((c) => c.includes("locked_by"))).toBe(false);
   });
 });

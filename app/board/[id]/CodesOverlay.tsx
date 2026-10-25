@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { QRCode } from "@/lib/client/QRCode";
-import { api, ApiError } from "@/lib/client/api";
+import { api } from "@/lib/client/api";
+import { pairErrorMessage } from "@/lib/locale/errors";
 import { identity } from "@/lib/client/identity";
 import { normalizeWordCode } from "@/lib/codes";
 import { no } from "@/lib/locale/no";
@@ -126,7 +127,7 @@ function Unlock({
       identity.setBoardCode(tournamentId, board);
       onUnlocked(tournament.control_code, board);
     } catch (e) {
-      setErr(e instanceof ApiError && e.status === 404 ? no.pair.badCode : no.common.error);
+      setErr(pairErrorMessage(e, true));
     } finally {
       setBusy(false);
     }

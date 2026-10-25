@@ -1,9 +1,9 @@
-import { ok, fail, readJson, rateLimit, clientIp, withApi } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, ipKey, withApi } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
-import { authControlCode } from "@/lib/server/auth";
+import { checkControlCode, prefetchBlocked } from "@/lib/server/auth";
 import { channels, events } from "@/lib/realtime";
 import {
   validateResult,
@@ -18,7 +18,7 @@ import {
 async function handlePOST(req: Request) {
   // Throttle score writes per client (the mutating match routes had no limit —
   // once a tournament's match ids are known, results could be spammed freely).
-  if (!rateLimit(`match-result:${clientIp(req)}`, 60, 60_000))
+  if (!rateLimit(`match-result:${ipKey(req)}`, 600, 60_000))
     return fail(429, "for_mange_forsok");
   const body = await readJson<{
     matchId?: string;
@@ -40,10 +40,14 @@ async function handlePOST(req: Request) {
   if (m.status === "done") return fail(409, "kamp_ferdig");
   if (!m.home_team_id || !m.away_team_id) return fail(409, "kamp_ikke_klar");
 
-  const t = await getTournament(m.tournament_id);
+  const blocked = prefetchBlocked(req, m.tournament_id);
+  const t = await getTournament(m.tournament_id).catch((e) => {
+    blocked?.catch(() => {});
+    throw e;
+  });
   if (!t) return fail(404, "finnes_ikke");
   // Referee credential: the control code. Match ids alone are public.
-  if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
+  if (!(await checkControlCode(req, t, body.controlCode, blocked))) return fail(403, "feil_kontrollkode");
   if (t.status === "finished") return fail(409, "turnering_avsluttet");
   // The bracket was seeded from the table; a late league result would quietly
   // change it. (The organiser can still override.)

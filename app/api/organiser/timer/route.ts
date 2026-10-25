@@ -18,7 +18,7 @@ async function handlePOST(req: Request) {
     action?: "start" | "add" | "stop";
     durationSec?: number;
   }>(req);
-  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode);
+  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode, req);
   if (!t) return fail(403, "feil_arrangorkode");
 
   const timer = computeTimer(

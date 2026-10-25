@@ -3,7 +3,18 @@ import "server-only";
 import { getTournament } from "@/lib/server/store";
 import { isValidControlCode, normalizeWordCode } from "@/lib/codes";
 import { createAuthClient } from "@/lib/supabase/auth-server";
+import { RateLimitedError } from "@/lib/server/http";
+import { isCodeBlocked, registerCodeFailure } from "@/lib/server/attempts";
+import { PAIR_HEADER, verifyPairToken } from "@/lib/server/pair";
 import type { Tournament } from "@/lib/types";
+
+/** Constant-time string comparison (no early exit on the first mismatch). */
+export function safeEqual(a: string, b: string): boolean {
+  const n = Math.max(a.length, b.length);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < n; i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
 
 /** Verify the organiser code for a tournament. Gates every destructive action
  * (advance to playoff, override result, re-seed, finish, delete). Referees with
@@ -11,12 +22,18 @@ import type { Tournament } from "@/lib/types";
 export async function authOrganiser(
   tournamentId: unknown,
   organiserCode: unknown,
+  req?: Request,
 ): Promise<Tournament | null> {
   if (typeof tournamentId !== "string" || typeof organiserCode !== "string")
     return null;
   const t = await getTournament(tournamentId);
   if (!t) return null;
-  if (t.organiser_code !== normalizeWordCode(organiserCode)) return null;
+  const scope = `org:${t.id}`;
+  if (req && (await isCodeBlocked(scope, req))) throw new RateLimitedError();
+  if (!safeEqual(t.organiser_code, normalizeWordCode(organiserCode))) {
+    if (req && (await registerCodeFailure(scope, req))) throw new RateLimitedError();
+    return null;
+  }
   return t;
 }
 
@@ -29,7 +46,36 @@ export async function authOrganiser(
 export function authControlCode(t: Tournament, code: unknown): boolean {
   if (typeof code !== "string") return false;
   const c = code.trim();
-  return isValidControlCode(c) && c === t.control_code;
+  return isValidControlCode(c) && safeEqual(c, t.control_code);
+}
+
+/** Start the block lookup early (in parallel with the tournament read) for a
+ * token-less request. Returns undefined when the request carries a pairing
+ * token — that path never consults the block table. */
+export function prefetchBlocked(req: Request, tournamentId: string): Promise<boolean> | undefined {
+  return req.headers.get(PAIR_HEADER) ? undefined : isCodeBlocked(tournamentId, req);
+}
+
+/** Rate-limited variant for the routes. A valid pairing token for THIS
+ * tournament's current control code (minted by /api/attach) is accepted
+ * outright — no block lookup, so one pupil guessing wrong codes from the shared
+ * school IP can never lock out paired referees. Otherwise: refuses (429 via
+ * RateLimitedError → withApi) when this IP already failed too often for this
+ * tournament, and counts a wrong code as a failure. Correct codes are never
+ * counted. `blocked` = a prefetchBlocked() promise started alongside the
+ * tournament read. */
+export async function checkControlCode(
+  req: Request,
+  t: Tournament,
+  code: unknown,
+  blocked?: Promise<boolean>,
+): Promise<boolean> {
+  const token = req.headers.get(PAIR_HEADER);
+  if (token && (await verifyPairToken(t.id, t.control_code, token))) return true;
+  if (await (blocked ?? isCodeBlocked(t.id, req))) throw new RateLimitedError();
+  if (authControlCode(t, code)) return true;
+  if (await registerCodeFailure(t.id, req)) throw new RateLimitedError();
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,6 +159,7 @@ export async function requireOwnedTournament(id: unknown): Promise<{
 export async function authOrganiserOrAdmin(
   id: unknown,
   code: unknown,
+  req?: Request,
 ): Promise<Tournament | null> {
   if (typeof id === "string") {
     try {
@@ -123,7 +170,7 @@ export async function authOrganiserOrAdmin(
       // anonymous, code-only organising keeps working exactly as before.
     }
   }
-  return authOrganiser(id, code);
+  return authOrganiser(id, code, req);
 }
 
 /** Uniform catch → Response for API routes. Returns null for non-auth errors so

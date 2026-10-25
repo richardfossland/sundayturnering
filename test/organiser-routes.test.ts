@@ -59,7 +59,7 @@ import { POST as advance } from "@/app/api/organiser/advance/route";
 import { POST as finish } from "@/app/api/organiser/finish/route";
 import { POST as timer } from "@/app/api/organiser/timer/route";
 import { POST as reopen } from "@/app/api/organiser/reopen/route";
-import { __resetRateLimiter } from "@/lib/server/http";
+import { __resetRateLimiter, ORGANISER_LIMIT_PER_MIN } from "@/lib/server/http";
 
 function tournament(over: Partial<Tournament> = {}): Tournament {
   return {
@@ -265,9 +265,9 @@ describe("POST /api/organiser/reopen", () => {
 });
 
 describe("organiser rate limit", () => {
-  it("429 for_mange_forsok after 30 calls/min from one IP", async () => {
+  it("429 for_mange_forsok once the per-IP organiser limit is spent", async () => {
     let last = 0;
-    for (let i = 0; i < 31; i++) last = (await post(finish, auth)).status;
+    for (let i = 0; i <= ORGANISER_LIMIT_PER_MIN; i++) last = (await post(finish, auth)).status;
     expect(last).toBe(429);
   });
 });
