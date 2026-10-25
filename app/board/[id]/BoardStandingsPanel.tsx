@@ -107,7 +107,6 @@ function BracketRegion({
         </div>
       </div>
       <div
-        ref={scrollRef}
         className="board-bracket-scroll"
         onPointerDown={() => setPaused(true)}
       >
@@ -115,6 +114,7 @@ function BracketRegion({
           matches={matches}
           teams={teams}
           scoring={tournament.scoring}
+          scrollRef={scrollRef}
         />
       </div>
     </div>

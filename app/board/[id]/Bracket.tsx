@@ -1,116 +1,316 @@
 "use client";
 
+// Brakettvisning: ett CSS-grid med en kolonne per runde og SVG-linjer mellom
+// kolonnene (idé fra brackets-viewer.js, MIT). Utheving av et lags vei ved
+// hover/fokus/trykk er inspirert av bracketry (MIT). Se lib/tournament/bracketLayout.ts.
+
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { no } from "@/lib/locale/no";
-import { bracketRoundLabel } from "@/lib/client/view";
+import { matchTime } from "@/lib/client/view";
 import { resolve } from "@/lib/tournament/scoring";
-import { BRONZE_SLOT } from "@/lib/tournament/bracket";
+import {
+  inferLinks,
+  layoutBrackets,
+  type BracketInput,
+  type BracketLayout,
+  type LayoutNode,
+  type SlotOrigin,
+} from "@/lib/tournament/bracketLayout";
 import type { Match, ScoringConfig, Team } from "@/lib/types";
 
 export function Bracket({
   matches,
   teams,
   scoring,
+  brackets,
+  scrollRef,
 }: {
   matches: Match[];
   teams: Map<string, Team>;
   scoring: ScoringConfig;
+  /** Flere braketter (B-sluttspill, taperbrakett …). Uten: én brakett «A» av alle sluttspillkamper. */
+  brackets?: BracketInput[];
+  /** Gir forelderen (tavlas auto-panorering) tilgang til den horisontale scrolleren. */
+  scrollRef?: RefObject<HTMLDivElement | null>;
 }) {
-  const playoff = matches.filter((m) => m.phase === "playoff");
+  const playoff = useMemo(
+    () => matches.filter((m) => m.phase === "playoff"),
+    [matches],
+  );
+  const layouts = useMemo(
+    () =>
+      layoutBrackets(
+        brackets ?? [
+          { id: "A", label: "", matches: playoff, links: inferLinks(playoff) },
+        ],
+      ),
+    [brackets, playoff],
+  );
+  const byId = useMemo(() => new Map(playoff.map((m) => [m.id, m])), [playoff]);
+
+  const ownRef = useRef<HTMLDivElement>(null);
+  const scroller = scrollRef ?? ownRef;
+  const [hover, setHover] = useState<string | null>(null);
+  const [pinned, setPinned] = useState<string | null>(null);
+  const focus = hover ?? pinned;
+
+  // Bring inneværende runde til syne ved å sette scrollLeft på brakett-scrolleren
+  // (aldri scrollIntoView — den scroller ALLE forfedre, også selve siden).
+  const currentRound = useMemo(() => {
+    const open = playoff.filter((m) => m.status !== "done" && m.status !== "bye");
+    const live = open.find((m) => m.status === "live" || m.status === "called");
+    return (live ?? open.sort((a, b) => a.round - b.round)[0])?.round ?? null;
+  }, [playoff]);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || currentRound == null) return;
+    const col = el.querySelector<HTMLElement>(`[data-round="${currentRound}"]`);
+    if (!col || el.scrollWidth <= el.clientWidth) return;
+    el.scrollLeft = Math.max(0, col.offsetLeft - el.offsetLeft - 12);
+  }, [currentRound, scroller]);
+
   if (playoff.length === 0)
     return <div className="empty">{no.board.noMatches}</div>;
 
-  const totalRounds = Math.max(...playoff.map((m) => m.round));
-  // The bronze final shares the last round but sits at a distinct slot — pull it
-  // out so it renders under its own label instead of beside the final.
-  const bronze = playoff.find(
-    (m) => m.round === totalRounds && m.bracket_slot === BRONZE_SLOT,
-  );
-  const main = playoff.filter((m) => m !== bronze);
-
-  const rounds: Match[][] = [];
-  for (let r = 1; r <= totalRounds; r++)
-    rounds.push(
-      main
-        .filter((m) => m.round === r)
-        .sort((a, b) => (a.bracket_slot ?? 0) - (b.bracket_slot ?? 0)),
-    );
-
   return (
-    <div className="stack" style={{ gap: 14 }}>
-      <div className="bracket">
-        {rounds.map((col, i) => (
-          <div className="bracket-round" key={i}>
-            <div className="bracket-round-label">
-              {bracketRoundLabel(i + 1, totalRounds)}
-            </div>
-            {col.map((m) => (
-              <BracketMatch key={m.id} m={m} teams={teams} scoring={scoring} />
-            ))}
-          </div>
-        ))}
-      </div>
-      {bronze && (
-        <div className="bracket-round bronze-final">
-          <div className="bracket-round-label">{no.board.bronze}</div>
-          <BracketMatch m={bronze} teams={teams} scoring={scoring} />
-        </div>
-      )}
+    <div
+      ref={scroller}
+      className={`brk${focus ? " has-focus" : ""}`}
+      onPointerLeave={() => setHover(null)}
+    >
+      {layouts.map((layout) => (
+        <BracketSection
+          key={layout.id}
+          layout={layout}
+          showLabel={layouts.length > 1 && !!layout.label}
+          byId={byId}
+          teams={teams}
+          scoring={scoring}
+          focus={focus}
+          pinned={pinned}
+          onHover={setHover}
+          onPin={(id) => setPinned((p) => (p === id ? null : id))}
+        />
+      ))}
     </div>
   );
 }
 
-function BracketMatch({
-  m,
-  teams,
-  scoring,
-}: {
-  m: Match;
+interface Shared {
+  byId: Map<string, Match>;
   teams: Map<string, Team>;
   scoring: ScoringConfig;
-}) {
-  const r = m.result ? resolve(scoring.profile, m.result) : null;
-  const homeWin = m.winner_team_id && m.winner_team_id === m.home_team_id;
-  const awayWin = m.winner_team_id && m.winner_team_id === m.away_team_id;
+  focus: string | null;
+  pinned: string | null;
+  onHover: (teamId: string | null) => void;
+  onPin: (teamId: string) => void;
+}
+
+function BracketSection({
+  layout,
+  showLabel,
+  ...s
+}: { layout: BracketLayout; showLabel: boolean } & Shared) {
+  const cols = layout.rounds.length;
+  // Matchkolonne + smal linjekolonne, vekselvis.
+  const template = Array.from({ length: cols }, () => "var(--brk-col) var(--brk-gap)")
+    .join(" ")
+    .replace(/ var\(--brk-gap\)$/, "");
+
+  // Kamper på det uthevede lagets vei (laget er hjemme/borte i dem).
+  const onPath = useMemo(() => {
+    const set = new Set<string>();
+    if (!s.focus) return set;
+    for (const n of [...layout.rounds.flatMap((r) => r.nodes), ...layout.extras]) {
+      const m = s.byId.get(n.id);
+      if (m && (m.home_team_id === s.focus || m.away_team_id === s.focus))
+        set.add(n.id);
+    }
+    return set;
+  }, [layout, s.byId, s.focus]);
+
   return (
-    <div className="bx">
+    <section className="brk-section">
+      {showLabel && <h3 className="brk-title">{layout.label}</h3>}
+      <div
+        className="brk-grid"
+        style={{
+          gridTemplateColumns: template,
+          // @ts-expect-error CSS custom property
+          "--brk-h": layout.height,
+        }}
+      >
+        {layout.rounds.map((r) => (
+          <div
+            key={`h${r.round}`}
+            className="brk-head"
+            style={{ gridColumn: r.col * 2 + 1, gridRow: 1 }}
+            data-round={r.round}
+          >
+            {r.name}
+          </div>
+        ))}
+        {layout.rounds.map((r) => (
+          <div
+            key={`b${r.round}`}
+            className="brk-body"
+            style={{ gridColumn: r.col * 2 + 1, gridRow: 2 }}
+          >
+            {r.nodes.map((n) => (
+              <MatchCard key={n.id} node={n} on={onPath.has(n.id)} {...s} />
+            ))}
+          </div>
+        ))}
+        {Array.from({ length: Math.max(0, cols - 1) }, (_, g) => {
+          const cs = layout.connectors
+            .filter((c) => c.toCol - 1 === g)
+            .map((c) => ({ c, on: onPath.has(c.fromId) && onPath.has(c.toId) }))
+            .sort((a, b) => Number(a.on) - Number(b.on)); // utheving tegnes sist
+          return (
+            <svg
+              key={`g${g}`}
+              className="brk-lines"
+              style={{ gridColumn: g * 2 + 2, gridRow: 2 }}
+              viewBox={`0 0 100 ${layout.height}`}
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              {cs.map(({ c, on }) => (
+                <path
+                  key={`${c.fromId}-${c.toId}`}
+                  className={on ? "on" : undefined}
+                  d={`M0 ${c.fromY} H50 V${c.toY} H100`}
+                  vectorEffect="non-scaling-stroke"
+                  fill="none"
+                />
+              ))}
+            </svg>
+          );
+        })}
+      </div>
+      {layout.extras.length > 0 && (
+        <div className="brk-extras">
+          {layout.extras.map((n) => (
+            <div className="brk-extra" key={n.id}>
+              <div className="brk-head brk-head-bronze">{no.board.bronze}</div>
+              <div className="brk-extra-body">
+                <MatchCard node={n} on={onPath.has(n.id)} inline {...s} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MatchCard({
+  node,
+  on,
+  inline,
+  byId,
+  teams,
+  scoring,
+  focus,
+  pinned,
+  onHover,
+  onPin,
+}: {
+  node: LayoutNode;
+  on: boolean;
+  inline?: boolean;
+} & Shared) {
+  const m = byId.get(node.id);
+  if (!m) return null;
+  const r = m.result ? resolve(scoring.profile, m.result) : null;
+  const time = m.status === "scheduled" || m.status === "called" ? matchTime(m.scheduled_at) : null;
+  const rowProps = { teams, focus, pinned, onHover, onPin };
+  return (
+    <div
+      className={`brk-m status-${m.status}${on ? " on" : ""}${inline ? " inline" : ""}`}
+      style={inline ? undefined : { top: `calc(${node.y} * var(--brk-u))` }}
+    >
+      <div className="brk-meta">
+        <span className="brk-code">{node.code}</span>
+        {m.status === "live" && (
+          <span className="brk-state live">
+            <span className="dot" />
+            {no.control.live}
+          </span>
+        )}
+        {m.status === "called" && (
+          <span className="brk-state called">{no.board.calledUp}</span>
+        )}
+        {time && <span className="match-time">{time}</span>}
+      </div>
       <Row
-        team={m.home_team_id ? teams.get(m.home_team_id) : null}
+        teamId={m.home_team_id}
+        origin={node.home}
         score={r?.homeScore}
-        win={!!homeWin}
+        win={!!m.winner_team_id && m.winner_team_id === m.home_team_id}
         bye={m.status === "bye"}
+        {...rowProps}
       />
       <Row
-        team={m.away_team_id ? teams.get(m.away_team_id) : null}
+        teamId={m.away_team_id}
+        origin={node.away}
         score={r?.awayScore}
-        win={!!awayWin}
+        win={!!m.winner_team_id && m.winner_team_id === m.away_team_id}
         bye={m.status === "bye"}
+        {...rowProps}
       />
     </div>
   );
 }
 
 function Row({
-  team,
+  teamId,
+  origin,
   score,
   win,
   bye,
+  teams,
+  focus,
+  pinned,
+  onHover,
+  onPin,
 }: {
-  team: Team | null | undefined;
+  teamId: string | null;
+  origin: SlotOrigin | null;
   score: number | undefined;
   win: boolean;
   bye: boolean;
-}) {
-  return (
-    <div className={`bx-row${win ? " win" : ""}`}>
-      {team ? (
-        <span className="team">
-          <span className="team-swatch" style={{ background: team.colour, width: 13, height: 13 }} />
-          <span className="team-name">{team.name}</span>
+} & Pick<Shared, "teams" | "focus" | "pinned" | "onHover" | "onPin">) {
+  const team = teamId ? teams.get(teamId) : null;
+  if (!team)
+    return (
+      <div className="brk-row">
+        <span className="bx-tbd">
+          {bye ? no.board.bye : (origin?.label ?? no.board.tbd)}
         </span>
-      ) : (
-        <span className="bx-tbd">{bye ? no.board.bye : no.board.tbd}</span>
-      )}
+      </div>
+    );
+  return (
+    <button
+      type="button"
+      className={`brk-row team-row${win ? " win" : ""}${focus === team.id ? " sel" : ""}`}
+      aria-pressed={pinned === team.id}
+      // Mus: hover. Touch: kun trykk (pointerType-sjekken hindrer at et trykk setter hover).
+      onPointerEnter={(e) => e.pointerType === "mouse" && onHover(team.id)}
+      onFocus={() => onHover(team.id)}
+      onBlur={() => onHover(null)}
+      onClick={() => onPin(team.id)}
+    >
+      <span className="team">
+        {team.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="team-logo brk-logo" src={team.logo_url} alt="" />
+        ) : (
+          <span className="team-swatch brk-swatch" style={{ background: team.colour }} />
+        )}
+        <span className="team-name">{team.name}</span>
+      </span>
       {score != null && <span className="bx-score">{score}</span>}
-    </div>
+    </button>
   );
 }
