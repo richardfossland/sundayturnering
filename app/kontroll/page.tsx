@@ -6,6 +6,7 @@ import { api } from "@/lib/client/api";
 import { pairErrorMessage } from "@/lib/locale/errors";
 import { identity } from "@/lib/client/identity";
 import { no } from "@/lib/locale/no";
+import { parseControlTarget, withControlTarget } from "@/lib/client/controlTarget";
 
 function AttachInner() {
   const router = useRouter();
@@ -28,7 +29,8 @@ function AttachInner() {
       if (name.trim()) identity.setDeviceName(name.trim());
       // The code is the referee credential for every write on /kontroll/[id].
       identity.setControlCode(tournament.id, c);
-      router.push(`/kontroll/${tournament.id}`);
+      // Kampkort/banekort-QR: ta med kampen/banen videre til dommerskjermen.
+      router.push(withControlTarget(`/kontroll/${tournament.id}`, parseControlTarget(params)));
     } catch (e) {
       setErr(pairErrorMessage(e));
       setBusy(false);

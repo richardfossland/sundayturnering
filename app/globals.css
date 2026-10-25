@@ -2431,3 +2431,228 @@ textarea {
   box-shadow: 0 6px 24px -8px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
+
+/* ============ utskrift (/skriv-ut): kampprogram, kampkort, banekort ============ */
+.print-page {
+  min-height: 100dvh;
+  padding: 20px 16px 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.print-toolbar {
+  width: 100%;
+  max-width: 820px;
+}
+.print-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+.print-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+/* Arket er alltid hvitt med svart tekst, uansett tema. */
+.print-sheet {
+  page: print-sheet;
+  width: 100%;
+  max-width: 820px;
+  background: #fff;
+  color: #000;
+  padding: 12mm;
+  border-radius: 8px;
+  font-size: 11pt;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.print-sheet h1,
+.print-sheet h2,
+.print-sheet h3 {
+  color: #000;
+}
+.ps-block + .ps-block {
+  break-before: page;
+}
+.ps-block h2 {
+  font-size: 15pt;
+  margin: 0 0 8px;
+}
+.ps-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.ps-table th,
+.ps-table td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid #bbb;
+}
+.ps-team {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+.ps-team h3 {
+  margin: 0 0 4px;
+  font-size: 12pt;
+}
+.ps-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #000;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.ps-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.ps-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6mm;
+  align-content: start;
+}
+.ps-card {
+  break-inside: avoid;
+  border: 1.5px solid #000;
+  border-radius: 6px;
+  padding: 3mm 4mm;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5mm;
+}
+.ps-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10pt;
+}
+.ps-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10pt;
+}
+.ps-teams-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: 700;
+  font-size: 12pt;
+  text-align: center;
+}
+.ps-vs {
+  font-weight: 400;
+  font-size: 9pt;
+}
+.ps-box-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ps-setlabel {
+  width: 14mm;
+  font-size: 9pt;
+}
+.ps-box {
+  display: inline-block;
+  width: 18mm;
+  height: 12mm;
+  border: 1.5px solid #000;
+}
+.ps-box-sm {
+  width: 14mm;
+  height: 7mm;
+}
+.ps-ticks {
+  display: flex;
+  justify-content: space-around;
+  font-size: 10pt;
+}
+.ps-tick {
+  display: inline-block;
+  width: 5mm;
+  height: 5mm;
+  border: 1.5px solid #000;
+  vertical-align: middle;
+}
+.ps-card footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ps-sign {
+  flex: 1;
+  border-top: 1px solid #000;
+  font-size: 8pt;
+  padding-top: 2px;
+}
+.ps-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 30mm;
+  text-align: center;
+  font-size: 7pt;
+}
+.ps-qr img {
+  width: 26mm !important;
+  height: 26mm !important;
+  border-radius: 0 !important;
+  background: #fff !important;
+}
+.ps-courtcard {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6mm;
+  break-inside: avoid;
+}
+.ps-courtcard h1 {
+  font-size: 54pt;
+  margin: 0;
+}
+.ps-courtcard ol {
+  text-align: left;
+  font-size: 13pt;
+  margin: 0;
+}
+.ps-courtcard img {
+  border-radius: 0 !important;
+  background: #fff !important;
+}
+@page print-sheet {
+  size: A4;
+  margin: 12mm;
+}
+@media print {
+  .print-toolbar,
+  .theme-toggle,
+  .sound-toggle {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .print-page {
+    padding: 0;
+    display: block;
+  }
+  .print-sheet {
+    max-width: none;
+    padding: 0;
+    border-radius: 0;
+  }
+}

@@ -61,6 +61,7 @@ export const no = {
     follow: "📣 Kopier følge-lenke (publikum)",
     followCopied: "Lenke kopiert!",
     results: "🏆 Resultater og diplom",
+    print: "🖨️ Skriv ut kampprogram og kampkort",
     toLanding: "← Til forsiden",
     copy: "trykk for å kopiere",
     copied: "Kopiert!",
@@ -232,6 +233,49 @@ export const no = {
     codesWrongBoard: "Den tavlekoden hører til en annen turnering.",
   },
 
+  // utskrift (A4): kampprogram, kampkort, banekort
+  print: {
+    title: "Skriv ut",
+    noAccessTitle: "Utskrift krever arrangørkoden",
+    noAccessBody:
+      "Kampkortene inneholder QR-koder med kontrollkoden, så siden åpner bare på enheten som opprettet turneringen. Gå til arrangørsiden og logg inn der.",
+    toOrganiser: "Til arrangørsiden",
+    back: "← Tilbake",
+    action: "🖨️ Skriv ut / lagre som PDF",
+    choose: "Hva skal skrives ut?",
+    programmeCourt: "Kampprogram per bane",
+    programmeTeam: "Kampprogram per lag",
+    matchCards: "Kampkort (med QR)",
+    courtCards: "Banekort (med QR)",
+    onlyKnown: "Bare kamper med kjente lag",
+    noControlCode:
+      "Kontrollkoden finnes ikke på denne enheten, så kortene skrives ut uten QR.",
+    nothing: "Ingenting å skrive ut med disse valgene.",
+    time: "Tid",
+    court: "Bane",
+    match: "Kamp",
+    round: "Runde",
+    noCourt: "Uten bane",
+    noTime: "–",
+    tbd: "Avventer",
+    vs: "mot",
+    result: "Resultat",
+    set: (n: number) => `Sett ${n}`,
+    homeWon: "Hjemme vant",
+    awayWon: "Borte vant",
+    signature: "Dommer (signatur)",
+    scan: "Skann for å føre resultatet",
+    qrMatchAlt: "QR-kode som åpner kampen for dommeren",
+    qrCourtAlt: "QR-kode som åpner banen for dommeren",
+    courtCardHow: "Slik gjør du som dommer",
+    courtCardSteps: [
+      "Skann QR-koden med mobilen.",
+      "Banen festes, og neste kamp står øverst.",
+      "Trykk på kampen, før inn resultatet og lagre.",
+    ],
+    courtCardWarn: "Del ikke dette arket med publikum — QR-koden gir tilgang til å føre resultater.",
+  },
+
   // control
   control: {
     deciderTitle: "Hvem gikk videre?",
@@ -285,6 +329,9 @@ export const no = {
     editJustSaved: "Endre",
     editWindowGone: "Tidsvinduet er utløpt — be arrangøren om å endre.",
     codeRejected: "Kontrollkoden ble avvist — tast den på nytt.",
+    targetDone: "Den kampen er allerede ferdig.",
+    targetNotReady: "Lagene i den kampen er ikke avgjort ennå.",
+    targetMissing: "Fant ikke kampen eller banen fra kortet.",
     liveOnBoard: "Stillingen vises live på tavla mens du taster",
 
     organiser: "Arrangør",

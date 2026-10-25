@@ -9,6 +9,7 @@ import { usePresence } from "@/lib/client/usePresence";
 import { identity } from "@/lib/client/identity";
 import { api, setPairToken } from "@/lib/client/api";
 import { teamMap, matchTime } from "@/lib/client/view";
+import { parseControlTarget, resolveControlTarget, type ControlTarget } from "@/lib/client/controlTarget";
 import { resolve } from "@/lib/tournament/scoring";
 import { canSelfCorrect, selfCorrectMsLeft } from "@/lib/tournament/correct";
 import { no } from "@/lib/locale/no";
@@ -81,6 +82,36 @@ export function ControlClient({ id }: { id: string }) {
     setCtl(identity.controlCode(id));
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [id]);
+
+  // Mål fra kampkort/banekort-QR (?match= / ?court=), lest én gang og brukt når
+  // tilstanden er lastet og enheten er koblet til.
+  const target = useRef<ControlTarget | null>(null);
+  useEffect(() => {
+    target.current = parseControlTarget(window.location.search);
+  }, []);
+  useEffect(() => {
+    const t = target.current;
+    if (!t || !state || !ctl) return;
+    target.current = null;
+    const action = resolveControlTarget(t, state.matches, state.courts);
+    if (!action) return;
+    if (action.kind === "pinCourt") {
+      setCourtId(action.courtId);
+      identity.setPinnedCourt(id, action.courtId);
+    } else if (action.kind === "openMatch") {
+      setTab("scheduled");
+      setOpenMode("new");
+      setOpen(action.match);
+    } else {
+      flash(
+        action.kind === "matchDone"
+          ? no.control.targetDone
+          : action.kind === "matchNotReady"
+            ? no.control.targetNotReady
+            : no.control.targetMissing,
+      );
+    }
+  }, [state, ctl, id]);
 
   // Pairing token: makes this phone immune to the shared-IP wrong-code block.
   // Phones paired before tokens existed (or paired some other way) have a code

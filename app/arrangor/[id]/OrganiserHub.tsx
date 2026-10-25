@@ -102,6 +102,11 @@ export function OrganiserHub({ id }: { id: string }) {
             {/* Same link the board's QR points at: the phone view with
                 tap-to-cheer (/se), not the projector layout (/live). */}
             <CopyLink label={no.hub.follow} value={`${base}/se/${id}`} />
+            {mine && (
+              <Link href={`/skriv-ut/${id}`} className="btn btn-block">
+                {no.hub.print}
+              </Link>
+            )}
             <Link href={`/resultat/${id}`} className="btn btn-ghost btn-block">
               {no.hub.results}
             </Link>
