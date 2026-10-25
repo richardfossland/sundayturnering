@@ -8,19 +8,23 @@ import { resolve } from "@/lib/tournament/scoring";
 import { no } from "@/lib/locale/no";
 import { errorMessage } from "@/lib/locale/errors";
 import { useEscape } from "@/lib/client/useEscape";
-import type { Match, MatchResult, Team } from "@/lib/types";
+import { matchTime } from "@/lib/client/view";
+import { previewShift } from "@/lib/tournament/schedule";
+import type { Court, Match, MatchResult, Team } from "@/lib/types";
 import type { TournamentDTO } from "@/lib/dto";
 
 export function OrganiserPanel({
   tournament,
   matches,
   teams,
+  courts,
   onChanged,
   flash,
 }: {
   tournament: TournamentDTO;
   matches: Match[];
   teams: Map<string, Team>;
+  courts: Court[];
   onChanged: () => void;
   flash: (m: string) => void;
 }) {
@@ -179,6 +183,19 @@ export function OrganiserPanel({
         </button>
       </div>
 
+      {tournament.config?.schedule && (
+        <ShiftSection
+          tournament={tournament}
+          matches={matches}
+          teams={teams}
+          courts={courts}
+          code={code}
+          busy={busy}
+          guard={guard}
+          flash={flash}
+        />
+      )}
+
       {doneMatches.length > 0 && (
         <>
           <div className="divider" />
@@ -232,6 +249,182 @@ export function OrganiserPanel({
         />
       )}
     </div>
+  );
+}
+
+/** «Skyv tidsplanen»: velg bane, fra når og hvor mange minutter; forhåndsvisning
+ * (gul) av berørte kamper før «Bekreft». Reglene kommer fra previewShift. */
+function ShiftSection({
+  tournament,
+  matches,
+  teams,
+  courts,
+  code,
+  busy,
+  guard,
+  flash,
+}: {
+  tournament: TournamentDTO;
+  matches: Match[];
+  teams: Map<string, Team>;
+  courts: Court[];
+  code: string;
+  busy: boolean;
+  guard: <T>(fn: () => Promise<T>) => Promise<T | null>;
+  flash: (m: string) => void;
+}) {
+  const [courtId, setCourtId] = useState("");
+  const [fromId, setFromId] = useState(""); // "" = nå
+  const [minutes, setMinutes] = useState("10");
+  // "Nå" tickes når panelet tegnes på nytt (refetch) — nok for en forhåndsvisning.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const upcoming = matches
+    .filter((m) => m.status !== "done" && m.status !== "bye" && m.scheduled_at)
+    .filter((m) => !courtId || m.court_id === courtId)
+    .sort((a, b) => Date.parse(a.scheduled_at!) - Date.parse(b.scheduled_at!));
+  const fromMatch = upcoming.find((m) => m.id === fromId);
+  const fromIso = fromMatch?.scheduled_at ?? new Date(now).toISOString();
+  const mins = Number(minutes);
+  const { changes, error } = previewShift(matches, {
+    courtId: courtId || null,
+    fromIso,
+    minutes: minutes.trim() === "" ? NaN : mins,
+    nowIso: new Date(now).toISOString(),
+  });
+  const byId = new Map(matches.map((m) => [m.id, m]));
+  const courtName = new Map(courts.map((c) => [c.id, c.name]));
+  const label = (m: Match) =>
+    `${m.home_team_id ? (teams.get(m.home_team_id)?.name ?? "?") : "?"} – ${
+      m.away_team_id ? (teams.get(m.away_team_id)?.name ?? "?") : "?"
+    }`;
+
+  return (
+    <>
+      <div className="divider" />
+      <h3 className="label" id="shift-title">{no.control.shiftTitle}</h3>
+      <div className="stack" style={{ gap: 8 }} role="group" aria-labelledby="shift-title">
+        <div className="field">
+          <label className="label" htmlFor="shift-court">{no.control.shiftCourt}</label>
+          <select
+            id="shift-court"
+            className="select"
+            value={courtId}
+            onChange={(e) => {
+              setCourtId(e.target.value);
+              setFromId("");
+            }}
+          >
+            <option value="">{no.control.shiftAllCourts}</option>
+            {courts.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label className="label" htmlFor="shift-from">{no.control.shiftFrom}</label>
+          <select
+            id="shift-from"
+            className="select"
+            value={fromId}
+            onChange={(e) => setFromId(e.target.value)}
+          >
+            <option value="">{no.control.shiftFromNow}</option>
+            {upcoming.map((m) => (
+              <option key={m.id} value={m.id}>
+                {matchTime(m.scheduled_at)} · {label(m)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="btn-row">
+          {[-5, 5, 10, 15].map((d) => (
+            <button
+              key={d}
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setMinutes(String(d))}
+            >
+              {d > 0 ? `+${d}` : `−${-d}`}
+            </button>
+          ))}
+        </div>
+        <div className="field">
+          <label className="label" htmlFor="shift-minutes">{no.control.shiftMinutes}</label>
+          <input
+            id="shift-minutes"
+            className="input"
+            type="number"
+            inputMode="numeric"
+            step={1}
+            min={-240}
+            max={240}
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+          />
+        </div>
+
+        {error ? (
+          <div className="faint" role="status" style={{ fontSize: ".88rem" }}>
+            {errorMessage(new ApiError(400, error))}
+          </div>
+        ) : (
+          <div role="status">
+            <div className="faint" style={{ fontSize: ".88rem" }}>
+              {no.control.shiftPreview(changes.length)}
+            </div>
+            <ul style={{ listStyle: "none", padding: 0, margin: "6px 0 0", display: "grid", gap: 4 }}>
+              {changes.map((c) => {
+                const m = byId.get(c.matchId);
+                return (
+                  <li
+                    key={c.matchId}
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      fontSize: ".9rem",
+                    }}
+                  >
+                    <span style={{ color: "var(--gold-ink)", fontWeight: 700 }}>
+                      {matchTime(c.before)} → {matchTime(c.after)}
+                    </span>
+                    {m && (
+                      <span>
+                        {label(m)}
+                        {m.court_id && courtName.get(m.court_id) ? ` · ${courtName.get(m.court_id)}` : ""}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="btn btn-gold"
+          disabled={busy || !code || !!error}
+          onClick={async () => {
+            const r = await guard(() =>
+              api.shift(tournament.id, code, {
+                courtId: courtId || null,
+                from: fromIso,
+                minutes: mins,
+              }),
+            );
+            if (r) flash(no.control.shiftDone(r.count));
+          }}
+        >
+          {no.control.shiftConfirm}
+        </button>
+      </div>
+    </>
   );
 }
 

@@ -47,6 +47,11 @@ const MESSAGES: Record<string, string> = {
   ikke_sluttspillformat: "Denne turneringen har ikke sluttspill.",
   ikke_avsluttet: "Turneringen er ikke avsluttet.",
   finnes_ikke: "Fant ikke turneringen.",
+  ingen_tidsplan: "Turneringen har ingen tidsplan.",
+  ugyldig_skyv: "Ugyldig skyv — oppgi et helt antall minutter (ikke 0).",
+  for_stort_skyv: "Du kan skyve høyst 240 minutter om gangen.",
+  skyv_for_tidlig: "Kamper kan ikke flyttes til før klokka nå.",
+  ingen_kamper: "Ingen kamper å skyve fra det tidspunktet.",
 };
 
 /** Pairing screens (control/board code entry): a wrong code reads «fant ingen
