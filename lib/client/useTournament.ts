@@ -34,6 +34,9 @@ export function useTournament(id: string, opts: UseTournamentOptions = {}) {
   const [error, setError] = useState(false);
   /** Consecutive failed fetches (reset on success) — drives a reconnect badge. */
   const [failures, setFailures] = useState(0);
+  /** Time of the last successful fetch (ms) — «sist oppdatert» in the offline banner. */
+  const [lastOkAt, setLastOkAt] = useState<number | null>(null);
+  const prevStatus = useRef<string | null>(null);
   const refetcher = useRef<Refetcher | null>(null);
 
   // One Refetcher per mount (NOT memoised across StrictMode's double-invoke:
@@ -47,6 +50,7 @@ export function useTournament(id: string, opts: UseTournamentOptions = {}) {
           setState((prev) => (sameJson(prev, s) ? prev : s));
           setError(false);
           setFailures(0);
+          setLastOkAt(Date.now());
         } catch {
           // Keep the previous state: a failed poll must not blank a live board.
           setError(true);
@@ -85,7 +89,12 @@ export function useTournament(id: string, opts: UseTournamentOptions = {}) {
     (status) => {
       // Broadcasts may have been lost while the channel was down; the registry
       // recreates the channel itself, this catches up on state right away.
+      // A re-SUBSCRIBED after trouble also catches up (events were missed in
+      // the gap); the very first subscribe does not — mount already fetched.
+      const prev = prevStatus.current;
+      prevStatus.current = status;
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") hint();
+      else if (status === "SUBSCRIBED" && prev !== null && prev !== "SUBSCRIBED") hint();
     },
   );
 
@@ -113,5 +122,5 @@ export function useTournament(id: string, opts: UseTournamentOptions = {}) {
     return () => clearInterval(t);
   }, [hint, pollMs, hiddenPollMs, hidden]);
 
-  return { state, error, failures, refetch, setState };
+  return { state, error, failures, lastOkAt, refetch, setState };
 }

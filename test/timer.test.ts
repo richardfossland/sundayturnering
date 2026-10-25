@@ -50,3 +50,25 @@ describe("computeTimer — malformed duration from a JSON body", () => {
     expect(computeTimer(null, "start", now, "90" as unknown as number)?.durationSec).toBe(90);
   });
 });
+
+import { timerView } from "@/lib/tournament/timer";
+
+describe("timerView", () => {
+  const END = NOW;
+  it("counts down without buzzing", () => {
+    const v = timerView(END, END - 5000);
+    expect(v).toMatchObject({ remaining: 5, expired: false, buzz: false, hidden: false });
+  });
+  it("buzzes when expiry is observed live", () => {
+    expect(timerView(END, END + 250).buzz).toBe(true);
+    expect(timerView(END, END + 2999).buzz).toBe(true);
+  });
+  it("does not buzz on a load long after expiry", () => {
+    expect(timerView(END, END + 3000).buzz).toBe(false);
+    expect(timerView(END, END + 30_000)).toMatchObject({ expired: true, buzz: false, hidden: false });
+  });
+  it("hides TID! after a minute", () => {
+    expect(timerView(END, END + 60_000).hidden).toBe(false);
+    expect(timerView(END, END + 60_001).hidden).toBe(true);
+  });
+});

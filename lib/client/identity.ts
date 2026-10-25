@@ -19,6 +19,11 @@ function rid(): string {
   }
 }
 
+// Blocked storage (private mode) must not collapse every device to one shared
+// id — that breaks soft locks and self-correct ownership. A per-page-load random
+// id is stable enough within a session.
+let memoryId: string | null = null;
+
 export const identity = {
   deviceId(): string {
     try {
@@ -29,7 +34,7 @@ export const identity = {
       }
       return v;
     } catch {
-      return "anon";
+      return (memoryId ??= rid());
     }
   },
   deviceName(): string {

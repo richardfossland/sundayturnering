@@ -2321,3 +2321,20 @@ textarea {
   letter-spacing: 0.02em;
 }
 
+
+/* offline banner — fixed so it never shifts the board/layout underneath */
+.offline-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 60;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--warn);
+  color: var(--on-gold);
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 6px 24px -8px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}

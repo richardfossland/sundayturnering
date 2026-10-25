@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { OfflineBanner } from "@/lib/client/OfflineBanner";
 import { useTournament } from "@/lib/client/useTournament";
 import { useReactionSender } from "@/lib/client/useReactionSender";
 import { teamMap, liveMatches, upcoming } from "@/lib/client/view";
@@ -19,7 +20,7 @@ const BUTTONS: { kind: ReactionKind; label: string }[] = [
 export function SpectatorClient({ id }: { id: string }) {
   // Read-only: refetch authoritative state on hints, never write. A whole gym
   // of phones gets the same broadcast at once — jitter spreads the refetches.
-  const { state, error } = useTournament(id, { jitterMs: 1500 });
+  const { state, error, failures, lastOkAt } = useTournament(id, { jitterMs: 1500 });
   const react = useReactionSender(id);
   const teams = useMemo(() => teamMap(state?.teams ?? []), [state?.teams]);
 
@@ -45,6 +46,7 @@ export function SpectatorClient({ id }: { id: string }) {
 
   return (
     <main className="spectator">
+      <OfflineBanner failures={failures} lastOkAt={lastOkAt} />
       <header className="spectator-head">
         <h1 className="spectator-title">{tournament.title || no.brand}</h1>
         {tournament.sport_label && (

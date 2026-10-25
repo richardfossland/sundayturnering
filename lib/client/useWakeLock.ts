@@ -15,7 +15,13 @@ export function useWakeLock(enabled = true) {
     const acquire = async () => {
       if (cancelled || document.visibilityState !== "visible" || (lock && !lock.released)) return;
       try {
-        lock = await navigator.wakeLock.request("screen");
+        const l = await navigator.wakeLock.request("screen");
+        lock = l;
+        // The browser can also drop the lock on its own (battery saver, OS
+        // policy) while the tab stays visible — take it back.
+        l.addEventListener("release", () => {
+          if (!cancelled && lock === l && document.visibilityState === "visible") void acquire();
+        });
       } catch {
         lock = null; // refused — try again on the next visibility change
       }
