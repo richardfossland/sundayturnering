@@ -193,6 +193,8 @@ export const no = {
     scan: "Skann for å registrere resultater",
     nowPlaying: "Nå spiller",
     nextUp: "Neste",
+    courts: "Baner",
+    calledUp: "Kalt opp",
     plannedAt: (hhmm: string) => `Kl. ${hhmm}`,
     standings: "Tabell",
     bracket: "Sluttspill",
@@ -304,6 +306,21 @@ export const no = {
     shiftPreview: (n: number) => `${n} ${n === 1 ? "kamp" : "kamper"} flyttes`,
     shiftConfirm: "Bekreft",
     shiftDone: (n: number) => `Tidsplanen er skjøvet (${n} ${n === 1 ? "kamp" : "kamper"}).`,
+
+    courtsTitle: "Baner",
+    courtLive: "Spiller nå",
+    courtCalled: "Kalt opp",
+    courtSuggested: "Foreslått neste",
+    courtNoSuggestion: "Ingen hvilte lag klare",
+    courtEmpty: "Ledig",
+    callUp: "Kall opp",
+    callUndo: "Angre oppkalling",
+    calledDone: (court: string) => `Kalt opp til ${court}.`,
+    callUndone: "Oppkallingen er angret.",
+    restWarning: (team: string, min: number) => `${team} hviler ${min} min til.`,
+    restConfirm: (team: string, min: number) =>
+      `${team} hviler ${min} min til. Kalle opp likevel?`,
+    calledTo: (court: string) => `Kalt opp til ${court}`,
   },
 
   // commentator / announcer auto-feed (storskjerm-speaker)

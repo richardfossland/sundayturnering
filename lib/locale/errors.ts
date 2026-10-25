@@ -52,6 +52,11 @@ const MESSAGES: Record<string, string> = {
   for_stort_skyv: "Du kan skyve høyst 240 minutter om gangen.",
   skyv_for_tidlig: "Kamper kan ikke flyttes til før klokka nå.",
   ingen_kamper: "Ingen kamper å skyve fra det tidspunktet.",
+  // call-up (A3)
+  bane_finnes_ikke: "Banen finnes ikke i denne turneringen.",
+  bane_opptatt: "Banen er opptatt — en kamp pågår eller er allerede kalt opp.",
+  lag_opptatt: "Et av lagene spiller eller er kalt opp til en annen bane.",
+  ikke_kalt_opp: "Kampen er ikke kalt opp.",
 };
 
 /** Pairing screens (control/board code entry): a wrong code reads «fant ingen

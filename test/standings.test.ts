@@ -37,7 +37,7 @@ function match(home: string, away: string | null, h: number, a: number): Match {
     bracket_slot: null,
     group_no: null,
     court_id: null,
-    queue_order: 0, scheduled_at: null,
+    queue_order: 0, scheduled_at: null, called_at: null,
     home_team_id: home,
     away_team_id: away,
     status: away === null ? "bye" : "done",

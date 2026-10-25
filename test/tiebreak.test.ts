@@ -27,7 +27,7 @@ function match(home: string, away: string, h: number, a: number, group_no: numbe
   return {
     id: `m${mid++}`, tournament_id: "t", phase: "league", round: 1,
     bracket_slot: null, group_no, court_id: null, queue_order: mid,
-    scheduled_at: null, home_team_id: home, away_team_id: away,
+    scheduled_at: null, called_at: null, home_team_id: home, away_team_id: away,
     status: "done", result: { home: h, away: a }, winner_team_id: null,
     locked_by: null, result_by: null, result_version: 1, updated_at: "",
   };

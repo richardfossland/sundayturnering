@@ -21,7 +21,7 @@ let mid = 0;
 function match(home: string, away: string | null, h: number, a: number): Match {
   return {
     id: `m${mid++}`, tournament_id: "t", phase: "league", round: 1,
-    bracket_slot: null, group_no: null, court_id: null, queue_order: mid, scheduled_at: null,
+    bracket_slot: null, group_no: null, court_id: null, queue_order: mid, scheduled_at: null, called_at: null,
     home_team_id: home, away_team_id: away,
     status: away === null ? "bye" : "done",
     result: away === null ? null : { home: h, away: a },
