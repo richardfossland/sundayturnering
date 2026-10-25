@@ -79,6 +79,46 @@ describe("POST /api/tournament — wizard config survives the route", () => {
     expect(captured!.config).toMatchObject({ groupCount: 3, advancePerGroup: 2, thirdPlace: true });
   });
 
+  it("carries consolation through for fitting formats; rejects mismatches and junk", async () => {
+    const base = {
+      title: "x", sport_label: "", scoring, parallelism: "sequential", courts: [],
+    };
+    const cup = await post({
+      ...base, format: "cup", teams: teams(8),
+      config: { playoffSize: 0, roundRobinDouble: false, consolation: "first_round_losers" },
+    });
+    expect(cup.status).toBe(200);
+    expect(captured!.config.consolation).toBe("first_round_losers");
+
+    const lp = await post({
+      ...base, format: "league_playoff", teams: teams(10),
+      config: { playoffSize: 4, roundRobinDouble: false, consolation: "b_playoff" },
+    });
+    expect(lp.status).toBe(200);
+    expect(captured!.config.consolation).toBe("b_playoff");
+
+    const none = await post({
+      ...base, format: "league_playoff", teams: teams(10),
+      config: { playoffSize: 4, roundRobinDouble: false },
+    });
+    expect(none.status).toBe(200);
+    expect(captured!.config).not.toHaveProperty("consolation");
+
+    for (const [format, consolation] of [
+      ["cup", "b_playoff"],
+      ["league", "b_playoff"],
+      ["league_playoff", "first_round_losers"],
+      ["cup", "bogus"],
+    ]) {
+      const res = await post({
+        ...base, format, teams: teams(8),
+        config: { playoffSize: 4, roundRobinDouble: false, consolation },
+      });
+      expect(res.status).toBe(400);
+      await expect(res.json()).resolves.toEqual({ error: "ugyldig_ekstra_sluttspill" });
+    }
+  });
+
   it("carries a valid schedule through, and omits it when not sent", async () => {
     const base = {
       title: "x", sport_label: "", format: "league", scoring,

@@ -42,3 +42,11 @@ SOFTWARE.
 - Lisens: MIT
 - Brukt i: `lib/tournament/bracketLayout.ts` og `app/board/[id]/Bracket.tsx` — kun idéer
   (kolonne per runde med kamper midt mellom matere; utheving av lagets vei). Ingen kode er portet.
+
+## brackets-manager.js og CourtHive (trøsterunde / B-sluttspill)
+
+- Kilder: https://github.com/Drarig29/brackets-manager.js (`consolationFinal`) og
+  https://github.com/CourtHive/tods-competition-factory (`firstRoundLoserConsolation`)
+- Lisens: MIT
+- Brukt i: `lib/tournament/consolation.ts` — kun idéene (taperne av første runde, eller lagene
+  som ikke kom til hovedbraketten, spiller en egen brakett). Ingen kode er portet.
