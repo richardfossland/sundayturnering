@@ -16,6 +16,7 @@ let matchRow: Match;
 let rpcArgs: Record<string, unknown> | null = null;
 let rpcFn: string | null = null;
 let downstreamPlayed = 0;
+let rpcError: { code?: string; message?: string; details?: string } | null = null;
 const resets: string[] = [];
 
 vi.mock("@/lib/server/store", () => ({
@@ -29,6 +30,7 @@ vi.mock("@/lib/server/store", () => ({
         return { data: false, error: null };
       rpcArgs = args;
       rpcFn = fn;
+      if (rpcError) return { data: null, error: rpcError };
       return { data: [{ ...matchRow, status: "done" }], error: null };
     },
     from: () => ({
@@ -156,6 +158,7 @@ describe("status guards", () => {
 
 describe("changing a knockout winner after the next round was played", () => {
   beforeEach(() => {
+    rpcError = null;
     matchRow = match({
       status: "done",
       result: { home: 2, away: 1 },
@@ -192,7 +195,7 @@ describe("changing a knockout winner after the next round was played", () => {
     // The reset itself now happens inside the atomic RPC, not as separate writes.
     expect(resets).toEqual([]);
     expect(rpcFn).toBe("override_match_result");
-    expect(rpcArgs).toMatchObject({ p_match_id: MID, p_winner_team_id: "a", p_reset_downstream: true });
+    expect(rpcArgs).toMatchObject({ p_match_id: MID, p_winner_side: "away", p_allow_reset: true });
   });
 
   it("organiser: nothing played downstream → no confirm needed", async () => {
@@ -205,7 +208,20 @@ describe("changing a knockout winner after the next round was played", () => {
     expect(res.status).toBe(200);
     expect(resets).toEqual([]);
     expect(rpcFn).toBe("override_match_result");
-    expect(rpcArgs).toMatchObject({ p_match_id: MID, p_reset_downstream: true });
+    expect(rpcArgs).toMatchObject({ p_match_id: MID, p_winner_side: "away", p_allow_reset: false });
+  });
+
+  it("organiser: a downstream match played AFTER the dry run → RPC refuses, route answers 409", async () => {
+    rpcError = { code: "P0409", message: "downstream_played", details: "2" };
+    const res = await post(override, {
+      tournamentId: ID,
+      organiserCode: "ABCD-EF",
+      matchId: MID,
+      result: { home: 0, away: 3 },
+    });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "neste_kamp_spilt", count: 2 });
+    expect(rpcArgs).toMatchObject({ p_allow_reset: false });
   });
 
   it("organiser: unchanged winner → RPC without downstream reset", async () => {
@@ -216,6 +232,6 @@ describe("changing a knockout winner after the next round was played", () => {
       result: { home: 5, away: 3 },
     });
     expect(res.status).toBe(200);
-    expect(rpcArgs).toMatchObject({ p_result: { home: 5, away: 3 }, p_winner_team_id: "h", p_reset_downstream: false });
+    expect(rpcArgs).toMatchObject({ p_result: { home: 5, away: 3 }, p_winner_side: "home", p_allow_reset: false });
   });
 });

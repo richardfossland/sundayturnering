@@ -1,9 +1,10 @@
-import { ok, fail, readJson, rateLimit, clientIp, withApi } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, ipKey, withApi } from "@/lib/server/http";
 import {
   getTournamentByControlCode,
   getTournamentByBoardCode,
 } from "@/lib/server/store";
 import { isCodeBlocked, registerCodeFailure } from "@/lib/server/attempts";
+import { signPairToken } from "@/lib/server/pair";
 import { toAttachedTournamentDTO } from "@/lib/dto";
 import { isValidControlCode, normalizeWordCode } from "@/lib/codes";
 
@@ -11,16 +12,19 @@ import { isValidControlCode, normalizeWordCode } from "@/lib/codes";
 // (board_code) resolves a tournament id. Returns the public tournament DTO plus
 // the codes that device is entitled to (see toAttachedTournamentDTO).
 async function handlePOST(req: Request) {
-  if (!rateLimit(`attach:${clientIp(req)}`, 300, 60_000))
+  if (!rateLimit(`attach:${ipKey(req)}`, 100, 600_000))
     return fail(429, "for_mange_forsok");
 
   const body = await readJson<{ controlCode?: string; boardCode?: string }>(req);
   if (!body) return fail(400, "ugyldig_body");
   // Shared-IP-safe guess protection: only NOT-FOUND lookups count (a hall of
-  // phones attaching with the right code is never blocked). Fails open.
-  if (await isCodeBlocked("attach", req)) return fail(429, "for_mange_forsok");
+  // phones attaching with the right code is never blocked). Fails open. Control
+  // codes and board codes are separate scopes so guessing one never blocks the
+  // other (and neither is global across tournaments' referees' write routes).
+  const scope = typeof body.controlCode === "string" ? "attach:control" : "attach:board";
+  if (await isCodeBlocked(scope, req)) return fail(429, "for_mange_forsok");
   const miss = async () =>
-    (await registerCodeFailure("attach", req))
+    (await registerCodeFailure(scope, req))
       ? fail(429, "for_mange_forsok")
       : fail(404, "finnes_ikke");
 
@@ -29,7 +33,10 @@ async function handlePOST(req: Request) {
     if (!isValidControlCode(code)) return fail(400, "ugyldig_kode");
     const t = await getTournamentByControlCode(code);
     if (!t) return miss();
-    return ok({ tournament: toAttachedTournamentDTO(t, "control") });
+    // pairToken: proof of a correct control code (see lib/server/pair.ts). null
+    // when PAIR_SECRET is unset in production → client just sends none.
+    const pairToken = await signPairToken(t.id, t.control_code);
+    return ok({ tournament: toAttachedTournamentDTO(t, "control"), pairToken });
   }
 
   if (typeof body.boardCode === "string") {

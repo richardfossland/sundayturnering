@@ -7,7 +7,7 @@ import { ApiError } from "@/lib/client/api";
 import { errorMessage, pairErrorMessage } from "@/lib/locale/errors";
 import { usePresence } from "@/lib/client/usePresence";
 import { identity } from "@/lib/client/identity";
-import { api } from "@/lib/client/api";
+import { api, setPairToken } from "@/lib/client/api";
 import { teamMap } from "@/lib/client/view";
 import { resolve } from "@/lib/tournament/scoring";
 import { canSelfCorrect, selfCorrectMsLeft } from "@/lib/tournament/correct";
@@ -81,6 +81,19 @@ export function ControlClient({ id }: { id: string }) {
     setCtl(identity.controlCode(id));
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [id]);
+
+  // Pairing token: makes this phone immune to the shared-IP wrong-code block.
+  // Phones paired before tokens existed (or paired some other way) have a code
+  // but no token → attach once, silently, to obtain it.
+  useEffect(() => {
+    if (!ctl) return;
+    const tok = identity.pairToken(id);
+    if (tok) {
+      setPairToken(ctl, tok);
+      return;
+    }
+    api.attachControl(ctl).catch(() => {});
+  }, [ctl, id]);
 
   /** The server said the stored control code is wrong → forget it and re-ask.
    * Returns true when the error was exactly that, so callers can skip their
@@ -202,7 +215,7 @@ export function ControlClient({ id }: { id: string }) {
       });
       refetch();
     } catch (e) {
-      if (!codeRejected(e)) flash(e instanceof ApiError && e.status === 429 ? errorMessage(e) : no.common.error);
+      if (!codeRejected(e)) flash(errorMessage(e));
     }
   }
 
@@ -221,7 +234,7 @@ export function ControlClient({ id }: { id: string }) {
       await api.courtTimer(id, action, ctl, { courtId: timerCourtId, durationSec });
       refetch();
     } catch (e) {
-      if (!codeRejected(e)) flash(e instanceof ApiError && e.status === 429 ? errorMessage(e) : no.common.error);
+      if (!codeRejected(e)) flash(errorMessage(e));
     } finally {
       setBusyTimer(false);
     }

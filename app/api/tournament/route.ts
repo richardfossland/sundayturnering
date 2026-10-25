@@ -1,4 +1,4 @@
-import { ok, fail, readJson, rateLimit, clientIp, withApi } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, ipKey, withApi } from "@/lib/server/http";
 import { createTournament, type CreateInput } from "@/lib/server/build";
 import { getOptionalAdmin } from "@/lib/server/auth";
 import type { Format, ScoringProfileKey } from "@/lib/types";
@@ -21,7 +21,7 @@ function intOr(v: unknown, dflt: number): number {
 }
 
 async function handlePOST(req: Request) {
-  if (!rateLimit(`create:${clientIp(req)}`, 10, 60_000))
+  if (!rateLimit(`create:${ipKey(req)}`, 10, 60_000))
     return fail(429, "for_mange_forsok");
 
   const body = await readJson<CreateInput>(req);

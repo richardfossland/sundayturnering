@@ -100,8 +100,10 @@ export function rateLimit(
  * public IP) — the real guess protection is the DB-backed failure counter in
  * lib/server/attempts.ts. Returns the 429 to send, or
  * null to proceed. */
+export const ORGANISER_LIMIT_PER_MIN = 300;
+
 export function organiserLimit(req: Request): Response | null {
-  return rateLimit(`organiser:${clientIp(req)}`, 300, 60_000)
+  return rateLimit(`organiser:${ipKey(req)}`, ORGANISER_LIMIT_PER_MIN, 60_000)
     ? null
     : fail(429, "for_mange_forsok");
 }
@@ -136,4 +138,33 @@ export function clientIp(req: Request): string {
   if (cf) return cf.trim();
   const fwd = req.headers.get("x-forwarded-for");
   return fwd?.split(",")[0]?.trim() || "local";
+}
+
+/** Limiter/attempt key for an IP. IPv4 → as is. IPv6 → the /64 prefix: a single
+ * subscriber gets a whole /64 and can rotate through 2^64 addresses, so keying
+ * on the full address would let one client mint a fresh bucket per request. */
+export function ipKeyOf(ip: string): string {
+  if (!ip.includes(":")) return ip;
+  let a = ip.toLowerCase().split("%")[0];
+  const v4 = a.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/); // ::ffff:1.2.3.4
+  if (v4) {
+    const o = v4[2].split(".").map(Number);
+    if (o.some((n) => n > 255)) return ip;
+    if (/^(::ffff:|0*:0*:0*:0*:0*:ffff:)$/.test(v4[1])) return v4[2];
+    a = v4[1] + ((o[0] << 8) | o[1]).toString(16) + ":" + ((o[2] << 8) | o[3]).toString(16);
+  }
+  const [head, tail, extra] = a.split("::");
+  if (extra !== undefined) return ip;
+  const h = head ? head.split(":") : [];
+  const t = tail === undefined ? [] : tail ? tail.split(":") : [];
+  const fill = tail === undefined ? 0 : 8 - h.length - t.length;
+  if (fill < 0 || (tail === undefined && h.length !== 8)) return ip;
+  const groups = [...h, ...Array(fill).fill("0"), ...t];
+  if (groups.length !== 8 || groups.some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return ip;
+  return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/64";
+}
+
+/** THE key to use for per-IP limiting and wrong-code counting. */
+export function ipKey(req: Request): string {
+  return ipKeyOf(clientIp(req));
 }

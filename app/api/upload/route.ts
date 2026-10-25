@@ -1,4 +1,4 @@
-import { ok, fail, rateLimit, clientIp, withApi } from "@/lib/server/http";
+import { ok, fail, rateLimit, ipKey, withApi } from "@/lib/server/http";
 import { db } from "@/lib/server/store";
 import { sniffImage } from "@/lib/server/imageSniff";
 
@@ -12,7 +12,7 @@ import { sniffImage } from "@/lib/server/imageSniff";
 const MAX_BYTES = 2_000_000; // 2 MB
 
 async function handlePOST(req: Request) {
-  if (!rateLimit(`upload:${clientIp(req)}`, 20, 60_000))
+  if (!rateLimit(`upload:${ipKey(req)}`, 20, 60_000))
     return fail(429, "for_mange_forsok");
 
   let form: FormData;

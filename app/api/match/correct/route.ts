@@ -1,4 +1,4 @@
-import { ok, fail, readJson, rateLimit, clientIp, withApi } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, ipKey, withApi } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateResult, resetDownstream } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
@@ -11,14 +11,14 @@ import {
   isVoid,
 } from "@/lib/tournament/scoring";
 import { canSelfCorrect } from "@/lib/tournament/correct";
-import { checkControlCode } from "@/lib/server/auth";
+import { checkControlCode, prefetchBlocked } from "@/lib/server/auth";
 
 // POST /api/match/correct — a referee fixes THEIR OWN just-saved result within a
 // short grace window, WITHOUT the organiser code. Self-authorising: the server
 // checks the saving device (result_by) + the time window (updated_at). The
 // optimistic version guard is preserved via the same RPC the result route uses.
 async function handlePOST(req: Request) {
-  if (!rateLimit(`match-correct:${clientIp(req)}`, 600, 60_000))
+  if (!rateLimit(`match-correct:${ipKey(req)}`, 600, 60_000))
     return fail(429, "for_mange_forsok");
   const body = await readJson<{
     matchId?: string;
@@ -44,9 +44,13 @@ async function handlePOST(req: Request) {
   if (!canSelfCorrect(m, body.deviceId, Date.now())) return fail(409, "for_sent");
   if (!m.home_team_id || !m.away_team_id) return fail(409, "kamp_ikke_klar");
 
-  const t = await getTournament(m.tournament_id);
+  const blocked = prefetchBlocked(req, m.tournament_id);
+  const t = await getTournament(m.tournament_id).catch((e) => {
+    blocked?.catch(() => {});
+    throw e;
+  });
   if (!t) return fail(404, "finnes_ikke");
-  if (!(await checkControlCode(req, t, body.controlCode))) return fail(403, "feil_kontrollkode");
+  if (!(await checkControlCode(req, t, body.controlCode, blocked))) return fail(403, "feil_kontrollkode");
   if (t.status === "finished") return fail(409, "turnering_avsluttet");
 
   const knockout = m.phase === "playoff";

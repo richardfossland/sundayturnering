@@ -1,8 +1,8 @@
-import { ok, fail, readJson, rateLimit, clientIp, withApi } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, ipKey, withApi } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
-import { checkControlCode } from "@/lib/server/auth";
+import { checkControlCode, prefetchBlocked } from "@/lib/server/auth";
 import { channels, events } from "@/lib/realtime";
 import { validateLiveResult, canonicaliseLiveResult } from "@/lib/tournament/scoring";
 
@@ -12,7 +12,7 @@ import { validateLiveResult, canonicaliseLiveResult } from "@/lib/tournament/sco
 // standings ignore it and the final submit (the guarded RPC) overwrites it.
 // Last-write-wins is fine for a running score. Referee credential required.
 async function handlePOST(req: Request) {
-  if (!rateLimit(`match-live:${clientIp(req)}`, 2400, 60_000))
+  if (!rateLimit(`match-live:${ipKey(req)}`, 2400, 60_000))
     return fail(429, "for_mange_forsok");
   const body = await readJson<{
     matchId?: string;
@@ -24,9 +24,13 @@ async function handlePOST(req: Request) {
 
   const m = await getMatch(body.matchId);
   if (!m) return fail(404, "finnes_ikke");
-  const t = await getTournament(m.tournament_id);
+  const blocked = prefetchBlocked(req, m.tournament_id);
+  const t = await getTournament(m.tournament_id).catch((e) => {
+    blocked?.catch(() => {});
+    throw e;
+  });
   if (!t) return fail(404, "finnes_ikke");
-  if (!(await checkControlCode(req, t, body.controlCode))) return fail(403, "feil_kontrollkode");
+  if (!(await checkControlCode(req, t, body.controlCode, blocked))) return fail(403, "feil_kontrollkode");
   if (t.status === "finished") return fail(409, "turnering_avsluttet");
   if (m.status !== "live") return fail(409, "kamp_ikke_live");
 

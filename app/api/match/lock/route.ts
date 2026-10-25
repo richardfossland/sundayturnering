@@ -1,6 +1,6 @@
-import { ok, fail, readJson, rateLimit, clientIp, must, withApi } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, ipKey, must, withApi } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
-import { checkControlCode } from "@/lib/server/auth";
+import { checkControlCode, prefetchBlocked } from "@/lib/server/auth";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
@@ -18,7 +18,7 @@ import { channels, events } from "@/lib/realtime";
 // spiller". Only the device whose lock did the promoting knows that, so it
 // tells us on release; the server never guesses.
 async function handlePOST(req: Request) {
-  if (!rateLimit(`match-lock:${clientIp(req)}`, 1200, 60_000))
+  if (!rateLimit(`match-lock:${ipKey(req)}`, 1200, 60_000))
     return fail(429, "for_mange_forsok");
   const body = await readJson<{
     matchId?: string;
@@ -34,9 +34,13 @@ async function handlePOST(req: Request) {
   const m = await getMatch(body.matchId);
   if (!m) return fail(404, "finnes_ikke");
   // Referee credential: the control code. Match ids alone are public.
-  const t = await getTournament(m.tournament_id);
+  const blocked = prefetchBlocked(req, m.tournament_id);
+  const t = await getTournament(m.tournament_id).catch((e) => {
+    blocked?.catch(() => {});
+    throw e;
+  });
   if (!t) return fail(404, "finnes_ikke");
-  if (!(await checkControlCode(req, t, body.controlCode))) return fail(403, "feil_kontrollkode");
+  if (!(await checkControlCode(req, t, body.controlCode, blocked))) return fail(403, "feil_kontrollkode");
   if (m.status === "done" || m.status === "bye")
     return fail(409, "kamp_ferdig");
 
@@ -75,24 +79,30 @@ async function handlePOST(req: Request) {
       m.locked_by.split("|")[0] !== body.deviceId
     )
       return fail(409, "laast_av_annen", { lockedBy: m.locked_by });
-    promoted = m.status === "scheduled";
-    let q = db()
-      .from("matches")
-      .update({ locked_by: tag, status: promoted ? "live" : m.status })
-      .eq("id", m.id);
-    if (action === "lock") {
-      // Compare-and-set on what we just read: two devices racing for a free
-      // (or their own) lock → exactly one UPDATE matches; the loser gets the
-      // same answer as "already locked". `force` deliberately takes over.
-      q = (m.locked_by ? q.eq("locked_by", m.locked_by) : q.is("locked_by", null))
-        .eq("status", m.status);
-    }
-    const won = must<{ id: string }[]>(await q.select("id"));
-    if (action === "lock" && (!won || won.length === 0)) {
+    // `force` takes over unconditionally; `lock` is a compare-and-set on what we
+    // last read: two devices racing for a free (or their own) lock → exactly one
+    // UPDATE matches. On a miss, re-read: the holder may have released in the
+    // meantime (null or ours) — retry once on the fresh row before answering
+    // "locked by another".
+    let cur = m;
+    for (let attempt = 0; ; attempt++) {
+      promoted = cur.status === "scheduled";
+      let q = db()
+        .from("matches")
+        .update({ locked_by: tag, status: promoted ? "live" : cur.status })
+        .eq("id", cur.id);
+      if (action === "lock") {
+        q = (cur.locked_by ? q.eq("locked_by", cur.locked_by) : q.is("locked_by", null))
+          .eq("status", cur.status);
+      }
+      const won = must<{ id: string }[]>(await q.select("id"));
+      if (action !== "lock" || (won && won.length > 0)) break;
       const now = await getMatch(m.id);
-      if (now && (now.status === "done" || now.status === "bye"))
-        return fail(409, "kamp_ferdig");
-      return fail(409, "laast_av_annen", { lockedBy: now?.locked_by ?? null });
+      if (!now) return fail(404, "finnes_ikke");
+      if (now.status === "done" || now.status === "bye") return fail(409, "kamp_ferdig");
+      const free = !now.locked_by || now.locked_by.split("|")[0] === body.deviceId;
+      if (attempt >= 1 || !free) return fail(409, "laast_av_annen", { lockedBy: now.locked_by });
+      cur = now;
     }
   }
 

@@ -5,6 +5,7 @@ import { isValidControlCode, normalizeWordCode } from "@/lib/codes";
 import { createAuthClient } from "@/lib/supabase/auth-server";
 import { RateLimitedError } from "@/lib/server/http";
 import { isCodeBlocked, registerCodeFailure } from "@/lib/server/attempts";
+import { PAIR_HEADER, verifyPairToken } from "@/lib/server/pair";
 import type { Tournament } from "@/lib/types";
 
 /** Constant-time string comparison (no early exit on the first mismatch). */
@@ -48,15 +49,30 @@ export function authControlCode(t: Tournament, code: unknown): boolean {
   return isValidControlCode(c) && safeEqual(c, t.control_code);
 }
 
-/** Rate-limited variant for the routes: refuses (429 via RateLimitedError →
- * withApi) when this IP already failed too often for this tournament, and
- * counts a wrong code as a failure. Correct codes are never counted. */
+/** Start the block lookup early (in parallel with the tournament read) for a
+ * token-less request. Returns undefined when the request carries a pairing
+ * token — that path never consults the block table. */
+export function prefetchBlocked(req: Request, tournamentId: string): Promise<boolean> | undefined {
+  return req.headers.get(PAIR_HEADER) ? undefined : isCodeBlocked(tournamentId, req);
+}
+
+/** Rate-limited variant for the routes. A valid pairing token for THIS
+ * tournament's current control code (minted by /api/attach) is accepted
+ * outright — no block lookup, so one pupil guessing wrong codes from the shared
+ * school IP can never lock out paired referees. Otherwise: refuses (429 via
+ * RateLimitedError → withApi) when this IP already failed too often for this
+ * tournament, and counts a wrong code as a failure. Correct codes are never
+ * counted. `blocked` = a prefetchBlocked() promise started alongside the
+ * tournament read. */
 export async function checkControlCode(
   req: Request,
   t: Tournament,
   code: unknown,
+  blocked?: Promise<boolean>,
 ): Promise<boolean> {
-  if (await isCodeBlocked(t.id, req)) throw new RateLimitedError();
+  const token = req.headers.get(PAIR_HEADER);
+  if (token && (await verifyPairToken(t.id, t.control_code, token))) return true;
+  if (await (blocked ?? isCodeBlocked(t.id, req))) throw new RateLimitedError();
   if (authControlCode(t, code)) return true;
   if (await registerCodeFailure(t.id, req)) throw new RateLimitedError();
   return false;

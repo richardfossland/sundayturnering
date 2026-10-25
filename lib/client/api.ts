@@ -1,6 +1,7 @@
 "use client";
 
 import type { AttachedTournamentDTO, StateDTO } from "@/lib/dto";
+import { identity } from "@/lib/client/identity";
 import type { Match, MatchResult } from "@/lib/types";
 import type { CreateInput } from "@/lib/server/build";
 import type { OrganiserTournamentRow } from "@/lib/server/store";
@@ -24,10 +25,30 @@ export class ApiError extends Error {
 // the Refetcher's in-flight slot stays taken and the projector board freezes
 // silently. So every call is bounded, and the bound covers the BODY read too
 // (headers can arrive and the body still stall).
-let timeoutMs = 8000;
-/** Test seam: shrink the bound so a hang can be proven without waiting 8 s. */
-export function __setFetchTimeout(ms: number): void {
-  timeoutMs = ms;
+//
+// Writes get a LONGER bound than reads (15 s vs 8 s) and must stay above the
+// server's per-DB-call bound (4 s, lib/supabase/service.ts) plus its retries of
+// a few sequential calls: if the client gave up first it would show
+// «tidsavbrudd» for a write that still commits, and the retry would hit a
+// false 409.
+export const READ_TIMEOUT_MS = 8000;
+export const WRITE_TIMEOUT_MS = 15000;
+let readMs = READ_TIMEOUT_MS;
+let writeMs = WRITE_TIMEOUT_MS;
+/** Test seam: shrink both bounds so a hang can be proven without waiting.
+ * No argument restores the defaults. */
+export function __setFetchTimeout(ms?: number): void {
+  readMs = ms ?? READ_TIMEOUT_MS;
+  writeMs = ms ?? WRITE_TIMEOUT_MS;
+}
+
+// Pairing tokens (see lib/server/pair.ts), by control code. Sent as
+// `x-pair-token` on every control-code-gated write so a paired phone is not
+// caught by the per-IP wrong-code block of a shared school network.
+const pairTokens = new Map<string, string>();
+export function setPairToken(controlCode: string, token: string | null | undefined): void {
+  if (token) pairTokens.set(controlCode, token);
+  else pairTokens.delete(controlCode);
 }
 
 type JsonBody = { error?: string; detail?: string; [k: string]: unknown };
@@ -38,9 +59,13 @@ type JsonBody = { error?: string; detail?: string; [k: string]: unknown };
 async function fetchJson(
   input: string,
   init?: RequestInit,
+  timeout: "read" | "write" = "read",
 ): Promise<{ res: Response; json: JsonBody }> {
   try {
-    const res = await fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+    const res = await fetch(input, {
+      ...init,
+      signal: AbortSignal.timeout(timeout === "read" ? readMs : writeMs),
+    });
     const json = await res.json().catch((e) => {
       // A stalled body aborts here — that must NOT be swallowed as "not JSON".
       if (isAbort(e)) throw e;
@@ -67,11 +92,20 @@ async function send<T>(
   path: string,
   body?: unknown,
 ): Promise<T> {
-  const { res, json } = await fetchJson(path, {
-    method,
-    headers: body === undefined ? undefined : { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["content-type"] = "application/json";
+  const code = (body as { controlCode?: unknown } | undefined)?.controlCode;
+  const token = typeof code === "string" ? pairTokens.get(code) : undefined;
+  if (token) headers["x-pair-token"] = token;
+  const { res, json } = await fetchJson(
+    path,
+    {
+      method,
+      headers: Object.keys(headers).length ? headers : undefined,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    },
+    "write",
+  );
   if (!res.ok)
     throw new ApiError(res.status, json.error ?? "feil", json.detail, json);
   return json as T;
@@ -93,8 +127,14 @@ export const api = {
     }>("/api/tournament", input);
   },
 
-  attachControl(controlCode: string) {
-    return post<{ tournament: AttachedTournamentDTO }>("/api/attach", { controlCode });
+  async attachControl(controlCode: string) {
+    const r = await post<{ tournament: AttachedTournamentDTO; pairToken?: string | null }>(
+      "/api/attach",
+      { controlCode },
+    );
+    setPairToken(controlCode, r.pairToken);
+    identity.setPairToken(r.tournament.id, r.pairToken);
+    return r;
   },
   attachBoard(boardCode: string) {
     return post<{ tournament: AttachedTournamentDTO }>("/api/attach", { boardCode });
@@ -246,7 +286,7 @@ export const api = {
   async uploadLogo(file: File): Promise<string> {
     const fd = new FormData();
     fd.append("file", file);
-    const { res, json } = await fetchJson("/api/upload", { method: "POST", body: fd });
+    const { res, json } = await fetchJson("/api/upload", { method: "POST", body: fd }, "write");
     if (!res.ok) throw new ApiError(res.status, json.error ?? "feil");
     return json.url as string;
   },

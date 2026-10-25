@@ -13,7 +13,7 @@ function hangingFetch(_url: unknown, init?: RequestInit): Promise<Response> {
 
 beforeEach(() => __setFetchTimeout(30));
 afterEach(() => {
-  __setFetchTimeout(8000);
+  __setFetchTimeout();
   vi.unstubAllGlobals();
 });
 
@@ -53,6 +53,18 @@ describe("api timeouts", () => {
       throw new TypeError("Failed to fetch");
     });
     await expect(api.finish("t", "c")).rejects.toBeInstanceOf(TypeError);
+  });
+});
+
+describe("write vs read bounds", () => {
+  it("writes get the longer bound, GETs the shorter one", async () => {
+    __setFetchTimeout(); // defaults
+    vi.stubGlobal("fetch", async () => Response.json({}));
+    const spy = vi.spyOn(AbortSignal, "timeout");
+    await api.fetchState("t");
+    await api.finish("t", "c");
+    expect(spy.mock.calls.map((c) => c[0])).toEqual([8000, 15000]);
+    spy.mockRestore();
   });
 });
 

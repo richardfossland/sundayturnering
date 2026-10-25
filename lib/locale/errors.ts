@@ -60,7 +60,7 @@ export function pairErrorMessage(e: unknown, only404 = false): string {
     if (e.status === 0 || e.status >= 500) return errorMessage(e);
     if (!only404 || e.status === 404) return no.pair.badCode;
   }
-  return no.common.error;
+  return errorMessage(e); // offline TypeError → «Ingen forbindelse», else generic
 }
 
 export function errorMessage(e: unknown): string {

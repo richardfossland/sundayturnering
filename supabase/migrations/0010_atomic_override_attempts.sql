@@ -3,6 +3,10 @@
 -- Conventions copied from 0004/0009: plain (invoker) plpgsql, execute granted
 -- to service_role only, RLS on with no policies for new tables.
 --
+-- Hardening: every function pins `search_path = ''` (all references below are
+-- schema-qualified; pg_catalog builtins are always visible) and execute is
+-- revoked from public/anon/authenticated, granted to service_role only.
+--
 -- MUST be applied in prod BEFORE the app version that calls these RPCs is
 -- deployed (the override route has no fallback; the limiter fails open).
 
@@ -19,13 +23,16 @@
 create or replace function turnering.override_match_result(
   p_match_id         uuid,
   p_result           jsonb,
-  p_winner_team_id   uuid,
-  p_reset_downstream boolean default false
+  p_winner_side      text,            -- 'home' | 'away' | null (mapped under the lock)
+  p_allow_reset      boolean default false
 ) returns turnering.matches
 language plpgsql
+set search_path = ''
 as $$
 declare
   m          turnering.matches;
+  new_winner uuid;
+  changed    boolean;
   tgt        turnering.matches;
   link       record;
   cur        uuid;
@@ -40,7 +47,15 @@ begin
     raise exception 'match_not_found' using errcode = 'P0002';
   end if;
 
-  if p_reset_downstream and m.phase = 'playoff' then
+  -- The winner is derived HERE from the side, with the teams as they are under
+  -- the lock (not from a snapshot the route read before the lock).
+  new_winner := case p_winner_side
+                  when 'home' then m.home_team_id
+                  when 'away' then m.away_team_id
+                  else null end;
+  changed := m.status = 'done' and new_winner is distinct from m.winner_team_id;
+
+  if changed and m.phase = 'playoff' then
     stack := array[p_match_id];
     while coalesce(array_length(stack, 1), 0) > 0 loop
       cur := stack[array_length(stack, 1)];
@@ -65,6 +80,12 @@ begin
     end loop;
 
     if coalesce(array_length(reset_ids, 1), 0) > 0 then
+      -- Played matches downstream would be wiped: only with the organiser's
+      -- explicit say-so (decided under the lock, so it cannot go stale).
+      if not p_allow_reset then
+        raise exception 'downstream_played' using errcode = 'P0409',
+          detail = array_length(reset_ids, 1)::text;
+      end if;
       update turnering.matches
          set status         = 'scheduled',
              result         = null,
@@ -89,7 +110,7 @@ begin
 
   update turnering.matches
      set result         = p_result,
-         winner_team_id = p_winner_team_id,
+         winner_team_id = new_winner,
          status         = 'done',
          result_version = result_version + 1,
          locked_by      = null,
@@ -108,12 +129,14 @@ begin
 end;
 $$;
 
-grant execute on function turnering.override_match_result(uuid, jsonb, uuid, boolean) to service_role;
+revoke execute on function turnering.override_match_result(uuid, jsonb, text, boolean)
+  from public, anon, authenticated;
+grant execute on function turnering.override_match_result(uuid, jsonb, text, boolean) to service_role;
 
 -- 2. code_attempts ---------------------------------------------------------
 -- Failed-code counter per (scope, ip). `scope` is the tournament id for the
 -- control-code routes, 'org:<tournament id>' for organiser-code routes and
--- 'attach' for /api/attach (no tournament known yet). Only FAILURES are
+-- 'attach:control' / 'attach:board' for /api/attach (no tournament known yet). Only FAILURES are
 -- stored, so a hall of correct phones behind one public IP never counts.
 create table if not exists turnering.code_attempts (
   scope        text        not null,
@@ -126,6 +149,9 @@ create index if not exists code_attempts_window_idx
   on turnering.code_attempts (window_start);
 alter table turnering.code_attempts enable row level security;
 -- No policies on purpose: service role only (same as every other table).
+-- RLS bypass is not a table privilege, so the table itself needs the grant
+-- (the RPCs below are invoker functions called as service_role).
+grant select, insert, update, delete on turnering.code_attempts to service_role;
 
 -- Records one wrong guess. Starts a fresh window when the old one expired.
 -- Returns true when this IP is now blocked for the scope.
@@ -136,6 +162,7 @@ create or replace function turnering.register_code_failure(
   p_max      int
 ) returns boolean
 language plpgsql
+set search_path = ''
 as $$
 declare
   f int;
@@ -164,6 +191,7 @@ create or replace function turnering.code_blocked(
 ) returns boolean
 language sql
 stable
+set search_path = ''
 as $$
   select coalesce((
     select failures >= p_max
@@ -173,5 +201,9 @@ as $$
   ), false);
 $$;
 
+revoke execute on function turnering.register_code_failure(text, text, int, int)
+  from public, anon, authenticated;
+revoke execute on function turnering.code_blocked(text, text, int, int)
+  from public, anon, authenticated;
 grant execute on function turnering.register_code_failure(text, text, int, int) to service_role;
 grant execute on function turnering.code_blocked(text, text, int, int) to service_role;

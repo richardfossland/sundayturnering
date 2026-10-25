@@ -15,4 +15,9 @@
   // Runtime env (NEXT_PUBLIC_* are build-time inlined):
   //   SUPABASE_SERVICE_ROLE_KEY is a runtime Worker secret:
   //     npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+  //   PAIR_SECRET is a runtime Worker secret (any long random string) that signs
+  //   referee pairing tokens (lib/server/pair.ts). MUST be set before deploy:
+  //     npx wrangler secret put PAIR_SECRET
+  //   Without it tokens are disabled and the shared-IP wrong-code block applies
+  //   to every referee again (logged once, no crash).
 }

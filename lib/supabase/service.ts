@@ -2,9 +2,13 @@ import "server-only";
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-const DB_TIMEOUT_MS = 12_000;
+// 4 s per DB call: a route makes a few sequential calls, and the client gives a
+// WRITE 15 s (lib/client/api.ts). A server bound at or above the client's would
+// let a write commit after the browser already showed «tidsavbrudd», and the
+// retry would then hit a false 409.
+export const DB_TIMEOUT_MS = 4_000;
 
-/** fetch with a 12 s ceiling, combined with any signal the caller passed. */
+/** fetch with a 4 s ceiling, combined with any signal the caller passed. */
 export function boundedFetch(input: RequestInfo | URL, init?: RequestInit) {
   const timeout = AbortSignal.timeout(DB_TIMEOUT_MS);
   return fetch(input, {
@@ -32,7 +36,7 @@ export function createServiceClient() {
     db: { schema: "turnering" },
     // Bound every PostgREST/storage call: a stalled Supabase connection would
     // otherwise hold the Worker request open until the platform kills it.
-    // (/api/health relies on this 12 s bound.)
+    // (/api/health relies on this bound.)
     global: { fetch: boundedFetch },
   });
 }

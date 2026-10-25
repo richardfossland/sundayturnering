@@ -9,6 +9,7 @@ const DEVICE_NAME = "turnering:deviceName";
 const ORG_CODE = (id: string) => `turnering:org:${id}`;
 const PINNED_COURT = (id: string) => `turnering:court:${id}`;
 const CONTROL_CODE = (id: string) => `turnering:ctl:${id}`;
+const PAIR_TOKEN = (id: string) => `turnering:pair:${id}`;
 const BOARD_CODE = (id: string) => `turnering:board:${id}`;
 
 function rid(): string {
@@ -75,7 +76,25 @@ export const identity = {
   setControlCode(id: string, code: string | null) {
     try {
       if (code) localStorage.setItem(CONTROL_CODE(id), code);
-      else localStorage.removeItem(CONTROL_CODE(id));
+      else {
+        localStorage.removeItem(CONTROL_CODE(id));
+        localStorage.removeItem(PAIR_TOKEN(id)); // token is bound to that code
+      }
+    } catch {}
+  },
+  /** Pairing token the server issued for this device's control code (see
+   * lib/server/pair.ts). Lives and dies with the control code. */
+  pairToken(id: string): string | null {
+    try {
+      return localStorage.getItem(PAIR_TOKEN(id));
+    } catch {
+      return null;
+    }
+  },
+  setPairToken(id: string, token: string | null | undefined) {
+    try {
+      if (token) localStorage.setItem(PAIR_TOKEN(id), token);
+      else localStorage.removeItem(PAIR_TOKEN(id));
     } catch {}
   },
   /** The word board code for a tournament this device created or reopened via
@@ -97,7 +116,7 @@ export const identity = {
   /** Remove every per-tournament key this device holds. */
   forget(id: string) {
     try {
-      for (const key of [ORG_CODE(id), CONTROL_CODE(id), BOARD_CODE(id), PINNED_COURT(id)])
+      for (const key of [ORG_CODE(id), CONTROL_CODE(id), PAIR_TOKEN(id), BOARD_CODE(id), PINNED_COURT(id)])
         localStorage.removeItem(key);
     } catch {}
   },

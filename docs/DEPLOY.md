@@ -58,6 +58,8 @@ npx opennextjs-cloudflare deploy            # = wrangler deploy
 
 # service-role key is a RUNTIME secret (never inlined):
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+# signs referee pairing tokens (any long random string, e.g. `openssl rand -base64 32`):
+npx wrangler secret put PAIR_SECRET
 
 # Custom domain: wrangler.jsonc `routes` already declares
 # turnering.sundaysuite.app as a custom_domain; or attach in the dashboard
@@ -67,7 +69,8 @@ npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 Env summary:
 - **Build-time (inlined):** `NEXT_PUBLIC_SUPABASE_URL`,
   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_BASE_URL=https://turnering.sundaysuite.app`
-- **Runtime secret:** `SUPABASE_SERVICE_ROLE_KEY` (`wrangler secret put`)
+- **Runtime secrets:** `SUPABASE_SERVICE_ROLE_KEY`, `PAIR_SECRET` (`wrangler secret put`). Without `PAIR_SECRET` pairing tokens are off and one pupil guessing wrong codes on the shared school IP can lock out the referees (logged once, no crash).
+- **Migration 0010** must be applied before deploying this version.
 
 > The in-memory rate-limiter (lib/server/http.ts) assumes a single instance.
 > Cloudflare may run multiple isolates — fine for a single event; revisit

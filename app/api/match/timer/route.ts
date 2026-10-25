@@ -1,10 +1,10 @@
-import { ok, fail, readJson, rateLimit, clientIp, must, withApi } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, ipKey, must, withApi } from "@/lib/server/http";
 import { db, getTournament, bumpVersion } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
 import { computeTimer } from "@/lib/tournament/timer";
-import { checkControlCode } from "@/lib/server/auth";
+import { checkControlCode, prefetchBlocked } from "@/lib/server/auth";
 import type { TimerState } from "@/lib/types";
 
 // POST /api/match/timer — referee-controlled countdown shown on the board. This
@@ -57,7 +57,7 @@ async function writeTimer(
 }
 
 async function handlePOST(req: Request) {
-  if (!rateLimit(`mtimer:${clientIp(req)}`, 600, 60_000))
+  if (!rateLimit(`mtimer:${ipKey(req)}`, 600, 60_000))
     return fail(429, "for_mange_forsok");
 
   const body = await readJson<{
@@ -69,11 +69,13 @@ async function handlePOST(req: Request) {
   }>(req);
   if (!body?.tournamentId) return fail(400, "mangler_felt");
 
+  const blocked =
+    typeof body.tournamentId === "string" ? prefetchBlocked(req, body.tournamentId) : undefined;
   const t = await getTournament(body.tournamentId);
   if (!t) return fail(404, "finnes_ikke");
   // Referee credential: the control code. The tournament id is in every
   // public follow link, so it must not be enough to drive the board's clock.
-  if (!(await checkControlCode(req, t, body.controlCode))) return fail(403, "feil_kontrollkode");
+  if (!(await checkControlCode(req, t, body.controlCode, blocked))) return fail(403, "feil_kontrollkode");
   if (t.status === "finished") return fail(409, "turnering_avsluttet");
 
   const action = body.action ?? "start";
