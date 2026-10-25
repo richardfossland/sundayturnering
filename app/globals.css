@@ -834,6 +834,93 @@ textarea {
   border-radius: 8px;
 }
 
+/* court strip («Baner»-visning på tavla) */
+.court-strip {
+  display: grid;
+  gap: 14px;
+}
+.court-col {
+  background: var(--k-22);
+  border: 1px solid var(--ink-line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.court-col-name {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(1.1rem, 1.8vw, 1.6rem);
+  color: var(--gold-ink);
+}
+.court-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  border: 1px solid transparent;
+}
+.court-slot-called {
+  background: rgba(235, 184, 75, 0.14);
+  border-color: var(--gold);
+}
+.court-slot-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--txt-dim);
+}
+.court-slot-called .court-slot-label {
+  color: var(--gold-ink);
+}
+.court-teams {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: clamp(1rem, 1.6vw, 1.4rem);
+  font-weight: 700;
+}
+.court-teams-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(0.9rem, 1.3vw, 1.1rem);
+  font-weight: 600;
+}
+.court-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.court-score {
+  margin-left: auto;
+  font-family: var(--display);
+  font-weight: 900;
+  color: var(--gold-ink);
+}
+.court-next {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* "called to court" badge (control list + spectator) */
+.pill-called {
+  color: var(--gold-ink);
+  border-color: var(--gold);
+  background: rgba(235, 184, 75, 0.14);
+}
+
 /* next up */
 .next-list {
   display: flex;

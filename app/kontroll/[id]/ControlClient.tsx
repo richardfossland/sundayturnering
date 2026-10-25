@@ -167,7 +167,7 @@ export function ControlClient({ id }: { id: string }) {
       if (m.status === "bye") return false;
       if (tab === "live") return m.status === "live";
       if (tab === "done") return m.status === "done";
-      return m.status === "scheduled";
+      return m.status === "scheduled" || m.status === "called";
     })
     .filter((m) => !courtId || m.court_id === courtId)
     .sort((a, b) => a.queue_order - b.queue_order);
@@ -176,7 +176,7 @@ export function ControlClient({ id }: { id: string }) {
   const nextMatch = matches
     .filter(
       (m) =>
-        m.status === "scheduled" &&
+        (m.status === "scheduled" || m.status === "called") &&
         m.home_team_id &&
         m.away_team_id &&
         (!courtId || m.court_id === courtId),
@@ -371,7 +371,7 @@ export function ControlClient({ id }: { id: string }) {
               profile={tournament.scoring.profile}
               selfDeviceId={self?.deviceId ?? null}
               onTap={() => openMatch(m)}
-              onStart={m.status === "scheduled" ? () => startMatch(m) : undefined}
+              onStart={m.status === "scheduled" || m.status === "called" ? () => startMatch(m) : undefined}
             />
           ))
         )}
@@ -552,10 +552,12 @@ function MatchCard({
           <span className="match-result">{r.display}</span>
         ) : m.status === "live" ? (
           <span className="pill pill-live"><span className="dot" />{no.control.live}</span>
+        ) : m.status === "called" ? (
+          <span className="pill pill-called">{court ? no.control.calledTo(court.name) : no.board.calledUp}</span>
         ) : null}
         {court && <span>{court.name}</span>}
         {lockName && <span style={{ color: "var(--warn)" }}>{no.control.lockedBy(lockName)}</span>}
-        {onStart && ready && m.status === "scheduled" && (
+        {onStart && ready && (m.status === "scheduled" || m.status === "called") && (
           <button
             className="btn btn-sm"
             onClick={(e) => {

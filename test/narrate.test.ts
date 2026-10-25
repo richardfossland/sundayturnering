@@ -97,6 +97,16 @@ const find = (lines: Storyline[], kind: string) =>
 
 // ---------- tests ----------
 
+describe("diffSnapshots — called (A3)", () => {
+  it("scheduled → called narrates nothing; called → live is a kick-off", () => {
+    const m = match({ id: "x", status: "scheduled" });
+    const called = { ...m, status: "called" as const };
+    expect(diffSnapshots(state({ matches: [m] }), state({ matches: [called] }))).toHaveLength(0);
+    const lines = diffSnapshots(state({ matches: [called] }), state({ matches: [{ ...m, status: "live" }] }));
+    expect(find(lines, "live")).toBeTruthy();
+  });
+});
+
 describe("diffSnapshots — results", () => {
   it("narrates a newly completed win", () => {
     const m = match({ id: "x", status: "scheduled" });

@@ -116,8 +116,24 @@ export function courtFree(courtId: string, matches: MatchLike[]): boolean {
   );
 }
 
-/** Tidligste kamp som kan kalles opp til `courtId`: begge lag kjent, uthvilt og
- * ikke i gang/kalt andre steder. Kun kamper uten bane eller låst til denne.
+/** Kamper som kan kalles opp til `courtId` (uavhengig av hvile): begge lag kjent
+ * og ikke i gang/kalt andre steder; kun kamper uten bane eller låst til denne.
+ * Tidligst først. Tom hvis banen er opptatt. */
+export function callCandidates<M extends MatchLike>(courtId: string, matches: M[]): M[] {
+  if (!courtFree(courtId, matches)) return [];
+  const busy = busyTeams(matches);
+  return matches
+    .filter(
+      (m) =>
+        ready(m) &&
+        (m.court_id === null || m.court_id === courtId) &&
+        !busy.has(m.home_team_id!) &&
+        !busy.has(m.away_team_id!),
+    )
+    .sort(byOrder);
+}
+
+/** Tidligste kamp som kan kalles opp til `courtId` med begge lag uthvilt.
  * Null hvis banen er opptatt eller ingen passer. */
 export function suggestNext<M extends MatchLike>(
   courtId: string,
@@ -125,15 +141,11 @@ export function suggestNext<M extends MatchLike>(
   nowIso: string,
   minRestMinutes: number,
 ): M | null {
-  if (!courtFree(courtId, matches)) return null;
-  const busy = busyTeams(matches);
-  const ok = (m: M) =>
-    ready(m) &&
-    (m.court_id === null || m.court_id === courtId) &&
-    !busy.has(m.home_team_id!) &&
-    !busy.has(m.away_team_id!) &&
-    matchRest(m, matches, nowIso, minRestMinutes).ms === 0;
-  return matches.filter(ok).sort(byOrder)[0] ?? null;
+  return (
+    callCandidates(courtId, matches).find(
+      (m) => matchRest(m, matches, nowIso, minRestMinutes).ms === 0,
+    ) ?? null
+  );
 }
 
 export type CallError =

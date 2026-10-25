@@ -189,3 +189,12 @@ describe("computeGroupStandings", () => {
     expect(groups[1].rows[0].team_id).toBe("d"); // Delta won group 1
   });
 });
+
+describe("computeStandings — called matches (A3)", () => {
+  it("a called (unplayed) match changes nothing in the table", () => {
+    const teams = [team("a", "Alfa"), team("b", "Bravo")];
+    const pending = { ...match("a", "b", 0, 0), status: "called" as const, result: null };
+    const s = computeStandings(teams, [pending], cfg);
+    expect(s.every((r) => r.played === 0 && r.points === 0)).toBe(true);
+  });
+});
