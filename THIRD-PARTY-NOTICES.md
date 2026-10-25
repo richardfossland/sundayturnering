@@ -9,6 +9,8 @@ gitt idéer eller algoritmer som er skrevet om i denne koden.
 - Lisens: MIT
 - Brukt i: `lib/tournament/schedule.ts` — hvilesjekk per lag (`checkRecoveryTime`)
   og avhengighetsrekkefølge i brakett (`checkDependenciesScheduled`).
+- Brukt i: `lib/tournament/standings.ts` — innbyrdes oppgjør som minitabell, rekursivt
+  på lag som fortsatt er like (`roundRobinTally/getGroupOrder.ts`).
 
 ```
 MIT License

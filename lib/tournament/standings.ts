@@ -1,13 +1,58 @@
 // League standings (spec §7) — reduce done league matches into a sorted table.
-// Pure. Sort: points → score diff (goal/set) → head-to-head → name.
+// Pure. Rekkefølgen ved likt er konfigurerbar (`TiebreakConfig`); standard er
+// points → score diff → scored → head-to-head → name.
+//
+// Innbyrdes oppgjør (h2h_*) er en minitabell: når 2+ lag er like på et h2h-steg
+// regnes en tabell KUN av kampene mellom de like lagene. Splitter den gruppen
+// bare delvis, kjøres prosedyren på nytt for hver gruppe som fortsatt er lik.
+// Ideen er portet fra CourtHive tods-competition-factory (MIT),
+// `roundRobinTally/getGroupOrder.ts` — se THIRD-PARTY-NOTICES.md.
 
 import type {
   Match,
   ScoringConfig,
   StandingRow,
   Team,
+  TiebreakConfig,
+  TiebreakKey,
+  TiebreakPreset,
 } from "@/lib/types";
 import { isVoid, leaguePoints, resolve } from "@/lib/tournament/scoring";
+
+export const TIEBREAK_PRESETS: Record<TiebreakPreset, TiebreakKey[]> = {
+  // Dagens oppførsel: poeng → diff → scoret → innbyrdes poeng → navn.
+  standard: ["points", "diff", "scored", "h2h_points", "name"],
+  uefa: ["points", "h2h_points", "h2h_diff", "h2h_scored", "diff", "scored", "wins", "name"],
+};
+
+export const TIEBREAK_KEYS: readonly TiebreakKey[] = [
+  "points", "diff", "scored", "wins", "h2h_points", "h2h_diff", "h2h_scored", "name",
+];
+
+/** Løs opp forhåndsvalg/liste til en rekkefølge. Ukjent verdi → standard. */
+export function resolveTiebreak(cfg: TiebreakConfig | undefined | null): TiebreakKey[] {
+  if (Array.isArray(cfg)) {
+    const keys = cfg.filter((k): k is TiebreakKey => TIEBREAK_KEYS.includes(k));
+    return keys.length ? keys : TIEBREAK_PRESETS.standard;
+  }
+  return TIEBREAK_PRESETS[cfg as TiebreakPreset] ?? TIEBREAK_PRESETS.standard;
+}
+
+/** Valider/rens tiebreak fra en ukjent kilde (API-body, lagret jsonb).
+ * `undefined`/`null` = ikke satt (gyldig). `"invalid"` = forsøkt, men ugyldig. */
+export function sanitiseTiebreak(raw: unknown): TiebreakConfig | undefined | "invalid" {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw === "string") {
+    return raw in TIEBREAK_PRESETS ? (raw as TiebreakPreset) : "invalid";
+  }
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > TIEBREAK_KEYS.length) return "invalid";
+  const out: TiebreakKey[] = [];
+  for (const k of raw) {
+    if (typeof k !== "string" || !TIEBREAK_KEYS.includes(k as TiebreakKey)) return "invalid";
+    if (!out.includes(k as TiebreakKey)) out.push(k as TiebreakKey);
+  }
+  return out;
+}
 
 interface Acc extends StandingRow {
   name: string;
@@ -20,6 +65,7 @@ export function computeStandings(
   matches: Match[],
   cfg: ScoringConfig,
   playoffCut = 0,
+  tiebreak?: TiebreakConfig,
 ): StandingRow[] {
   const profile = cfg.profile;
   const acc = new Map<string, Acc>();
@@ -92,15 +138,23 @@ export function computeStandings(
     push(m.away_team_id!, winner === "draw" ? "D" : winner === "away" ? "W" : "L");
   }
 
-  const rows = [...acc.values()];
-  rows.sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.diff !== a.diff) return b.diff - a.diff;
-    if (b.scoreFor !== a.scoreFor) return b.scoreFor - a.scoreFor;
-    const h2h = headToHead(a.team_id, b.team_id, leagueDone, profile, cfg);
-    if (h2h !== 0) return h2h;
-    return a.name.localeCompare(b.name, "no");
+  const games: Game[] = leagueDone.map((m) => {
+    const { homeScore, awayScore } = resolve(profile, m.result!, cfg);
+    const pts = leaguePoints(m.result!, profile, cfg);
+    return {
+      home: m.home_team_id!,
+      away: m.away_team_id!,
+      homeScore,
+      awayScore,
+      homePts: pts.home,
+      awayPts: pts.away,
+    };
   });
+  const rows = orderTied(
+    [...acc.values()],
+    resolveTiebreak(tiebreak),
+    games,
+  );
 
   rows.forEach((r, i) => {
     r.rank = i + 1;
@@ -139,6 +193,7 @@ export function computeGroupStandings(
   matches: Match[],
   cfg: ScoringConfig,
   advancePerGroup: number,
+  tiebreak?: TiebreakConfig,
 ): GroupStanding[] {
   const groupNos = [
     ...new Set(
@@ -153,33 +208,84 @@ export function computeGroupStandings(
       matches.filter((m) => m.group_no === g),
       cfg,
       advancePerGroup,
+      tiebreak,
     ),
   }));
 }
 
-/** Head-to-head points between exactly two teams (positive → a ahead). */
-function headToHead(
-  aId: string,
-  bId: string,
-  matches: Match[],
-  profile: ScoringConfig["profile"],
-  cfg: ScoringConfig,
-): number {
-  let aPts = 0;
-  let bPts = 0;
-  for (const m of matches) {
-    const isAB =
-      (m.home_team_id === aId && m.away_team_id === bId) ||
-      (m.home_team_id === bId && m.away_team_id === aId);
-    if (!isAB) continue;
-    const pts = leaguePoints(m.result!, profile, cfg);
-    if (m.home_team_id === aId) {
-      aPts += pts.home;
-      bPts += pts.away;
-    } else {
-      aPts += pts.away;
-      bPts += pts.home;
+interface Game {
+  home: string;
+  away: string;
+  homeScore: number;
+  awayScore: number;
+  homePts: number;
+  awayPts: number;
+}
+
+/** Totaler for ett lag over en delmengde kamper. */
+function tally(id: string, games: Game[]) {
+  let points = 0;
+  let scored = 0;
+  let against = 0;
+  for (const g of games) {
+    if (g.home === id) {
+      points += g.homePts;
+      scored += g.homeScore;
+      against += g.awayScore;
+    } else if (g.away === id) {
+      points += g.awayPts;
+      scored += g.awayScore;
+      against += g.homeScore;
     }
   }
-  return bPts - aPts; // higher points ranks first (ascending sort comparator)
+  return { points, scored, diff: scored - against };
+}
+
+/** Verdi (høyere = bedre) for et lag på et kriterium. `name` håndteres separat.
+ * Nye kriterier (Buchholz, Sonneborn-Berger …) legges til her. */
+function keyValue(key: TiebreakKey, r: Acc, group: Set<string>, games: Game[]): number {
+  switch (key) {
+    case "points": return r.points;
+    case "diff": return r.diff;
+    case "scored": return r.scoreFor;
+    case "wins": return r.won;
+    case "h2h_points":
+    case "h2h_diff":
+    case "h2h_scored": {
+      // Minitabell: bare kamper der begge lag er blant de like.
+      const mini = games.filter((g) => group.has(g.home) && group.has(g.away));
+      const t = tally(r.team_id, mini);
+      return key === "h2h_points" ? t.points : key === "h2h_diff" ? t.diff : t.scored;
+    }
+    default: return 0;
+  }
+}
+
+const byName = (a: Acc, b: Acc) => a.name.localeCompare(b.name, "no");
+
+/** Sorter `group` etter `keys`. Hvert kriterium deler gruppen i nivåer; nivåer
+ * med 2+ lag går videre til neste kriterium. Splitter et h2h-steg gruppen bare
+ * delvis, startes hele prosedyren på nytt for hver undergruppe (minitabell over
+ * færre lag). Alltid deterministisk: navn (nb) til slutt. */
+function orderTied(group: Acc[], keys: TiebreakKey[], games: Game[]): Acc[] {
+  if (group.length <= 1) return group;
+  const ids = new Set(group.map((r) => r.team_id));
+  for (const key of keys) {
+    if (key === "name") break;
+    const val = new Map(group.map((r) => [r.team_id, keyValue(key, r, ids, games)]));
+    const sorted = [...group].sort((a, b) => val.get(b.team_id)! - val.get(a.team_id)!);
+    const levels: Acc[][] = [];
+    for (const r of sorted) {
+      const last = levels[levels.length - 1];
+      if (last && val.get(last[0].team_id) === val.get(r.team_id)) last.push(r);
+      else levels.push([r]);
+    }
+    if (levels.length === 1) continue; // kriteriet skilte ingen — neste
+    const isH2h = key.startsWith("h2h_");
+    // Overall-kriterier: nivåene er endelige i denne rekkefølgen, så restkriteriene
+    // brukes videre. h2h delvis splitt: på nytt fra start (minitabell per undergruppe).
+    const rest = isH2h ? keys : keys.slice(keys.indexOf(key) + 1);
+    return levels.flatMap((lv) => orderTied(lv, rest, games));
+  }
+  return [...group].sort(byName);
 }

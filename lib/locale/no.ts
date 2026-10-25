@@ -158,6 +158,12 @@ export const no = {
     groupCount: "Antall grupper",
     advancePerGroup: "Videre fra hver gruppe",
     thirdPlace: "Spill om 3.-plass (bronsefinale)",
+    tiebreak: "Ved likt i tabellen",
+    tiebreakOpts: { standard: "Standard", uefa: "Innbyrdes først (UEFA)" } as const,
+    tiebreakHint: {
+      standard: "Poeng, målforskjell, scoret, så innbyrdes oppgjør.",
+      uefa: "Poeng, så innbyrdes oppgjør mellom lagene som er like, deretter målforskjell.",
+    } as const,
     scheduleToggle: "Lag tidsplan med klokkeslett",
     scheduleBlurb: "Hver kamp får et klokkeslett. Lagene får hvile mellom kampene.",
     scheduleStart: "Første kamp starter",

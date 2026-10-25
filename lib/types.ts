@@ -28,6 +28,21 @@ export interface ScoringConfig {
   walkoverScore?: [number, number];
 }
 
+/** Kriterier for rekkefølge ved likt i tabellen (se standings.ts). `h2h_*` regnes
+ * som minitabell mellom de lagene som er like. */
+export type TiebreakKey =
+  | "points"
+  | "diff"
+  | "scored"
+  | "wins"
+  | "h2h_points"
+  | "h2h_diff"
+  | "h2h_scored"
+  | "name";
+export type TiebreakPreset = "standard" | "uefa";
+/** Forhåndsvalg eller eksplisitt rekkefølge. Uten verdi = "standard". */
+export type TiebreakConfig = TiebreakPreset | TiebreakKey[];
+
 /** Structural config persisted on the tournament. */
 export interface TournamentConfig {
   playoffSize: 0 | 2 | 4 | 8 | 16;
@@ -40,6 +55,8 @@ export interface TournamentConfig {
   advancePerGroup?: number;
   /** Valgfri tidsplan med klokkeslett. Uten den er `scheduled_at` alltid null. */
   schedule?: ScheduleConfig;
+  /** Rekkefølge ved likt i tabellen. Uten verdi = "standard" (dagens oppførsel). */
+  tiebreak?: TiebreakConfig;
 }
 
 /** Tidsplan-oppsett (lagres i `tournaments.config.schedule`). Alle tidspunkt er ISO. */

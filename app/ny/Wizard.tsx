@@ -26,6 +26,7 @@ import type {
   Parallelism,
   ScoringConfig,
   ScoringProfileKey,
+  TiebreakPreset,
 } from "@/lib/types";
 import { myTournaments } from "@/lib/client/myTournaments";
 import { errorMessage } from "@/lib/locale/errors";
@@ -59,6 +60,7 @@ export function Wizard() {
   const [groupCount, setGroupCount] = useState(2);
   const [advancePerGroup, setAdvancePerGroup] = useState(2);
   const [thirdPlace, setThirdPlace] = useState(false);
+  const [tiebreak, setTiebreak] = useState<TiebreakPreset>("standard");
   // Valgfri tidsplan (av som standard). Starttid i lokal tid, "YYYY-MM-DDTHH:mm".
   const [scheduleOn, setScheduleOn] = useState(false);
   const [startLocal, setStartLocal] = useState(defaultStartLocal);
@@ -244,6 +246,7 @@ export function Wizard() {
           playoffSize: showPlayoff && !isGroup ? effectivePlayoff : 0,
           roundRobinDouble: false,
           thirdPlace: showStep6 ? thirdPlace : false,
+          ...(!isCup && tiebreak !== "standard" ? { tiebreak } : {}),
           ...(isGroup ? { groupCount: effectiveGroups, advancePerGroup } : {}),
           ...(scheduleOn && startLocal && !Number.isNaN(new Date(startLocal).getTime())
             ? {
@@ -390,6 +393,19 @@ export function Wizard() {
                   ))}
                 </div>
               </div>
+              {!isCup && (
+                <div className="field">
+                  <label className="label">{no.wizard.tiebreak}</label>
+                  <div className="chips">
+                    {(["standard", "uefa"] as TiebreakPreset[]).map((p) => (
+                      <button key={p} className="chip" data-on={tiebreak === p} onClick={() => setTiebreak(p)}>
+                        {no.wizard.tiebreakOpts[p]}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="faint">{no.wizard.tiebreakHint[tiebreak]}</span>
+                </div>
+              )}
             </Step>
           )}
 
