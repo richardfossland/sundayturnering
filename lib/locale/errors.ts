@@ -27,6 +27,7 @@ const MESSAGES: Record<string, string> = {
   ugyldig_kode: "Ugyldig kode.",
   for_mange_forsok: "For mange forsøk — vent et minutt og prøv igjen.",
   rate_limited: "For mange forsøk — vent et minutt og prøv igjen.",
+  midlertidig_feil: "Midlertidig feil – prøv igjen om litt.",
   // match flow
   konflikt: "Resultatet ble endret av en annen enhet.",
   kamp_ferdig: "Kampen er allerede ferdig.",

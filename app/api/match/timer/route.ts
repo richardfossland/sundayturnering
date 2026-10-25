@@ -1,4 +1,4 @@
-import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, clientIp, must, withApi } from "@/lib/server/http";
 import { db, getTournament, bumpVersion } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
@@ -13,7 +13,7 @@ import type { TimerState } from "@/lib/types";
 // the control code. Per-court in parallel mode (courtId given),
 // tournament-level in sequential mode.
 //   action: 'start' (durationSec) | 'add' (+60s) | 'stop'
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   if (!rateLimit(`mtimer:${clientIp(req)}`, 60, 60_000))
     return fail(429, "for_mange_forsok");
 
@@ -37,11 +37,13 @@ export async function POST(req: Request) {
 
   if (body.courtId) {
     // Parallel mode: verify the court belongs to this tournament (ungated route).
-    const { data: court } = await db()
-      .from("courts")
-      .select("id, timer, tournament_id")
-      .eq("id", body.courtId)
-      .maybeSingle();
+    const court = must<{ id: string; timer: unknown; tournament_id: string } | null>(
+      await db()
+        .from("courts")
+        .select("id, timer, tournament_id")
+        .eq("id", body.courtId)
+        .maybeSingle(),
+    );
     if (!court || court.tournament_id !== t.id)
       return fail(404, "bane_finnes_ikke");
 
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
       Date.now(),
       body.durationSec,
     );
-    await db().from("courts").update({ timer }).eq("id", body.courtId);
+    must(await db().from("courts").update({ timer }).eq("id", body.courtId));
     await bumpVersion(t.id);
     defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "match-timer");
     return ok({ timer });
@@ -59,8 +61,10 @@ export async function POST(req: Request) {
 
   // Sequential mode: reuse the tournament-level timer.
   const timer = computeTimer(t.timer, action, Date.now(), body.durationSec);
-  await db().from("tournaments").update({ timer }).eq("id", t.id);
+  must(await db().from("tournaments").update({ timer }).eq("id", t.id));
   await bumpVersion(t.id);
   defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "match-timer");
   return ok({ timer });
 }
+
+export const POST = withApi(handlePOST);

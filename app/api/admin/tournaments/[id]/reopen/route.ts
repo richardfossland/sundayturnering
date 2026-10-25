@@ -1,4 +1,4 @@
-import { ok, fail } from "@/lib/server/http";
+import { ok, fail, withApi } from "@/lib/server/http";
 import { requireOwnedTournament, authFail } from "@/lib/server/auth";
 import { reopenTournament } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
@@ -11,7 +11,7 @@ import { channels, events } from "@/lib/realtime";
 // playoff-phase match exists), otherwise "league". Only acts on a finished
 // tournament; bumps the version + broadcasts a structure refetch so every board
 // leaves the champion screen.
-export async function POST(
+async function handlePOST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -31,3 +31,5 @@ export async function POST(
     return fail(500, "kunne_ikke_gjenapne");
   }
 }
+
+export const POST = withApi(handlePOST);

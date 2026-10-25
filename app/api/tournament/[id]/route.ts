@@ -1,10 +1,10 @@
-import { ok, fail, isUuid } from "@/lib/server/http";
+import { ok, fail, isUuid, must, withApi } from "@/lib/server/http";
 import { getTournament, getState, db } from "@/lib/server/store";
 import { requireOwnedTournament, authFail } from "@/lib/server/auth";
 
 // GET /api/tournament/[id] — full state for board + control to render.
 // ANONYMOUS, unchanged: any device with the id can read the public state.
-export async function GET(
+async function handleGET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -26,7 +26,7 @@ export async function GET(
 // The FK cascade (teams/courts/matches/bracket_links → on delete cascade) cleans
 // up children. There is NO organiser-code fallback here on purpose — deletion is
 // destructive and only the Sunday Account owner may do it.
-export async function DELETE(
+async function handleDELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -38,7 +38,7 @@ export async function DELETE(
   if (!isUuid(id)) return fail(400, "ugyldig_id");
   try {
     await requireOwnedTournament(id);
-    await db().from("tournaments").delete().eq("id", id);
+    must(await db().from("tournaments").delete().eq("id", id));
     return ok({ ok: true });
   } catch (err) {
     const r = authFail(err);
@@ -47,3 +47,6 @@ export async function DELETE(
     return fail(500, "kunne_ikke_slette");
   }
 }
+
+export const GET = withApi(handleGET);
+export const DELETE = withApi(handleDELETE);

@@ -1,4 +1,4 @@
-import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, clientIp, withApi } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateResult, resetDownstream } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
@@ -17,7 +17,7 @@ import { authControlCode } from "@/lib/server/auth";
 // short grace window, WITHOUT the organiser code. Self-authorising: the server
 // checks the saving device (result_by) + the time window (updated_at). The
 // optimistic version guard is preserved via the same RPC the result route uses.
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   if (!rateLimit(`match-correct:${clientIp(req)}`, 60, 60_000))
     return fail(429, "for_mange_forsok");
   const body = await readJson<{
@@ -92,10 +92,21 @@ export async function POST(req: Request) {
 
   const saved = (Array.isArray(data) ? data[0] : data) ?? (await getMatch(m.id));
   // Playoff: re-flow the (possibly changed) winner into the next bracket slot.
-  if (saved?.phase === "playoff") await propagateResult(saved);
+  // Already committed: a propagate failure must not read as a failed save.
+  let propagated = true;
+  if (saved?.phase === "playoff") {
+    try {
+      await propagateResult(saved);
+    } catch (e) {
+      propagated = false;
+      console.error("[correct] propagate failed after commit", e);
+    }
+  }
 
   defer(() => broadcast(channels.tournament(m.tournament_id), events.matchUpdated, {
     matchId: m.id,
   }), "correct");
-  return ok({ match: saved });
+  return ok(propagated ? { match: saved } : { match: saved, propagated: false });
 }
+
+export const POST = withApi(handlePOST);

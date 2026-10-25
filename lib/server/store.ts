@@ -13,22 +13,24 @@ export function db() {
 }
 
 export async function getTournament(id: string): Promise<Tournament | null> {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("tournaments")
     .select("*")
     .eq("id", id)
     .maybeSingle();
+  if (error) throw error;
   return (data as Tournament) ?? null;
 }
 
 export async function getTournamentByControlCode(
   code: string,
 ): Promise<Tournament | null> {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("tournaments")
     .select("*")
     .eq("control_code", code)
     .maybeSingle();
+  if (error) throw error;
   return (data as Tournament) ?? null;
 }
 
@@ -37,48 +39,53 @@ export async function getTournamentByBoardCode(
 ): Promise<Tournament | null> {
   // Older rows may share a board code (no unique constraint) — maybeSingle()
   // would error on the pair and resolve neither. Newest wins.
-  const { data } = await db()
+  const { data, error } = await db()
     .from("tournaments")
     .select("*")
     .eq("board_code", code)
     .order("created_at", { ascending: false })
     .limit(1);
+  if (error) throw error;
   return ((data as Tournament[] | null)?.[0]) ?? null;
 }
 
 export async function getTeams(tournamentId: string): Promise<Team[]> {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("teams")
     .select("*")
     .eq("tournament_id", tournamentId)
     .order("sort_order", { ascending: true });
+  if (error) throw error;
   return (data as Team[]) ?? [];
 }
 
 export async function getCourts(tournamentId: string): Promise<Court[]> {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("courts")
     .select("*")
     .eq("tournament_id", tournamentId)
     .order("sort_order", { ascending: true });
+  if (error) throw error;
   return (data as Court[]) ?? [];
 }
 
 export async function getMatches(tournamentId: string): Promise<Match[]> {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("matches")
     .select("*")
     .eq("tournament_id", tournamentId)
     .order("queue_order", { ascending: true });
+  if (error) throw error;
   return (data as Match[]) ?? [];
 }
 
 export async function getMatch(id: string): Promise<Match | null> {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("matches")
     .select("*")
     .eq("id", id)
     .maybeSingle();
+  if (error) throw error;
   return (data as Match) ?? null;
 }
 
@@ -118,7 +125,8 @@ export async function getState(t: Tournament): Promise<StateDTO> {
 /** Bump the structural version (board cache-busting + structure broadcast).
  * Atomic increment via RPC so concurrent structural changes don't lose bumps. */
 export async function bumpVersion(tournamentId: string): Promise<void> {
-  await db().rpc("bump_version", { p_id: tournamentId });
+  const { error } = await db().rpc("bump_version", { p_id: tournamentId });
+  if (error) throw error;
 }
 
 /** Lightweight row for the admin dashboard list (no standings/matches join —
@@ -140,12 +148,13 @@ export interface OrganiserTournamentRow {
 export async function listTournamentsByOrganiser(
   organiserId: string,
 ): Promise<OrganiserTournamentRow[]> {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("tournaments")
     .select(
       "id, title, sport_label, format, status, control_code, board_code, created_at",
     )
     .eq("organiser_id", organiserId)
     .order("created_at", { ascending: false });
+  if (error) throw error;
   return (data as OrganiserTournamentRow[]) ?? [];
 }

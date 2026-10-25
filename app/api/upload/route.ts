@@ -1,4 +1,4 @@
-import { ok, fail, rateLimit, clientIp } from "@/lib/server/http";
+import { ok, fail, rateLimit, clientIp, withApi } from "@/lib/server/http";
 import { db } from "@/lib/server/store";
 import { sniffImage } from "@/lib/server/imageSniff";
 
@@ -11,7 +11,7 @@ import { sniffImage } from "@/lib/server/imageSniff";
 // served publicly from the bucket.
 const MAX_BYTES = 2_000_000; // 2 MB
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   if (!rateLimit(`upload:${clientIp(req)}`, 20, 60_000))
     return fail(429, "for_mange_forsok");
 
@@ -41,3 +41,5 @@ export async function POST(req: Request) {
   const { data } = db().storage.from("team-logos").getPublicUrl(path);
   return ok({ url: data.publicUrl });
 }
+
+export const POST = withApi(handlePOST);

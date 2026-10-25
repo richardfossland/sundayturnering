@@ -1,4 +1,4 @@
-import { ok, fail, readJson, organiserLimit } from "@/lib/server/http";
+import { ok, fail, readJson, organiserLimit, withApi } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { reopenTournament } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
@@ -8,7 +8,7 @@ import { channels, events } from "@/lib/realtime";
 // POST /api/organiser/reopen — un-finish a tournament with the organiser code
 // (or as the signed-in owner). Before this only the admin route could reopen,
 // so an accidental "Avslutt" on an anonymous tournament was permanent.
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const limited = organiserLimit(req);
   if (limited) return limited;
   const body = await readJson<{ tournamentId?: string; organiserCode?: string }>(req);
@@ -20,3 +20,5 @@ export async function POST(req: Request) {
   defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "reopen");
   return ok({ ok: true, status });
 }
+
+export const POST = withApi(handlePOST);

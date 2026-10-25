@@ -1,11 +1,11 @@
-import { ok, fail, readJson } from "@/lib/server/http";
+import { ok, fail, readJson, withApi } from "@/lib/server/http";
 import { createTournament } from "@/lib/server/build";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import type { Format, ScoringProfileKey } from "@/lib/types";
 
 // POST /api/dev/seed — test seam. Creates a sample tournament so the rig/smoke
 // tests can run without driving the wizard. Disabled in production.
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   if (process.env.NODE_ENV === "production") return fail(404, "ikke_tilgjengelig");
 
   const body =
@@ -55,3 +55,5 @@ export async function POST(req: Request) {
 
   return ok(result);
 }
+
+export const POST = withApi(handlePOST);

@@ -1,4 +1,4 @@
-import { ok, fail, readJson, organiserLimit } from "@/lib/server/http";
+import { ok, fail, readJson, organiserLimit, must, withApi } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { db, bumpVersion } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
@@ -7,7 +7,7 @@ import { channels, events } from "@/lib/realtime";
 
 // POST /api/organiser/finish — mark the tournament finished (champion screen).
 // Authorised by EITHER the organiser code OR a signed-in admin who owns it.
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const limited = organiserLimit(req);
   if (limited) return limited;
   const body = await readJson<{ tournamentId?: string; organiserCode?: string }>(
@@ -16,8 +16,10 @@ export async function POST(req: Request) {
   const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode);
   if (!t) return fail(403, "feil_arrangorkode");
 
-  await db().from("tournaments").update({ status: "finished" }).eq("id", t.id);
+  must(await db().from("tournaments").update({ status: "finished" }).eq("id", t.id));
   await bumpVersion(t.id);
   defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "finish");
   return ok({ ok: true });
 }
+
+export const POST = withApi(handlePOST);

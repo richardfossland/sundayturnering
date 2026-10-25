@@ -1,4 +1,4 @@
-import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, clientIp, must, withApi } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { authControlCode } from "@/lib/server/auth";
 import { broadcast } from "@/lib/server/broadcast";
@@ -17,7 +17,7 @@ import { channels, events } from "@/lib/realtime";
 // (unlock) used to demote it back to scheduled — the match vanished from "Nå
 // spiller". Only the device whose lock did the promoting knows that, so it
 // tells us on release; the server never guesses.
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   if (!rateLimit(`match-lock:${clientIp(req)}`, 120, 60_000))
     return fail(429, "for_mange_forsok");
   const body = await readJson<{
@@ -57,16 +57,16 @@ export async function POST(req: Request) {
   if (action === "start") {
     // Go live without taking an edit lock (others can still register the result).
     if (m.status === "scheduled")
-      await db().from("matches").update({ status: "live" }).eq("id", m.id);
+      must(await db().from("matches").update({ status: "live" }).eq("id", m.id));
   } else if (action === "unlock") {
     if (m.locked_by && m.locked_by.split("|")[0] !== body.deviceId)
       return ok({ match: m }); // not our lock; ignore
     const demote = body.revert === true && m.status === "live";
-    await db()
+    must(await db()
       .from("matches")
       // A demoted match also drops any interim live score it was showing.
       .update(demote ? { locked_by: null, status: "scheduled", result: null } : { locked_by: null })
-      .eq("id", m.id);
+      .eq("id", m.id));
   } else {
     // lock / force
     if (
@@ -76,10 +76,10 @@ export async function POST(req: Request) {
     )
       return fail(409, "laast_av_annen", { lockedBy: m.locked_by });
     promoted = m.status === "scheduled";
-    await db()
+    must(await db()
       .from("matches")
       .update({ locked_by: tag, status: promoted ? "live" : m.status })
-      .eq("id", m.id);
+      .eq("id", m.id));
   }
 
   defer(() => broadcast(channels.tournament(m.tournament_id), events.lockChanged, {
@@ -88,3 +88,5 @@ export async function POST(req: Request) {
   const updated = await getMatch(m.id);
   return ok({ match: updated, promoted });
 }
+
+export const POST = withApi(handlePOST);
