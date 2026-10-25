@@ -54,6 +54,8 @@ npm run dev
 # provision a dedicated Supabase project + apply migrations:
 SUPABASE_ACCESS_TOKEN=sbp_… DB_PASSWORD=… node scripts/provision.mjs
 BASE=http://localhost:3000 node scripts/smoke.mjs
+# classroom load test (30 phones, one IP; dev server only, never in CI):
+node scripts/load.mjs http://localhost:3000
 ```
 
 See `docs/DEPLOY.md` and `docs/RIG-TEST.md`.
