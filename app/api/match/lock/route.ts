@@ -66,10 +66,19 @@ async function handlePOST(req: Request) {
     if (m.locked_by && m.locked_by.split("|")[0] !== body.deviceId)
       return ok({ match: m }); // not our lock; ignore
     const demote = body.revert === true && m.status === "live";
+    // A match that was CALLED before the lock lifted it to live (called_at is
+    // kept by the promotion) goes back to «called», not to «scheduled».
+    const wasCalled = demote && m.called_at != null;
     must(await db()
       .from("matches")
       // A demoted match also drops any interim live score it was showing.
-      .update(demote ? { locked_by: null, status: "scheduled", result: null, called_at: null } : { locked_by: null })
+      .update(
+        demote
+          ? wasCalled
+            ? { locked_by: null, status: "called", result: null }
+            : { locked_by: null, status: "scheduled", result: null, called_at: null }
+          : { locked_by: null },
+      )
       .eq("id", m.id));
   } else {
     // lock / force

@@ -142,6 +142,7 @@ export async function resetDownstream(
       .from("matches")
       .update({
         status: "scheduled",
+        called_at: null,
         result: null,
         winner_team_id: null,
         result_version: m.result_version + 1,

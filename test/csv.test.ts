@@ -32,6 +32,18 @@ function match(home: string, away: string | null, h: number, a: number): Match {
 
 const teams = [team("a", "Alfa"), team("b", "Bravo")];
 
+describe("matchesCsv: brakett-merking", () => {
+  it("merker B-, W-, L- og GF-kamper, men ikke A", () => {
+    const row = (b: Match["bracket"]) =>
+      matchesCsv(teams, [{ ...match("a", "b", 1, 0), phase: "playoff", bracket: b }], cfg).split("\r\n")[1].split(";")[0];
+    expect(row("A")).toBe("playoff");
+    expect(row("B")).toBe("playoff:B");
+    expect(row("W")).toBe("playoff:W");
+    expect(row("L")).toBe("playoff:L");
+    expect(row("GF")).toBe("playoff:GF");
+  });
+});
+
 describe("matchesCsv", () => {
   it("emits a header + one row per non-bye match", () => {
     const csv = matchesCsv(teams, [match("a", "b", 3, 1), match("a", null, 0, 0)], cfg);

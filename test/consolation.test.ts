@@ -174,6 +174,14 @@ describe("overstyring nedstrøms i B", () => {
     expect(plan.reset).toEqual(["b1", "bf"]);
     expect(plan.clearSlots).toEqual([{ matchId: "bf", slot: "away" }]);
   });
+  it("en oppkalt (called) kamp nedstrøms nullstilles også", () => {
+    const m = [
+      mk({ id: "a1", status: "done" }),
+      mk({ id: "b1", round: 2, status: "called" }),
+    ];
+    const plan = planDownstreamReset("a1", [{ from_match_id: "a1", to_match_id: "b1", to_slot: "home" }], m);
+    expect(plan.reset).toEqual(["b1"]);
+  });
   it("endret vinner inne i B påvirker ikke A", () => {
     const m = [
       mk({ id: "b1", bracket: "B", status: "done" }),

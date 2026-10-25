@@ -132,7 +132,7 @@ beforeAll(async () => {
     create table storage.buckets (id text primary key, name text, public boolean);
   `);
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
-  expect(files.at(-1)).toBe("0018_swiss.sql");
+  expect(files.at(-1)).toBe("0019_review_fixes.sql");
   for (const f of files) await db.exec(readFileSync(join(MIGRATIONS, f), "utf8"));
   // Idempotent: 0017 på nytt skal ikke feile.
   await db.exec(readFileSync(join(MIGRATIONS, "0017_double_elim.sql"), "utf8"));

@@ -13,6 +13,7 @@ const REQ = "33333333-3333-4333-8333-333333333333";
 let t: Tournament;
 let m: Match;
 let prior: unknown = null;
+let submitError: { message: string } | null = null;
 const calls: { fn: string; args: Record<string, unknown> }[] = [];
 
 vi.mock("@/lib/server/store", () => ({
@@ -23,6 +24,7 @@ vi.mock("@/lib/server/store", () => ({
       calls.push({ fn, args });
       if (fn === "code_blocked") return { data: false, error: null };
       if (fn === "result_request_outcome") return { data: prior, error: null };
+      if (submitError) return { data: null, error: submitError };
       return { data: [{ ...m, status: "done", result_version: 1 }], error: null };
     },
   }),
@@ -62,6 +64,7 @@ beforeEach(() => {
   __resetRateLimiter();
   calls.length = 0;
   propagated.length = 0;
+  submitError = null;
   propagateFails = false;
   prior = null;
   t = {
@@ -150,5 +153,13 @@ describe("result route: requestId", () => {
     prior = { id: MID, phase: "league", status: "done", result_version: 1 };
     await post({ requestId: REQ });
     expect(propagated).toEqual([]);
+  });
+
+  it("a request id owned by another match answers 409 (outbox drops it)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    submitError = { message: "request_id_conflict" };
+    const res = await post({ requestId: REQ });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("foresporsel_konflikt");
   });
 });

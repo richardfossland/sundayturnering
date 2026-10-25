@@ -128,6 +128,10 @@ async function handlePOST(req: Request) {
   if (error) {
     if (error.message?.includes("version_conflict"))
       return fail(409, "konflikt");
+    // The id belongs to another match (migration 0019): a 409 makes the
+    // referee outbox drop the entry instead of retrying it forever.
+    if (error.message?.includes("request_id_conflict"))
+      return fail(409, "foresporsel_konflikt");
     console.error("[result]", error);
     return fail(500, "kunne_ikke_lagre");
   }

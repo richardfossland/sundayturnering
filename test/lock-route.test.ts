@@ -122,6 +122,12 @@ describe("POST /api/match/lock — status side effects", () => {
     expect(patches).toEqual([{ locked_by: null, status: "scheduled", result: null, called_at: null }]);
   });
 
+  it("unlock WITH revert of a previously CALLED match restores «called» and keeps called_at", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "d1|Bane 1", called_at: "2026-10-25T10:00:00Z" });
+    await lock({ action: "unlock", revert: true });
+    expect(patches).toEqual([{ locked_by: null, status: "called", result: null }]);
+  });
+
   it("unlock WITHOUT revert only releases the lock — a started match stays live", async () => {
     matchRow = makeMatch({ status: "live", locked_by: "d1|Bane 1" });
     await lock({ action: "unlock" });

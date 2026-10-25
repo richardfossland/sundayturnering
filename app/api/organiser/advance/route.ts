@@ -7,6 +7,14 @@ import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
 
+// Our own, user-readable reasons thrown by advanceToPlayoff. Anything else is
+// a raw DB/driver error: logged server-side, never echoed to the client.
+const FRIENDLY = new Set([
+  "Sluttspill er ikke konfigurert.",
+  "Sluttspillet er allerede startet.",
+  "For få lag til sluttspill.",
+]);
+
 // POST /api/organiser/advance — build the playoff bracket from league standings.
 // Authorised by EITHER the organiser code OR a signed-in admin who owns it
 // (spec §5: stop a referee from nuking the bracket).
@@ -26,7 +34,8 @@ async function handlePOST(req: Request) {
     try {
       r = await advanceSwiss(t);
     } catch (e) {
-      return fail(400, "kunne_ikke_avansere", { detail: (e as Error).message });
+      console.error("[advance] swiss", e);
+      return fail(400, "kunne_ikke_avansere");
     }
     if (!r.ok) return fail(r.status, r.code, r.data);
     defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "advance");
@@ -48,9 +57,9 @@ async function handlePOST(req: Request) {
   try {
     await advanceToPlayoff(t);
   } catch (e) {
-    return fail(400, "kunne_ikke_avansere", {
-      detail: (e as Error).message,
-    });
+    console.error("[advance]", e);
+    const msg = (e as Error).message;
+    return fail(400, "kunne_ikke_avansere", FRIENDLY.has(msg) ? { detail: msg } : undefined);
   }
   defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "advance");
   return ok({ ok: true });
