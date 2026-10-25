@@ -60,3 +60,48 @@ SOFTWARE.
   annenhver gang for å unngå omkamper, storfinale med omkamp). Koden er skrevet på nytt for våre
   typer og koblinger; ingen kode er portet, så MIT-teksten er ikke gjengitt på nytt (den står under
   CourtHive-seksjonen).
+
+## edmonds-blossom (vendoret) og dambrisco/swiss-pairing (Swiss-parring)
+
+- Kilder: https://github.com/mattkrick/EdmondsBlossom (npm `edmonds-blossom@1.0.0`, portert fra
+  Joris van Rantwijks Python-implementasjon, http://jorisvr.nl/maximummatching.html) og
+  https://github.com/dambrisco/swiss-pairing
+- Lisens: MIT (edmonds-blossom, Copyright (c) 2015 mattkrick; LICENSE-filen i pakken verifisert mot
+  GitHub-repoet), MIT (swiss-pairing)
+- Brukt i: `lib/vendor/edmonds-blossom.js` — vendoret kildekode (maksimal vektet matching). Endret kun slik:
+  `module.exports` → `export default`, og fire implisitte globale variabler (`b`, `path`, `v`) deklarert
+  med `var` fordi ES-moduler er strenge. Full lisenstekst og kildehenvisning står i filhodet.
+  `lib/tournament/swiss.ts` bruker ideen fra swiss-pairing (vekt som favoriserer lik stilling og straffer
+  omkamp tungt, løst som matching); koden er skrevet på nytt, ingenting er portert derfra.
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015 mattkrick
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @echecs/buchholz og @echecs/sonneborn-berger (Swiss-tiebreak)
+
+- Kilder: https://github.com/echecsjs (pakkene `@echecs/buchholz`, `@echecs/sonneborn-berger`)
+- Lisens: MIT
+- Brukt i: `lib/tournament/standings.ts` — kun idéene (Buchholz = summen av motstandernes poeng,
+  «cut 1» uten den laveste, Sonneborn-Berger = motstanderens poeng for seier, halvparten for uavgjort).
+  Koden er skrevet på nytt for våre typer; ingen kode er portet.

@@ -7,6 +7,9 @@
 // bare delvis, kjøres prosedyren på nytt for hver gruppe som fortsatt er lik.
 // Ideen er portet fra CourtHive tods-competition-factory (MIT),
 // `roundRobinTally/getGroupOrder.ts` — se THIRD-PARTY-NOTICES.md.
+//
+// Swiss-kriteriene (Buchholz, Buchholz uten laveste, Sonneborn-Berger) bygger på
+// ideene i @echecs/buchholz og @echecs/sonneborn-berger (MIT) — se THIRD-PARTY-NOTICES.md.
 
 import type {
   Match,
@@ -23,10 +26,13 @@ export const TIEBREAK_PRESETS: Record<TiebreakPreset, TiebreakKey[]> = {
   // Dagens oppførsel: poeng → diff → scoret → innbyrdes poeng → navn.
   standard: ["points", "diff", "scored", "h2h_points", "name"],
   uefa: ["points", "h2h_points", "h2h_diff", "h2h_scored", "diff", "scored", "wins", "name"],
+  // Swiss: poeng → Buchholz → Sonneborn-Berger → innbyrdes → diff → navn.
+  swiss: ["points", "buchholz", "sonneborn_berger", "h2h_points", "diff", "name"],
 };
 
 export const TIEBREAK_KEYS: readonly TiebreakKey[] = [
-  "points", "diff", "scored", "wins", "h2h_points", "h2h_diff", "h2h_scored", "name",
+  "points", "diff", "scored", "wins", "h2h_points", "h2h_diff", "h2h_scored",
+  "buchholz", "buchholz_cut1", "sonneborn_berger", "name",
 ];
 
 /** Løs opp forhåndsvalg/liste til en rekkefølge. Ukjent verdi → standard. */
@@ -58,6 +64,12 @@ interface Acc extends StandingRow {
   name: string;
 }
 
+export interface StandingsOptions {
+  /** Swiss: en oddetalls-bye gir seier (poeng etter poengoppsettet), men ingen mål.
+   * Uten dette teller byes ikke i tabellen (liga med oddetall lag). */
+  byeIsWin?: boolean;
+}
+
 /** Compute standings for the league phase.
  * @param playoffCut top-N teams marked inPlayoff (0 = no cut line). */
 export function computeStandings(
@@ -66,6 +78,7 @@ export function computeStandings(
   cfg: ScoringConfig,
   playoffCut = 0,
   tiebreak?: TiebreakConfig,
+  opts: StandingsOptions = {},
 ): StandingRow[] {
   const profile = cfg.profile;
   const acc = new Map<string, Acc>();
@@ -123,6 +136,24 @@ export function computeStandings(
     }
   }
 
+  // Swiss-bye: seier uten motstander. Teller ikke i Buchholz/SB (ingen motstander).
+  const byes = opts.byeIsWin
+    ? matches.filter(
+        (m) =>
+          m.phase === "league" &&
+          m.status === "bye" &&
+          m.away_team_id == null &&
+          m.home_team_id != null &&
+          acc.has(m.home_team_id),
+      )
+    : [];
+  for (const m of byes) {
+    const r = acc.get(m.home_team_id!)!;
+    r.played++;
+    r.won++;
+    r.points += cfg.pointsWin;
+  }
+
   for (const r of acc.values()) r.diff = r.scoreFor - r.scoreAgainst;
 
   // Form guide: each team's results in chronological (queue) order.
@@ -132,6 +163,7 @@ export function computeStandings(
     arr.push(v);
     formMap.set(id, arr);
   };
+  for (const m of byes) push(m.home_team_id!, "W");
   for (const m of [...leagueDone].sort((a, b) => a.queue_order - b.queue_order)) {
     const { winner } = resolve(profile, m.result!, cfg);
     push(m.home_team_id!, winner === "draw" ? "D" : winner === "home" ? "W" : "L");
@@ -139,7 +171,7 @@ export function computeStandings(
   }
 
   const games: Game[] = leagueDone.map((m) => {
-    const { homeScore, awayScore } = resolve(profile, m.result!, cfg);
+    const { homeScore, awayScore, winner } = resolve(profile, m.result!, cfg);
     const pts = leaguePoints(m.result!, profile, cfg);
     return {
       home: m.home_team_id!,
@@ -148,12 +180,14 @@ export function computeStandings(
       awayScore,
       homePts: pts.home,
       awayPts: pts.away,
+      winner,
     };
   });
+  const ctx: Ctx = { games, points: new Map([...acc.values()].map((r) => [r.team_id, r.points])) };
   const rows = orderTied(
     [...acc.values()],
     resolveTiebreak(tiebreak),
-    games,
+    ctx,
   );
 
   rows.forEach((r, i) => {
@@ -220,6 +254,14 @@ interface Game {
   awayScore: number;
   homePts: number;
   awayPts: number;
+  winner: "home" | "away" | "draw";
+}
+
+/** Det rekkefølgen trenger: de spilte kampene og hvert lags totale poeng
+ * (motstanderes poeng til Buchholz/Sonneborn-Berger). */
+interface Ctx {
+  games: Game[];
+  points: Map<string, number>;
 }
 
 /** Totaler for ett lag over en delmengde kamper. */
@@ -243,7 +285,8 @@ function tally(id: string, games: Game[]) {
 
 /** Verdi (høyere = bedre) for et lag på et kriterium. `name` håndteres separat.
  * Nye kriterier (Buchholz, Sonneborn-Berger …) legges til her. */
-function keyValue(key: TiebreakKey, r: Acc, group: Set<string>, games: Game[]): number {
+function keyValue(key: TiebreakKey, r: Acc, group: Set<string>, ctx: Ctx): number {
+  const { games, points } = ctx;
   switch (key) {
     case "points": return r.points;
     case "diff": return r.diff;
@@ -257,8 +300,37 @@ function keyValue(key: TiebreakKey, r: Acc, group: Set<string>, games: Game[]): 
       const t = tally(r.team_id, mini);
       return key === "h2h_points" ? t.points : key === "h2h_diff" ? t.diff : t.scored;
     }
+    case "buchholz":
+    case "buchholz_cut1": {
+      // Sum av motstandernes poeng; «cut1» uten den laveste (FIDE).
+      const opp = opponentPoints(r.team_id, games, points);
+      const sum = opp.reduce((a, b) => a + b, 0);
+      return key === "buchholz" || opp.length === 0 ? sum : sum - Math.min(...opp);
+    }
+    case "sonneborn_berger": {
+      // Hel seier gir motstanderens poeng, uavgjort halvparten, tap ingenting.
+      let sb = 0;
+      for (const g of games) {
+        const mine = g.home === r.team_id ? "home" : g.away === r.team_id ? "away" : null;
+        if (!mine) continue;
+        const opp = points.get(mine === "home" ? g.away : g.home) ?? 0;
+        if (g.winner === "draw") sb += opp / 2;
+        else if (g.winner === mine) sb += opp;
+      }
+      return sb;
+    }
     default: return 0;
   }
+}
+
+/** Poengene til hver motstander laget har møtt (en per spilt kamp). */
+function opponentPoints(id: string, games: Game[], points: Map<string, number>): number[] {
+  const out: number[] = [];
+  for (const g of games) {
+    if (g.home === id) out.push(points.get(g.away) ?? 0);
+    else if (g.away === id) out.push(points.get(g.home) ?? 0);
+  }
+  return out;
 }
 
 const byName = (a: Acc, b: Acc) => a.name.localeCompare(b.name, "no");
@@ -267,12 +339,12 @@ const byName = (a: Acc, b: Acc) => a.name.localeCompare(b.name, "no");
  * med 2+ lag går videre til neste kriterium. Splitter et h2h-steg gruppen bare
  * delvis, startes hele prosedyren på nytt for hver undergruppe (minitabell over
  * færre lag). Alltid deterministisk: navn (nb) til slutt. */
-function orderTied(group: Acc[], keys: TiebreakKey[], games: Game[]): Acc[] {
+function orderTied(group: Acc[], keys: TiebreakKey[], ctx: Ctx): Acc[] {
   if (group.length <= 1) return group;
   const ids = new Set(group.map((r) => r.team_id));
   for (const key of keys) {
     if (key === "name") break;
-    const val = new Map(group.map((r) => [r.team_id, keyValue(key, r, ids, games)]));
+    const val = new Map(group.map((r) => [r.team_id, keyValue(key, r, ids, ctx)]));
     const sorted = [...group].sort((a, b) => val.get(b.team_id)! - val.get(a.team_id)!);
     const levels: Acc[][] = [];
     for (const r of sorted) {
@@ -285,7 +357,7 @@ function orderTied(group: Acc[], keys: TiebreakKey[], games: Game[]): Acc[] {
     // Overall-kriterier: nivåene er endelige i denne rekkefølgen, så restkriteriene
     // brukes videre. h2h delvis splitt: på nytt fra start (minitabell per undergruppe).
     const rest = isH2h ? keys : keys.slice(keys.indexOf(key) + 1);
-    return levels.flatMap((lv) => orderTied(lv, rest, games));
+    return levels.flatMap((lv) => orderTied(lv, rest, ctx));
   }
   return [...group].sort(byName);
 }

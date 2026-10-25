@@ -24,6 +24,8 @@ const eslintConfig = defineConfig([
     // Generated deploy artifacts — never lint these.
     ".open-next/**",
     ".wrangler/**",
+    // Vendored third-party source (MIT, see THIRD-PARTY-NOTICES.md) — kept as published.
+    "lib/vendor/**",
   ]),
 ]);
 
