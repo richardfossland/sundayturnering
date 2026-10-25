@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 
-// Applies every migration (0001…0014) to an in-memory Postgres with a stubbed
+// Applies every migration (0001…0015) to an in-memory Postgres with a stubbed
 // Supabase `realtime` schema, then replays what Realtime does at join time: a
 // SELECT / INSERT on realtime.messages AS the subscriber's role with
 // realtime.topic() set to the channel topic. The stub mirrors the real shape
@@ -76,13 +76,14 @@ beforeAll(async () => {
     create table storage.buckets (id text primary key, name text, public boolean);
   `);
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
-  expect(files.at(-1)).toBe("0014_called.sql");
+  expect(files.at(-1)).toBe("0015_idempotent_result.sql");
   for (const f of files) await db.exec(readFileSync(join(MIGRATIONS, f), "utf8"));
   // Re-applying must be a no-op (idempotent).
   await db.exec(readFileSync(join(MIGRATIONS, "0011_realtime_private.sql"), "utf8"));
   await db.exec(readFileSync(join(MIGRATIONS, "0012_schedule.sql"), "utf8"));
   await db.exec(readFileSync(join(MIGRATIONS, "0013_shift_schedule.sql"), "utf8"));
   await db.exec(readFileSync(join(MIGRATIONS, "0014_called.sql"), "utf8"));
+  await db.exec(readFileSync(join(MIGRATIONS, "0015_idempotent_result.sql"), "utf8"));
 
   await db.query(
     `insert into turnering.tournaments (id, control_code, board_code, organiser_code, format)
@@ -387,5 +388,87 @@ describe("0014 call_match / uncall_match", () => {
     );
     expect(r.rows[0]).toEqual({ a: false, s: true, u: true });
     await db.exec(readFileSync(join(MIGRATIONS, "0014_called.sql"), "utf8"));
+  });
+});
+
+describe("0015 idempotent submit_match_result", () => {
+  const T = "dddddddd-2222-4333-8444-555555555555";
+  const M1 = "d1000000-2222-4333-8444-555555555555";
+  const M2 = "d2000000-2222-4333-8444-555555555555";
+  const W = "d3000000-2222-4333-8444-555555555555";
+  const REQ = "e1000000-2222-4333-8444-555555555555";
+  const REQ2 = "e2000000-2222-4333-8444-555555555555";
+  const REQ3 = "e3000000-2222-4333-8444-555555555555";
+
+  const submit = (match: string, version: number, req: string | null, home = 1) =>
+    req
+      ? db.query<{ v: number; s: string }>(
+          `select (r).result_version as v, (r).status as s from
+             (select turnering.submit_match_result($1, $2, $3::jsonb, $4, 'done', 'dev', $5) as r) x`,
+          [match, version, JSON.stringify({ home, away: 0 }), W, req],
+        )
+      : db.query<{ v: number; s: string }>(
+          `select (r).result_version as v, (r).status as s from
+             (select turnering.submit_match_result($1, $2, $3::jsonb, $4, 'done', 'dev') as r) x`,
+          [match, version, JSON.stringify({ home, away: 0 }), W],
+        );
+  const ver = async (match: string) =>
+    (await db.query<{ v: number }>("select result_version as v from turnering.matches where id = $1", [match]))
+      .rows[0].v;
+
+  beforeAll(async () => {
+    await db.query(
+      `insert into turnering.tournaments (id, control_code, board_code, organiser_code, format)
+       values ($1, '777777', 'b7', 'o7', 'cup')`,
+      [T],
+    );
+    await db.query("insert into turnering.teams (id, tournament_id, name) values ($1, $2, 'W')", [W, T]);
+    for (const id of [M1, M2])
+      await db.query("insert into turnering.matches (id, tournament_id) values ($1, $2)", [id, T]);
+  });
+
+  it("a repeated request id commits once and returns the same outcome", async () => {
+    const first = await submit(M1, 0, REQ);
+    expect(first.rows[0]).toEqual({ v: 1, s: "done" });
+    const again = await submit(M1, 0, REQ); // same stale expected version: no 409
+    expect(again.rows[0]).toEqual({ v: 1, s: "done" });
+    const third = await submit(M1, 1, REQ, 5); // even if the payload differs
+    expect(third.rows[0]).toEqual({ v: 1, s: "done" });
+    expect(await ver(M1)).toBe(1);
+    const n = await db.query<{ n: number }>("select count(*)::int as n from turnering.result_requests where request_id = $1", [REQ]);
+    expect(n.rows[0].n).toBe(1);
+    const out = await db.query<{ o: { result_version: number } | null }>(
+      "select turnering.result_request_outcome($1, $2) as o",
+      [REQ, M1],
+    );
+    expect(out.rows[0].o?.result_version).toBe(1);
+    const other = await db.query<{ o: unknown }>("select turnering.result_request_outcome($1, $2) as o", [REQ, M2]);
+    expect(other.rows[0].o).toBeNull();
+  });
+
+  it("a different request id after a commit takes the normal conflict path", async () => {
+    await expect(submit(M1, 0, REQ2)).rejects.toThrow(/version_conflict/);
+    expect(await ver(M1)).toBe(1);
+    const ok = await submit(M1, 1, REQ3, 2);
+    expect(ok.rows[0].v).toBe(2);
+  });
+
+  it("a conflict records nothing, so the id can be retried later", async () => {
+    const n = await db.query<{ n: number }>("select count(*)::int as n from turnering.result_requests where request_id = $1", [REQ2]);
+    expect(n.rows[0].n).toBe(0);
+  });
+
+  it("the legacy 5- and 6-arg overloads still work", async () => {
+    expect((await submit(M2, 0, null)).rows[0].v).toBe(1);
+  });
+
+  it("is executable by service_role only and re-applying is a no-op", async () => {
+    const r = await db.query<{ a: boolean; s: boolean; o: boolean }>(
+      `select has_function_privilege('anon', 'turnering.submit_match_result(uuid,int,jsonb,uuid,text,text,uuid)', 'execute') as a,
+              has_function_privilege('service_role', 'turnering.submit_match_result(uuid,int,jsonb,uuid,text,text,uuid)', 'execute') as s,
+              has_function_privilege('service_role', 'turnering.result_request_outcome(uuid,uuid)', 'execute') as o`,
+    );
+    expect(r.rows[0]).toEqual({ a: false, s: true, o: true });
+    await db.exec(readFileSync(join(MIGRATIONS, "0015_idempotent_result.sql"), "utf8"));
   });
 });
