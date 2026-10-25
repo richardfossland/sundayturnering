@@ -11,14 +11,14 @@ import {
   isVoid,
 } from "@/lib/tournament/scoring";
 import { canSelfCorrect } from "@/lib/tournament/correct";
-import { authControlCode } from "@/lib/server/auth";
+import { checkControlCode } from "@/lib/server/auth";
 
 // POST /api/match/correct — a referee fixes THEIR OWN just-saved result within a
 // short grace window, WITHOUT the organiser code. Self-authorising: the server
 // checks the saving device (result_by) + the time window (updated_at). The
 // optimistic version guard is preserved via the same RPC the result route uses.
 async function handlePOST(req: Request) {
-  if (!rateLimit(`match-correct:${clientIp(req)}`, 60, 60_000))
+  if (!rateLimit(`match-correct:${clientIp(req)}`, 600, 60_000))
     return fail(429, "for_mange_forsok");
   const body = await readJson<{
     matchId?: string;
@@ -46,7 +46,7 @@ async function handlePOST(req: Request) {
 
   const t = await getTournament(m.tournament_id);
   if (!t) return fail(404, "finnes_ikke");
-  if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
+  if (!(await checkControlCode(req, t, body.controlCode))) return fail(403, "feil_kontrollkode");
   if (t.status === "finished") return fail(409, "turnering_avsluttet");
 
   const knockout = m.phase === "playoff";

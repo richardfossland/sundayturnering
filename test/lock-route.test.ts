@@ -10,6 +10,8 @@ const ID = "11111111-1111-1111-1111-111111111111";
 const MID = "22222222-2222-2222-2222-222222222222";
 let matchRow: Match;
 const patches: Record<string, unknown>[] = [];
+const conditions: string[][] = [];
+let raceLost = false;
 
 vi.mock("@/lib/server/store", () => ({
   getTournament: async (): Promise<Tournament> => ({
@@ -31,13 +33,22 @@ vi.mock("@/lib/server/store", () => ({
   }),
   getMatch: async () => matchRow,
   db: () => ({
+    rpc: async () => ({ data: false, error: null }),
     from: () => ({
-      update: (patch: Record<string, unknown>) => ({
-        eq: async () => {
-          patches.push(patch);
-          return { error: null };
-        },
-      }),
+      update: (patch: Record<string, unknown>) => {
+        patches.push(patch);
+        const conds: string[] = [];
+        const q: Record<string, unknown> = {
+          eq: (col: string, v: unknown) => (conds.push(`eq:${col}:${v}`), q),
+          is: (col: string, v: unknown) => (conds.push(`is:${col}:${v}`), q),
+          select: async () => {
+            conditions.push(conds);
+            return { data: raceLost ? [] : [{ id: MID }], error: null };
+          },
+          then: (res: (v: unknown) => void) => res({ error: null }),
+        };
+        return q;
+      },
     }),
   }),
 }));
@@ -82,6 +93,8 @@ async function lock(body: Record<string, unknown>) {
 describe("POST /api/match/lock — status side effects", () => {
   beforeEach(() => {
     patches.length = 0;
+    conditions.length = 0;
+    raceLost = false;
   });
 
   it("lock on a scheduled match promotes it and reports promoted:true", async () => {
@@ -122,5 +135,33 @@ describe("POST /api/match/lock — status side effects", () => {
     matchRow = makeMatch();
     await lock({ action: "start" });
     expect(patches).toEqual([{ status: "live" }]);
+  });
+
+  it("lock is a compare-and-set on the free lock (is null) and current status", async () => {
+    matchRow = makeMatch();
+    await lock({ action: "lock" });
+    expect(conditions[0]).toEqual(expect.arrayContaining([`eq:id:${MID}`, "is:locked_by:null", "eq:status:scheduled"]));
+  });
+
+  it("lock CAS on an existing own lock matches the old value", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "d1|Gammel" });
+    await lock({ action: "lock" });
+    expect(conditions[0]).toContain("eq:locked_by:d1|Gammel");
+  });
+
+  it("race loser (0 rows updated) gets the same answer as 'already locked'", async () => {
+    matchRow = makeMatch();
+    raceLost = true;
+    // by the time the loser re-reads, the winner holds the lock
+    const r = await lock({ action: "lock" });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe("laast_av_annen");
+  });
+
+  it("force takes over unconditionally (no locked_by condition)", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "other|X" });
+    const r = await lock({ action: "force" });
+    expect(r.status).toBe(200);
+    expect(conditions[0].some((c) => c.includes("locked_by"))).toBe(false);
   });
 });

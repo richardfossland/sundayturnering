@@ -126,6 +126,23 @@ async function main() {
   const corr = await post("/api/match/correct", { matchId: scm.id, expectedVersion: ver, result: { home: 0, away: 2 }, deviceId: dev, deviceName: "Smoke" });
   check("self-correct accepted in window", corr.status === 200, JSON.stringify(corr.json));
 
+  // Organiser override (atomic RPC, migration 0010): force-set a result.
+  const ov = await post("/api/organiser/override", { tournamentId: id, organiserCode: seed.json.organiser_code, matchId: scm.id, result: { home: 4, away: 0 } });
+  check("organiser override ok (atomic RPC)", ov.status === 200 && ov.json.match?.result?.home === 4, JSON.stringify(ov.json));
+
+  // Wrong control codes are counted per tournament+IP: 20 failures → 429.
+  // (Fresh tournament, so the block cannot leak into the scenarios above.)
+  const guess = await post("/api/dev/seed", { teams: 4, format: "league", profile: "simple" });
+  const { json: gstate } = await get(`/api/tournament/${guess.json.id}`);
+  const gm = gstate.matches.find((m) => m.away_team_id);
+  let last = 0;
+  for (let i = 0; i < 21; i++) {
+    last = (await post("/api/match/lock", { matchId: gm.id, deviceId: "x", action: "lock", controlCode: "000000" })).status;
+  }
+  check("21st wrong control code → 429 for_mange_forsok", last === 429, String(last));
+  const goodButBlocked = await post("/api/match/lock", { matchId: gm.id, deviceId: "x", action: "lock", controlCode: guess.json.control_code });
+  check("blocked IP is refused even with the right code (429)", goodButBlocked.status === 429, String(goodButBlocked.status));
+
   // Group stage + playoff + bronze final.
   const gp = await post("/api/dev/seed", { teams: 4, format: "group_playoff", groupCount: 2, advancePerGroup: 2, thirdPlace: true });
   const { json: gs } = await get(`/api/tournament/${gp.json.id}`);

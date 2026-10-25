@@ -1,6 +1,6 @@
 import { ok, fail, readJson, rateLimit, clientIp, must, withApi } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
-import { authControlCode } from "@/lib/server/auth";
+import { checkControlCode } from "@/lib/server/auth";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
@@ -18,7 +18,7 @@ import { channels, events } from "@/lib/realtime";
 // spiller". Only the device whose lock did the promoting knows that, so it
 // tells us on release; the server never guesses.
 async function handlePOST(req: Request) {
-  if (!rateLimit(`match-lock:${clientIp(req)}`, 120, 60_000))
+  if (!rateLimit(`match-lock:${clientIp(req)}`, 1200, 60_000))
     return fail(429, "for_mange_forsok");
   const body = await readJson<{
     matchId?: string;
@@ -36,7 +36,7 @@ async function handlePOST(req: Request) {
   // Referee credential: the control code. Match ids alone are public.
   const t = await getTournament(m.tournament_id);
   if (!t) return fail(404, "finnes_ikke");
-  if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
+  if (!(await checkControlCode(req, t, body.controlCode))) return fail(403, "feil_kontrollkode");
   if (m.status === "done" || m.status === "bye")
     return fail(409, "kamp_ferdig");
 
@@ -76,10 +76,24 @@ async function handlePOST(req: Request) {
     )
       return fail(409, "laast_av_annen", { lockedBy: m.locked_by });
     promoted = m.status === "scheduled";
-    must(await db()
+    let q = db()
       .from("matches")
       .update({ locked_by: tag, status: promoted ? "live" : m.status })
-      .eq("id", m.id));
+      .eq("id", m.id);
+    if (action === "lock") {
+      // Compare-and-set on what we just read: two devices racing for a free
+      // (or their own) lock → exactly one UPDATE matches; the loser gets the
+      // same answer as "already locked". `force` deliberately takes over.
+      q = (m.locked_by ? q.eq("locked_by", m.locked_by) : q.is("locked_by", null))
+        .eq("status", m.status);
+    }
+    const won = must<{ id: string }[]>(await q.select("id"));
+    if (action === "lock" && (!won || won.length === 0)) {
+      const now = await getMatch(m.id);
+      if (now && (now.status === "done" || now.status === "bye"))
+        return fail(409, "kamp_ferdig");
+      return fail(409, "laast_av_annen", { lockedBy: now?.locked_by ?? null });
+    }
   }
 
   defer(() => broadcast(channels.tournament(m.tournament_id), events.lockChanged, {

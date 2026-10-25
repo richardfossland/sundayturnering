@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { OfflineBanner } from "@/lib/client/OfflineBanner";
 import { useTournament } from "@/lib/client/useTournament";
 import { ApiError } from "@/lib/client/api";
+import { errorMessage, pairErrorMessage } from "@/lib/locale/errors";
 import { usePresence } from "@/lib/client/usePresence";
 import { identity } from "@/lib/client/identity";
 import { api } from "@/lib/client/api";
@@ -201,7 +202,7 @@ export function ControlClient({ id }: { id: string }) {
       });
       refetch();
     } catch (e) {
-      if (!codeRejected(e)) flash(no.common.error);
+      if (!codeRejected(e)) flash(e instanceof ApiError && e.status === 429 ? errorMessage(e) : no.common.error);
     }
   }
 
@@ -220,7 +221,7 @@ export function ControlClient({ id }: { id: string }) {
       await api.courtTimer(id, action, ctl, { courtId: timerCourtId, durationSec });
       refetch();
     } catch (e) {
-      if (!codeRejected(e)) flash(no.common.error);
+      if (!codeRejected(e)) flash(e instanceof ApiError && e.status === 429 ? errorMessage(e) : no.common.error);
     } finally {
       setBusyTimer(false);
     }
@@ -435,7 +436,7 @@ function CodeGate({
       }
       onAttached(code);
     } catch (e) {
-      setErr(e instanceof ApiError ? no.pair.badCode : no.common.error);
+      setErr(pairErrorMessage(e));
     } finally {
       setBusy(false);
     }

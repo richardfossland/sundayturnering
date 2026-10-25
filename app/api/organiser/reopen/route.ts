@@ -12,7 +12,7 @@ async function handlePOST(req: Request) {
   const limited = organiserLimit(req);
   if (limited) return limited;
   const body = await readJson<{ tournamentId?: string; organiserCode?: string }>(req);
-  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode);
+  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode, req);
   if (!t) return fail(403, "feil_arrangorkode");
   if (t.status !== "finished") return fail(409, "ikke_avsluttet");
 

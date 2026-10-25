@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, ApiError } from "@/lib/client/api";
+import { api } from "@/lib/client/api";
+import { pairErrorMessage } from "@/lib/locale/errors";
 import { identity } from "@/lib/client/identity";
 import { no } from "@/lib/locale/no";
 
@@ -23,7 +24,7 @@ export default function BoardEntry() {
       identity.setBoardCode(tournament.id, tournament.board_code ?? null);
       router.push(`/board/${tournament.id}`);
     } catch (e) {
-      setErr(e instanceof ApiError && e.status !== 0 ? no.pair.badCode : no.common.error);
+      setErr(pairErrorMessage(e));
       setBusy(false);
     }
   }

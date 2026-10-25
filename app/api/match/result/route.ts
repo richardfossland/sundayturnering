@@ -3,7 +3,7 @@ import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
-import { authControlCode } from "@/lib/server/auth";
+import { checkControlCode } from "@/lib/server/auth";
 import { channels, events } from "@/lib/realtime";
 import {
   validateResult,
@@ -18,7 +18,7 @@ import {
 async function handlePOST(req: Request) {
   // Throttle score writes per client (the mutating match routes had no limit —
   // once a tournament's match ids are known, results could be spammed freely).
-  if (!rateLimit(`match-result:${clientIp(req)}`, 60, 60_000))
+  if (!rateLimit(`match-result:${clientIp(req)}`, 600, 60_000))
     return fail(429, "for_mange_forsok");
   const body = await readJson<{
     matchId?: string;
@@ -43,7 +43,7 @@ async function handlePOST(req: Request) {
   const t = await getTournament(m.tournament_id);
   if (!t) return fail(404, "finnes_ikke");
   // Referee credential: the control code. Match ids alone are public.
-  if (!authControlCode(t, body.controlCode)) return fail(403, "feil_kontrollkode");
+  if (!(await checkControlCode(req, t, body.controlCode))) return fail(403, "feil_kontrollkode");
   if (t.status === "finished") return fail(409, "turnering_avsluttet");
   // The bracket was seeded from the table; a late league result would quietly
   // change it. (The organiser can still override.)

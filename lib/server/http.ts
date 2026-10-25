@@ -20,6 +20,12 @@ export function must<T>(res: { data?: T | null; error: { message?: string } | nu
 /** Wrap a route handler: any uncaught throw (typically a Supabase/network
  * error) becomes JSON 503 "midlertidig_feil", never Next's HTML 500. Clients
  * treat 5xx as "try again" and keep their last good state. */
+export class RateLimitedError extends Error {
+  constructor() {
+    super("for_mange_forsok");
+  }
+}
+
 export function withApi<A extends unknown[]>(
   handler: (...args: A) => Response | Promise<Response>,
 ): (...args: A) => Promise<Response> {
@@ -27,6 +33,7 @@ export function withApi<A extends unknown[]>(
     try {
       return await handler(...args);
     } catch (e) {
+      if (e instanceof RateLimitedError) return fail(429, "for_mange_forsok");
       console.error("[api]", e);
       return fail(503, "midlertidig_feil");
     }
@@ -88,11 +95,13 @@ export function rateLimit(
 }
 
 /** Organiser actions (advance / finish / override / timer) accept a word code
- * that could otherwise be guessed at full speed. Cap calls per IP; 30 a minute
- * is far above what a real organiser ever does. Returns the 429 to send, or
+ * that could otherwise be guessed at full speed. Cap calls per IP; this
+ * in-memory cap is only a per-isolate flood guard (a school hall shares ONE
+ * public IP) — the real guess protection is the DB-backed failure counter in
+ * lib/server/attempts.ts. Returns the 429 to send, or
  * null to proceed. */
 export function organiserLimit(req: Request): Response | null {
-  return rateLimit(`organiser:${clientIp(req)}`, 30, 60_000)
+  return rateLimit(`organiser:${clientIp(req)}`, 300, 60_000)
     ? null
     : fail(429, "for_mange_forsok");
 }

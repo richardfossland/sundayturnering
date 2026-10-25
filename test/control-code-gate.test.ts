@@ -12,6 +12,8 @@ const MID = "22222222-2222-2222-2222-222222222222";
 let tournamentRow: Tournament | null = null;
 let matchRow: Match | null = null;
 const writes: string[] = [];
+const failures: string[] = [];
+let blocked = false;
 
 vi.mock("@/lib/server/store", () => ({
   getTournament: async () => tournamentRow,
@@ -20,17 +22,29 @@ vi.mock("@/lib/server/store", () => ({
     writes.push("bump");
   },
   db: () => ({
-    rpc: async (fn: string) => {
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      if (fn === "code_blocked") return { data: blocked, error: null };
+      if (fn === "register_code_failure") {
+        failures.push(String(args.p_scope));
+        return { data: false, error: null };
+      }
       writes.push(`rpc:${fn}`);
       return { data: [{ ...matchRow, status: "done", result_version: 1 }], error: null };
     },
     from: (table: string) => ({
-      update: (patch: Record<string, unknown>) => ({
-        eq: async () => {
-          writes.push(`update:${table}:${Object.keys(patch).join(",")}`);
-          return { error: null };
-        },
-      }),
+      update: (patch: Record<string, unknown>) => {
+        const rec = () => writes.push(`update:${table}:${Object.keys(patch).join(",")}`);
+        const q: Record<string, unknown> = {
+          eq: () => q,
+          is: () => q,
+          select: async () => (rec(), { data: [{ id: MID }], error: null }),
+          then: (res: (v: unknown) => void) => {
+            rec();
+            res({ error: null });
+          },
+        };
+        return q;
+      },
       select: () => ({
         eq: () => ({
           maybeSingle: async () => ({ data: null }),
@@ -108,6 +122,8 @@ describe("referee routes require the control code", () => {
     tournamentRow = makeTournament();
     matchRow = makeMatch();
     writes.length = 0;
+    failures.length = 0;
+    blocked = false;
   });
 
   it("result: 403 without a code, nothing written", async () => {
@@ -159,5 +175,20 @@ describe("referee routes require the control code", () => {
     const ok = await post(timer, { ...timerBody, controlCode: "402815" });
     expect(ok.status).toBe(200);
     expect(writes).toContain("update:tournaments:timer");
+  });
+
+  it("a WRONG code registers a failure for the tournament scope; a right one does not", async () => {
+    await post(result, { ...resultBody, controlCode: "000000" });
+    expect(failures).toEqual([ID]);
+    await post(result, { ...resultBody, controlCode: "402815" });
+    expect(failures).toEqual([ID]);
+  });
+
+  it("blocked IP → 429 for_mange_forsok, even for a route with the right code", async () => {
+    blocked = true;
+    const res = await post(lock, { ...lockBody, controlCode: "402815" });
+    expect(res.status).toBe(429);
+    expect((await res.json()).error).toBe("for_mange_forsok");
+    expect(writes).toEqual([]);
   });
 });

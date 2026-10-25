@@ -25,7 +25,7 @@ const MESSAGES: Record<string, string> = {
   feil_kontrollkode: "Feil kontrollkode.",
   feil_arrangorkode: no.control.wrongOrganiserCode,
   ugyldig_kode: "Ugyldig kode.",
-  for_mange_forsok: "For mange forsøk — vent et minutt og prøv igjen.",
+  for_mange_forsok: "For mange forsøk – vent litt og prøv igjen.",
   rate_limited: "For mange forsøk — vent et minutt og prøv igjen.",
   midlertidig_feil: "Midlertidig feil – prøv igjen om litt.",
   // match flow
@@ -48,6 +48,20 @@ const MESSAGES: Record<string, string> = {
   ikke_avsluttet: "Turneringen er ikke avsluttet.",
   finnes_ikke: "Fant ikke turneringen.",
 };
+
+/** Pairing screens (control/board code entry): a wrong code reads «fant ingen
+ * turnering», but a 429 (too many wrong guesses from this network) must say so
+ * — it is not «feil kode». */
+export function pairErrorMessage(e: unknown, only404 = false): string {
+  if (e instanceof ApiError) {
+    if (e.status === 429) return MESSAGES.for_mange_forsok;
+    // A timeout (0) or server trouble (5xx) says nothing about the code —
+    // telling the user it was wrong would send them hunting for a typo.
+    if (e.status === 0 || e.status >= 500) return errorMessage(e);
+    if (!only404 || e.status === 404) return no.pair.badCode;
+  }
+  return no.common.error;
+}
 
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) {

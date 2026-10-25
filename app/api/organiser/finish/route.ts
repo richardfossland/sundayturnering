@@ -13,7 +13,7 @@ async function handlePOST(req: Request) {
   const body = await readJson<{ tournamentId?: string; organiserCode?: string }>(
     req,
   );
-  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode);
+  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode, req);
   if (!t) return fail(403, "feil_arrangorkode");
 
   must(await db().from("tournaments").update({ status: "finished" }).eq("id", t.id));

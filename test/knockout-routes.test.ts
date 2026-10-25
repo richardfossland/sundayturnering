@@ -14,6 +14,7 @@ const MID = "22222222-2222-2222-2222-222222222222";
 let tournamentRow: Tournament;
 let matchRow: Match;
 let rpcArgs: Record<string, unknown> | null = null;
+let rpcFn: string | null = null;
 let downstreamPlayed = 0;
 const resets: string[] = [];
 
@@ -23,8 +24,11 @@ vi.mock("@/lib/server/store", () => ({
   getMatches: async () => [],
   bumpVersion: async () => {},
   db: () => ({
-    rpc: async (_fn: string, args: Record<string, unknown>) => {
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      if (fn.startsWith("code_") || fn === "register_code_failure")
+        return { data: false, error: null };
       rpcArgs = args;
+      rpcFn = fn;
       return { data: [{ ...matchRow, status: "done" }], error: null };
     },
     from: () => ({
@@ -109,6 +113,7 @@ beforeEach(() => {
   tournamentRow = tournament();
   matchRow = match();
   rpcArgs = null;
+  rpcFn = null;
   downstreamPlayed = 0;
   resets.length = 0;
   __resetRateLimiter();
@@ -184,7 +189,10 @@ describe("changing a knockout winner after the next round was played", () => {
 
     const second = await post(override, { ...body, cascade: true });
     expect(second.status).toBe(200);
-    expect(resets).toEqual([MID]);
+    // The reset itself now happens inside the atomic RPC, not as separate writes.
+    expect(resets).toEqual([]);
+    expect(rpcFn).toBe("override_match_result");
+    expect(rpcArgs).toMatchObject({ p_match_id: MID, p_winner_team_id: "a", p_reset_downstream: true });
   });
 
   it("organiser: nothing played downstream → no confirm needed", async () => {
@@ -196,5 +204,18 @@ describe("changing a knockout winner after the next round was played", () => {
     });
     expect(res.status).toBe(200);
     expect(resets).toEqual([]);
+    expect(rpcFn).toBe("override_match_result");
+    expect(rpcArgs).toMatchObject({ p_match_id: MID, p_reset_downstream: true });
+  });
+
+  it("organiser: unchanged winner → RPC without downstream reset", async () => {
+    const res = await post(override, {
+      tournamentId: ID,
+      organiserCode: "ABCD-EF",
+      matchId: MID,
+      result: { home: 5, away: 3 },
+    });
+    expect(res.status).toBe(200);
+    expect(rpcArgs).toMatchObject({ p_result: { home: 5, away: 3 }, p_winner_team_id: "h", p_reset_downstream: false });
   });
 });

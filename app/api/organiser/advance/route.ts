@@ -17,7 +17,7 @@ async function handlePOST(req: Request) {
     organiserCode?: string;
     force?: boolean;
   }>(req);
-  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode);
+  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode, req);
   if (!t) return fail(403, "feil_arrangorkode");
   if (t.format !== "league_playoff" && t.format !== "group_playoff")
     return fail(400, "ikke_sluttspillformat");

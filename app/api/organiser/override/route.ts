@@ -1,7 +1,8 @@
 import { ok, fail, readJson, organiserLimit, must, withApi } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { db, getMatch } from "@/lib/server/store";
-import { propagateResult, resetDownstream } from "@/lib/server/playoff";
+import { resetDownstream } from "@/lib/server/playoff";
+import type { Match } from "@/lib/types";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
@@ -31,7 +32,7 @@ async function handlePOST(req: Request) {
     result?: Record<string, unknown>;
     cascade?: boolean;
   }>(req);
-  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode);
+  const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode, req);
   if (!t) return fail(403, "feil_arrangorkode");
   if (!body?.matchId || !body.result) return fail(400, "mangler_felt");
 
@@ -58,23 +59,21 @@ async function handlePOST(req: Request) {
         count: played,
         detail: `Ny vinner betyr at ${played} senere sluttspillkamp${played === 1 ? "" : "er"} som allerede er spilt, nullstilles.`,
       });
-    if (played > 0) await resetDownstream(t, m.id);
   }
 
-  must(await db()
-    .from("matches")
-    .update({
-      result,
-      winner_team_id: winnerTeamId,
-      status: "done",
-      result_version: m.result_version + 1,
-      locked_by: null,
-      result_by: null, // organiser correction is not a referee self-save
-    })
-    .eq("id", m.id));
-
-  const saved = await getMatch(m.id);
-  if (saved?.phase === "playoff") await propagateResult(saved);
+  // ONE transaction (migration 0010): row lock → reset downstream matches (if
+  // the winner of a played knockout match changed; the 409 above already made
+  // the organiser confirm) → write result with result_version+1 → propagate
+  // through the bracket → bump the tournament version.
+  const resetDown = knockout && m.status === "done" && winnerTeamId !== m.winner_team_id;
+  const rpc = await db().rpc("override_match_result", {
+    p_match_id: m.id,
+    p_result: result,
+    p_winner_team_id: winnerTeamId,
+    p_reset_downstream: resetDown,
+  });
+  if (rpc.error?.code === "P0002") return fail(404, "finnes_ikke");
+  const saved = must(rpc) as Match;
 
   defer(() => broadcast(channels.tournament(t.id), events.matchUpdated, {
     matchId: m.id,
