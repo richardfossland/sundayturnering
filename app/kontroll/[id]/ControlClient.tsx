@@ -8,7 +8,7 @@ import { errorMessage, pairErrorMessage } from "@/lib/locale/errors";
 import { usePresence } from "@/lib/client/usePresence";
 import { identity } from "@/lib/client/identity";
 import { api, setPairToken } from "@/lib/client/api";
-import { teamMap } from "@/lib/client/view";
+import { teamMap, matchTime } from "@/lib/client/view";
 import { resolve } from "@/lib/tournament/scoring";
 import { canSelfCorrect, selfCorrectMsLeft } from "@/lib/tournament/correct";
 import { no } from "@/lib/locale/no";
@@ -538,6 +538,9 @@ function MatchCard({
       }}
     >
       <div className="match-teams">
+        {m.status !== "done" && matchTime(m.scheduled_at) && (
+          <span className="match-time">{matchTime(m.scheduled_at)}</span>
+        )}
         <TeamLine team={h} win={m.status === "done" && homeWon} />
         <TeamLine team={a} win={m.status === "done" && awayWon} />
       </div>

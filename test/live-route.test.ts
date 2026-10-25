@@ -50,7 +50,7 @@ import { POST } from "@/app/api/match/live/route";
 function makeMatch(over: Partial<Match> = {}): Match {
   return {
     id: MID, tournament_id: ID, phase: "league", round: 1, bracket_slot: null, group_no: null,
-    court_id: null, queue_order: 0, home_team_id: "h", away_team_id: "a", status: "live",
+    court_id: null, queue_order: 0, scheduled_at: null, home_team_id: "h", away_team_id: "a", status: "live",
     result: null, winner_team_id: null, locked_by: "d1|Bane 1", result_by: null,
     result_version: 0, updated_at: "", ...over,
   };

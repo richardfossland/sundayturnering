@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 
-// Applies every migration (0001…0011) to an in-memory Postgres with a stubbed
+// Applies every migration (0001…0012) to an in-memory Postgres with a stubbed
 // Supabase `realtime` schema, then replays what Realtime does at join time: a
 // SELECT / INSERT on realtime.messages AS the subscriber's role with
 // realtime.topic() set to the channel topic. The stub mirrors the real shape
@@ -76,10 +76,11 @@ beforeAll(async () => {
     create table storage.buckets (id text primary key, name text, public boolean);
   `);
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
-  expect(files.at(-1)).toBe("0011_realtime_private.sql");
+  expect(files.at(-1)).toBe("0012_schedule.sql");
   for (const f of files) await db.exec(readFileSync(join(MIGRATIONS, f), "utf8"));
   // Re-applying must be a no-op (idempotent).
   await db.exec(readFileSync(join(MIGRATIONS, "0011_realtime_private.sql"), "utf8"));
+  await db.exec(readFileSync(join(MIGRATIONS, "0012_schedule.sql"), "utf8"));
 
   await db.query(
     `insert into turnering.tournaments (id, control_code, board_code, organiser_code, format)
@@ -128,5 +129,15 @@ describe("0011 realtime private channels", () => {
       ["t:zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"],
     );
     expect(r.rows[0].ok).toBe(false);
+  });
+});
+
+describe("0012 schedule", () => {
+  it("adds a nullable matches.scheduled_at timestamptz", async () => {
+    const r = await db.query<{ data_type: string; is_nullable: string }>(
+      `select data_type, is_nullable from information_schema.columns
+       where table_schema = 'turnering' and table_name = 'matches' and column_name = 'scheduled_at'`,
+    );
+    expect(r.rows).toEqual([{ data_type: "timestamp with time zone", is_nullable: "YES" }]);
   });
 });

@@ -87,7 +87,7 @@ function match(over: Partial<Match> = {}): Match {
     bracket_slot: 0,
     group_no: null,
     court_id: null,
-    queue_order: 0,
+    queue_order: 0, scheduled_at: null,
     home_team_id: "h",
     away_team_id: "a",
     status: "live",

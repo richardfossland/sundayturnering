@@ -38,6 +38,19 @@ export interface TournamentConfig {
   groupCount?: number;
   /** group_playoff only: how many teams advance from each group. */
   advancePerGroup?: number;
+  /** Valgfri tidsplan med klokkeslett. Uten den er `scheduled_at` alltid null. */
+  schedule?: ScheduleConfig;
+}
+
+/** Tidsplan-oppsett (lagres i `tournaments.config.schedule`). Alle tidspunkt er ISO. */
+export interface ScheduleConfig {
+  startAt: string;
+  matchMinutes: number;
+  breakMinutes: number;
+  /** Minste hvile for et lag mellom to kamper. */
+  minRestMinutes: number;
+  /** Stengte tidsrom; `courtIndex` null = alle baner. */
+  courtBreaks?: { courtIndex: number | null; from: string; to: string }[];
 }
 
 // ---------- result jsonb shapes (spec §2 / §3) ----------
@@ -124,6 +137,8 @@ export interface Match {
   group_no: number | null;
   court_id: string | null;
   queue_order: number;
+  /** Planlagt starttid (ISO). Null uten tidsplan, for byes og for ferdige kamper. */
+  scheduled_at: string | null;
   home_team_id: string | null;
   away_team_id: string | null; // null = bye / TBD
   status: MatchStatus;

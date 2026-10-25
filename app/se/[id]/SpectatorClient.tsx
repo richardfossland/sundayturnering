@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { OfflineBanner } from "@/lib/client/OfflineBanner";
 import { useTournament } from "@/lib/client/useTournament";
 import { useReactionSender } from "@/lib/client/useReactionSender";
-import { teamMap, liveMatches, upcoming } from "@/lib/client/view";
+import { teamMap, liveMatches, upcoming, matchTime } from "@/lib/client/view";
 import { reactionEmoji } from "@/lib/realtime";
 import type { ReactionKind } from "@/lib/realtime";
 import { no } from "@/lib/locale/no";
@@ -131,6 +131,7 @@ function MatchRow({
   const court = courts.find((c) => c.id === m.court_id);
   return (
     <div className={`next-row${muted ? " faint" : ""}`}>
+      {matchTime(m.scheduled_at) && <span className="match-time">{matchTime(m.scheduled_at)}</span>}
       <span className="team">
         <span className="team-swatch" style={{ background: h?.colour }} />
         <span className="team-name">{h?.name ?? no.board.tbd}</span>

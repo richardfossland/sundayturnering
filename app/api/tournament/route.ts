@@ -4,6 +4,7 @@ import { getOptionalAdmin } from "@/lib/server/auth";
 import type { Format, ScoringProfileKey } from "@/lib/types";
 import { sanitiseColour, sanitiseLogoUrl } from "@/lib/server/logo";
 import { clampPlayoffSize } from "@/lib/tournament/playoffSize";
+import { sanitiseSchedule } from "@/lib/tournament/schedule";
 
 // POST /api/tournament — create a tournament from the onboarding wizard (and
 // /hurtig). This route is the seam between the wizard and lib/server/build:
@@ -68,6 +69,10 @@ async function handlePOST(req: Request) {
       return fail(400, "ugyldig_antall_videre");
   }
 
+  // Tidsplan er valgfri; er den sendt må den være gyldig.
+  const schedule = sanitiseSchedule(cfg.schedule);
+  if (schedule === "invalid") return fail(400, "ugyldig_tidsplan");
+
   try {
     const result = await createTournament({
       title: (body.title ?? "").trim().slice(0, 80),
@@ -80,6 +85,7 @@ async function handlePOST(req: Request) {
         roundRobinDouble: !!cfg.roundRobinDouble,
         thirdPlace: !!cfg.thirdPlace,
         ...(isGroup ? { groupCount, advancePerGroup } : {}),
+        ...(schedule ? { schedule } : {}),
       },
       organiserId: admin?.id ?? null,
       teams: body.teams.map((t) => ({
