@@ -1,4 +1,4 @@
-import { ok, fail, readJson, organiserLimit } from "@/lib/server/http";
+import { ok, fail, readJson, organiserLimit, withApi } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { advanceToPlayoff } from "@/lib/server/playoff";
 import { getMatches } from "@/lib/server/store";
@@ -9,7 +9,7 @@ import { channels, events } from "@/lib/realtime";
 // POST /api/organiser/advance — build the playoff bracket from league standings.
 // Authorised by EITHER the organiser code OR a signed-in admin who owns it
 // (spec §5: stop a referee from nuking the bracket).
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const limited = organiserLimit(req);
   if (limited) return limited;
   const body = await readJson<{
@@ -42,3 +42,5 @@ export async function POST(req: Request) {
   defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "advance");
   return ok({ ok: true });
 }
+
+export const POST = withApi(handlePOST);

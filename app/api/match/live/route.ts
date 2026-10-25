@@ -1,4 +1,4 @@
-import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, clientIp, withApi } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
@@ -11,7 +11,7 @@ import { validateLiveResult, canonicaliseLiveResult } from "@/lib/tournament/sco
 // stays `live`, winner_team_id stays null and result_version is untouched, so
 // standings ignore it and the final submit (the guarded RPC) overwrites it.
 // Last-write-wins is fine for a running score. Referee credential required.
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   if (!rateLimit(`match-live:${clientIp(req)}`, 240, 60_000))
     return fail(429, "for_mange_forsok");
   const body = await readJson<{
@@ -52,3 +52,5 @@ export async function POST(req: Request) {
   );
   return ok({ ok: true, result });
 }
+
+export const POST = withApi(handlePOST);

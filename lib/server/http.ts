@@ -9,6 +9,30 @@ export function fail(status: number, error: string, extra?: Record<string, unkno
   return Response.json({ error, ...extra }, { status });
 }
 
+/** Unwrap a supabase `{ data, error }` result: throw on error so a DB outage
+ * surfaces as a failure (→ 503 via withApi) instead of an ignored write or an
+ * empty read. */
+export function must<T>(res: { data?: T | null; error: { message?: string } | null }): T {
+  if (res.error) throw res.error;
+  return res.data as T;
+}
+
+/** Wrap a route handler: any uncaught throw (typically a Supabase/network
+ * error) becomes JSON 503 "midlertidig_feil", never Next's HTML 500. Clients
+ * treat 5xx as "try again" and keep their last good state. */
+export function withApi<A extends unknown[]>(
+  handler: (...args: A) => Response | Promise<Response>,
+): (...args: A) => Promise<Response> {
+  return async (...args: A) => {
+    try {
+      return await handler(...args);
+    } catch (e) {
+      console.error("[api]", e);
+      return fail(503, "midlertidig_feil");
+    }
+  };
+}
+
 /** Parse a JSON body, returning null on malformed input. */
 export async function readJson<T = Record<string, unknown>>(
   req: Request,

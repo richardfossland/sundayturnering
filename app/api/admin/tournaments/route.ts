@@ -1,11 +1,11 @@
-import { ok, fail } from "@/lib/server/http";
+import { ok, fail, withApi } from "@/lib/server/http";
 import { requireAdmin, authFail } from "@/lib/server/auth";
 import { listTournamentsByOrganiser } from "@/lib/server/store";
 
 // GET /api/admin/tournaments — the signed-in admin's own tournaments
 // (organiser_id === userId), newest first. Admin-session gated; never returns
 // anonymous tournaments or organiser_code.
-export async function GET() {
+async function handleGET() {
   try {
     const user = await requireAdmin();
     const tournaments = await listTournamentsByOrganiser(user.id);
@@ -17,3 +17,5 @@ export async function GET() {
     return fail(500, "kunne_ikke_hente");
   }
 }
+
+export const GET = withApi(handleGET);

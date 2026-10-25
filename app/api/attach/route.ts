@@ -1,4 +1,4 @@
-import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, clientIp, withApi } from "@/lib/server/http";
 import {
   getTournamentByControlCode,
   getTournamentByBoardCode,
@@ -9,7 +9,7 @@ import { isValidControlCode, normalizeWordCode } from "@/lib/codes";
 // POST /api/attach — a control device (control_code) or a reopened board
 // (board_code) resolves a tournament id. Returns the public tournament DTO plus
 // the codes that device is entitled to (see toAttachedTournamentDTO).
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   if (!rateLimit(`attach:${clientIp(req)}`, 30, 60_000))
     return fail(429, "for_mange_forsok");
 
@@ -32,3 +32,5 @@ export async function POST(req: Request) {
 
   return fail(400, "mangler_kode");
 }
+
+export const POST = withApi(handlePOST);

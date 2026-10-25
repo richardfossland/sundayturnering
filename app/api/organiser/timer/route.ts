@@ -1,4 +1,4 @@
-import { ok, fail, readJson, organiserLimit } from "@/lib/server/http";
+import { ok, fail, readJson, organiserLimit, must, withApi } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { db, bumpVersion } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
@@ -9,7 +9,7 @@ import { computeTimer } from "@/lib/tournament/timer";
 // POST /api/organiser/timer — board countdown. Authorised by EITHER the
 // organiser code OR a signed-in admin who owns it.
 //   action: 'start' (durationSec) | 'add' (+60s) | 'stop'
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const limited = organiserLimit(req);
   if (limited) return limited;
   const body = await readJson<{
@@ -28,8 +28,10 @@ export async function POST(req: Request) {
     body?.durationSec,
   );
 
-  await db().from("tournaments").update({ timer }).eq("id", t.id);
+  must(await db().from("tournaments").update({ timer }).eq("id", t.id));
   await bumpVersion(t.id);
   defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "timer");
   return ok({ timer });
 }
+
+export const POST = withApi(handlePOST);

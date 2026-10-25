@@ -1,4 +1,4 @@
-import { ok, fail, readJson, rateLimit, clientIp } from "@/lib/server/http";
+import { ok, fail, readJson, rateLimit, clientIp, withApi } from "@/lib/server/http";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
@@ -15,7 +15,7 @@ import {
 // POST /api/match/result — submit a result with optimistic concurrency (spec
 // §4.2). The control device sends the result_version it based the edit on; the
 // RPC accepts only if it still matches, then bumps it. Loser → 409 conflict.
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   // Throttle score writes per client (the mutating match routes had no limit —
   // once a tournament's match ids are known, results could be spammed freely).
   if (!rateLimit(`match-result:${clientIp(req)}`, 60, 60_000))
@@ -91,10 +91,23 @@ export async function POST(req: Request) {
   const saved = (Array.isArray(data) ? data[0] : data) ?? (await getMatch(m.id));
 
   // Playoff: push the winner into the next bracket slot (may finish the cup).
-  if (saved?.phase === "playoff") await propagateResult(saved);
+  // The RPC has already committed: a failure here must NOT surface as 5xx, or
+  // the referee retries, gets 409 kamp_ferdig and sees a false "konflikt".
+  // Report the result as saved and flag the bracket for the organiser.
+  let propagated = true;
+  if (saved?.phase === "playoff") {
+    try {
+      await propagateResult(saved);
+    } catch (e) {
+      propagated = false;
+      console.error("[result] propagate failed after commit", e);
+    }
+  }
 
   defer(() => broadcast(channels.tournament(m.tournament_id), events.matchUpdated, {
     matchId: m.id,
   }), "result");
-  return ok({ match: saved });
+  return ok(propagated ? { match: saved } : { match: saved, propagated: false });
 }
+
+export const POST = withApi(handlePOST);

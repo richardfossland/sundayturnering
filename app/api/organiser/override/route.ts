@@ -1,4 +1,4 @@
-import { ok, fail, readJson, organiserLimit } from "@/lib/server/http";
+import { ok, fail, readJson, organiserLimit, must, withApi } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { db, getMatch } from "@/lib/server/store";
 import { propagateResult, resetDownstream } from "@/lib/server/playoff";
@@ -21,7 +21,7 @@ import {
 // played, the first call answers 409 `neste_kamp_spilt` with the count; the
 // organiser confirms and resends with `cascade: true`, which resets those
 // matches (resetDownstream) before the new winner is propagated.
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   const limited = organiserLimit(req);
   if (limited) return limited;
   const body = await readJson<{
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     if (played > 0) await resetDownstream(t, m.id);
   }
 
-  await db()
+  must(await db()
     .from("matches")
     .update({
       result,
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
       locked_by: null,
       result_by: null, // organiser correction is not a referee self-save
     })
-    .eq("id", m.id);
+    .eq("id", m.id));
 
   const saved = await getMatch(m.id);
   if (saved?.phase === "playoff") await propagateResult(saved);
@@ -81,3 +81,5 @@ export async function POST(req: Request) {
   }), "override");
   return ok({ match: saved });
 }
+
+export const POST = withApi(handlePOST);

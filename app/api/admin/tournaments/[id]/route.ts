@@ -1,4 +1,4 @@
-import { ok, fail, readJson } from "@/lib/server/http";
+import { ok, fail, readJson, must, withApi } from "@/lib/server/http";
 import { requireOwnedTournament, authFail } from "@/lib/server/auth";
 import { db, bumpVersion } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
@@ -9,7 +9,7 @@ import { channels, events } from "@/lib/realtime";
 // (title / sport_label). Admin-owner gated. Structural edits (format, teams,
 // schedule) are intentionally out of scope — they'd require re-building the
 // bracket and risk corrupting an in-progress event.
-export async function PATCH(
+async function handlePATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -26,7 +26,7 @@ export async function PATCH(
       patch.sport_label = body.sport_label.trim().slice(0, 40);
     if (Object.keys(patch).length === 0) return fail(400, "ingen_endring");
 
-    await db().from("tournaments").update(patch).eq("id", tournament.id);
+    must(await db().from("tournaments").update(patch).eq("id", tournament.id));
     await bumpVersion(tournament.id);
     defer(() => broadcast(channels.tournament(tournament.id), events.structure, {}), "admin-patch");
     return ok({ ok: true });
@@ -37,3 +37,5 @@ export async function PATCH(
     return fail(500, "kunne_ikke_endre");
   }
 }
+
+export const PATCH = withApi(handlePATCH);
