@@ -79,6 +79,38 @@ describe("POST /api/tournament — wizard config survives the route", () => {
     expect(captured!.config).toMatchObject({ groupCount: 3, advancePerGroup: 2, thirdPlace: true });
   });
 
+  it("carries a valid schedule through, and omits it when not sent", async () => {
+    const base = {
+      title: "x", sport_label: "", format: "league", scoring,
+      parallelism: "sequential", teams: teams(4), courts: [],
+    };
+    await post({ ...base, config: { playoffSize: 0, roundRobinDouble: false } });
+    expect(captured!.config).not.toHaveProperty("schedule");
+
+    const res = await post({
+      ...base,
+      config: {
+        playoffSize: 0, roundRobinDouble: false,
+        schedule: { startAt: "2026-10-25T09:00:00Z", matchMinutes: 12, breakMinutes: 3, minRestMinutes: 10 },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(captured!.config.schedule).toEqual({
+      startAt: "2026-10-25T09:00:00.000Z", matchMinutes: 12, breakMinutes: 3, minRestMinutes: 10,
+    });
+  });
+
+  it("rejects an invalid schedule with 400", async () => {
+    const res = await post({
+      title: "x", sport_label: "", format: "league", scoring,
+      parallelism: "sequential", teams: teams(4), courts: [],
+      config: { playoffSize: 0, roundRobinDouble: false, schedule: { startAt: "ikke-en-dato", matchMinutes: 10 } },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("ugyldig_tidsplan");
+    expect(captured).toBeNull();
+  });
+
   it("carries thirdPlace for league_playoff and cup", async () => {
     for (const format of ["league_playoff", "cup"] as const) {
       const res = await post({
