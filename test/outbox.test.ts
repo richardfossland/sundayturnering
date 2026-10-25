@@ -206,7 +206,6 @@ describe("Outbox", () => {
     await outbox.enqueue({ ...entryInput(1), attempts: MAX_ATTEMPTS - 1 });
     await outbox.flush();
     expect(outbox.snapshot()[0].failed).toBe(true);
-    await outbox.enqueue(entryInput(2 + 7)); // same-match re-entry below
     await outbox.enqueue({ ...entryInput(5), matchId: "m1" });
     expect(outbox.snapshot().filter((e) => e.failed)).toHaveLength(0);
   });
