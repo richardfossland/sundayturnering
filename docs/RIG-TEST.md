@@ -94,6 +94,28 @@ real Supabase project and real devices. Walk these once provisioned
 ## Reconnect
 - [ ] Kill the board tab mid-tournament, reopen `/board/[id]` → state restored.
 - [ ] Drop wifi on a control device → it recovers on the poll backstop.
+- [ ] **Frakoblet-banner:** with the board open, turn wifi off → within a few
+      seconds the banner «Frakoblet – sist oppdatert …» appears and the last
+      good state stays on screen. Turn wifi back on → the banner clears by
+      itself, without reloading the page.
+- [ ] **Utløpt timer lager ikke lyd:** start a short timer, let it expire, then
+      reload the board → no buzzer on load (it only sounds when the timer
+      expires live while watching).
+- [ ] **Feilside gjenoppretter seg:** make the board hit its error page (e.g.
+      block the API in devtools, then unblock) → after ~5 s it recovers on its
+      own, no manual reload.
+- [ ] **Tidsavbrudd ≠ feil kode:** on a slow/throttled link ("Slow 3G" or
+      blocked API) enter a correct control code → the message says
+      «tidsavbrudd» / try again, NOT «feil kode».
+- [ ] _(kommer)_ **For mange forsøk:** enter wrong codes repeatedly on the
+      attach screen → «For mange forsøk» appears (and a correct code still
+      works after the minute has passed).
+
+## Load (one IP, 30 phones)
+- [ ] Against a dev server: `node scripts/load.mjs http://localhost:3000` →
+      zero 429s on correct-code attach/live traffic, exactly one 409 on a
+      simultaneous double result submit. Restart the dev server between runs
+      (rate-limit buckets live in process memory).
 
 ## Deploy verification
 - [ ] `scripts/provision.mjs` → migrations applied, `.env.local` written.
