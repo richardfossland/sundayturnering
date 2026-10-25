@@ -35,3 +35,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## brackets-viewer.js og bracketry
+
+- Kilder: https://github.com/Drarig29/brackets-viewer.js og https://github.com/sbachinin/bracketry
+- Lisens: MIT
+- Brukt i: `lib/tournament/bracketLayout.ts` og `app/board/[id]/Bracket.tsx` — kun idéer
+  (kolonne per runde med kamper midt mellom matere; utheving av lagets vei). Ingen kode er portet.
