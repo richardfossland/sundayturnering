@@ -13,6 +13,11 @@ export type ScoringProfileKey = "simple" | "sets" | "winner";
 export type Parallelism = "sequential" | "parallel";
 export type TournamentStatus = "setup" | "league" | "playoff" | "finished";
 export type MatchPhase = "league" | "playoff";
+/** Hvilken brakett en sluttspillkamp hører til: A = hovedbrakett, B = B-sluttspill /
+ * trøsterunde, W/L/GF = vinner-/taperbrakett og storfinale (dobbel utslag). */
+export type BracketId = "A" | "B" | "W" | "L" | "GF";
+/** Ekstra sluttspill utover hovedbraketten. Uten verdi = "none". */
+export type Consolation = "none" | "b_playoff" | "first_round_losers";
 /** `called` = kalt opp til en bane, ikke startet ennå (A3). */
 export type MatchStatus = "scheduled" | "called" | "live" | "done" | "bye";
 
@@ -58,6 +63,8 @@ export interface TournamentConfig {
   schedule?: ScheduleConfig;
   /** Rekkefølge ved likt i tabellen. Uten verdi = "standard" (dagens oppførsel). */
   tiebreak?: TiebreakConfig;
+  /** Ekstra sluttspill: B-sluttspill for resten (liga/gruppe) eller trøsterunde (cup). */
+  consolation?: Consolation;
 }
 
 /** Tidsplan-oppsett (lagres i `tournaments.config.schedule`). Alle tidspunkt er ISO. */
@@ -151,6 +158,9 @@ export interface Match {
   phase: MatchPhase;
   round: number;
   bracket_slot: number | null;
+  /** Brakett (migrasjon 0016); (round, bracket_slot) er bare entydig innenfor en brakett.
+   * Fraværende (før migrasjonen er kjørt) = 'A'. */
+  bracket?: BracketId;
   /** group_playoff: which group this league match belongs to. Null otherwise. */
   group_no: number | null;
   court_id: string | null;

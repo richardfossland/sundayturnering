@@ -9,20 +9,32 @@ import { no } from "@/lib/locale/no";
 import { matchTime } from "@/lib/client/view";
 import { resolve } from "@/lib/tournament/scoring";
 import {
-  inferLinks,
+  bracketInputs,
   layoutBrackets,
   type BracketInput,
+  type LayoutLink,
   type BracketLayout,
   type LayoutNode,
   type SlotOrigin,
 } from "@/lib/tournament/bracketLayout";
-import type { Match, ScoringConfig, Team } from "@/lib/types";
+import type { BracketId, Consolation, Match, ScoringConfig, Team } from "@/lib/types";
+
+/** Navn på brakettene i tavla: «A-sluttspill» og «B-sluttspill» (cup: «Trøsterunde»). */
+export function bracketLabels(consolation?: Consolation): Record<string, string> {
+  return {
+    A: no.board.bracketA,
+    B: consolation === "first_round_losers" ? no.board.bracketBCup : no.board.bracketB,
+  };
+}
 
 export function Bracket({
   matches,
   teams,
   scoring,
   brackets,
+  links,
+  consolation,
+  only,
   scrollRef,
 }: {
   matches: Match[];
@@ -30,6 +42,12 @@ export function Bracket({
   scoring: ScoringConfig;
   /** Flere braketter (B-sluttspill, taperbrakett …). Uten: én brakett «A» av alle sluttspillkamper. */
   brackets?: BracketInput[];
+  /** Ekte brakettkoblinger fra tilstanden; uten dem utledes de fra runde/slot. */
+  links?: LayoutLink[];
+  /** Bare for navngivning av B-braketten. */
+  consolation?: Consolation;
+  /** Vis kun denne braketten (tavla bytter mellom A og B når begge ikke får plass). */
+  only?: BracketId;
   /** Gir forelderen (tavlas auto-panorering) tilgang til den horisontale scrolleren. */
   scrollRef?: RefObject<HTMLDivElement | null>;
 }) {
@@ -37,15 +55,12 @@ export function Bracket({
     () => matches.filter((m) => m.phase === "playoff"),
     [matches],
   );
-  const layouts = useMemo(
-    () =>
-      layoutBrackets(
-        brackets ?? [
-          { id: "A", label: "", matches: playoff, links: inferLinks(playoff) },
-        ],
-      ),
-    [brackets, playoff],
-  );
+  const layouts = useMemo(() => {
+    const all = layoutBrackets(
+      brackets ?? bracketInputs(playoff, links, bracketLabels(consolation)),
+    );
+    return only ? all.filter((l) => l.id === only) : all;
+  }, [brackets, playoff, links, consolation, only]);
   const byId = useMemo(() => new Map(playoff.map((m) => [m.id, m])), [playoff]);
 
   const ownRef = useRef<HTMLDivElement>(null);
@@ -57,10 +72,12 @@ export function Bracket({
   // Bring inneværende runde til syne ved å sette scrollLeft på brakett-scrolleren
   // (aldri scrollIntoView — den scroller ALLE forfedre, også selve siden).
   const currentRound = useMemo(() => {
-    const open = playoff.filter((m) => m.status !== "done" && m.status !== "bye");
+    const open = playoff
+      .filter((m) => !only || (m.bracket ?? "A") === only)
+      .filter((m) => m.status !== "done" && m.status !== "bye");
     const live = open.find((m) => m.status === "live" || m.status === "called");
     return (live ?? open.sort((a, b) => a.round - b.round)[0])?.round ?? null;
-  }, [playoff]);
+  }, [playoff, only]);
   useEffect(() => {
     const el = scroller.current;
     if (!el || currentRound == null) return;

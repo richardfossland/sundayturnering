@@ -22,6 +22,7 @@ import {
   roundRobinRoundCount,
 } from "@/lib/tournament/roundRobin";
 import type {
+  Consolation,
   Format,
   Parallelism,
   ScoringConfig,
@@ -31,6 +32,7 @@ import type {
 import { myTournaments } from "@/lib/client/myTournaments";
 import { errorMessage } from "@/lib/locale/errors";
 import { clampGroupCount, clampPlayoffSize } from "@/lib/tournament/playoffSize";
+import { consolationOptions, cupConsolationFeasible } from "@/lib/tournament/consolation";
 
 interface DraftTeam {
   name: string;
@@ -60,6 +62,7 @@ export function Wizard() {
   const [groupCount, setGroupCount] = useState(2);
   const [advancePerGroup, setAdvancePerGroup] = useState(2);
   const [thirdPlace, setThirdPlace] = useState(false);
+  const [consolation, setConsolation] = useState<Consolation>("none");
   const [tiebreak, setTiebreak] = useState<TiebreakPreset>("standard");
   // Valgfri tidsplan (av som standard). Starttid i lokal tid, "YYYY-MM-DDTHH:mm".
   const [scheduleOn, setScheduleOn] = useState(false);
@@ -220,6 +223,18 @@ export function Wizard() {
   const effectivePlayoff = clampPlayoffSize(playoffSize, validTeams.length);
   const effectiveGroups = clampGroupCount(groupCount, validTeams.length);
   const groupsPossible = validTeams.length >= 4;
+  // Ekstra sluttspill: bare valg som passer formatet og som det er nok lag til.
+  const teamsOutOfA = isGroup
+    ? validTeams.length - effectiveGroups * advancePerGroup
+    : validTeams.length - effectivePlayoff;
+  const consolationChoices = consolationOptions(format).filter((c) =>
+    c === "first_round_losers"
+      ? cupConsolationFeasible(validTeams.length)
+      : c === "b_playoff"
+        ? teamsOutOfA >= 2
+        : true,
+  );
+  const effectiveConsolation = consolationChoices.includes(consolation) ? consolation : "none";
 
   function next() {
     let n = step + 1;
@@ -246,6 +261,7 @@ export function Wizard() {
           playoffSize: showPlayoff && !isGroup ? effectivePlayoff : 0,
           roundRobinDouble: false,
           thirdPlace: showStep6 ? thirdPlace : false,
+          ...(showStep6 && effectiveConsolation !== "none" ? { consolation: effectiveConsolation } : {}),
           ...(!isCup && tiebreak !== "standard" ? { tiebreak } : {}),
           ...(isGroup ? { groupCount: effectiveGroups, advancePerGroup } : {}),
           ...(scheduleOn && startLocal && !Number.isNaN(new Date(startLocal).getTime())
@@ -618,6 +634,24 @@ export function Wizard() {
                 />
                 <span>{no.wizard.thirdPlace}</span>
               </label>
+              {consolationChoices.length > 1 && (
+                <div className="field" style={{ marginTop: 8 }}>
+                  <label className="label">{no.wizard.consolation}</label>
+                  <div className="chips">
+                    {consolationChoices.map((c) => (
+                      <button
+                        key={c}
+                        className="chip"
+                        data-on={effectiveConsolation === c}
+                        onClick={() => setConsolation(c)}
+                      >
+                        {no.wizard.consolationOpts[c]}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="faint">{no.wizard.consolationHint[effectiveConsolation]}</span>
+                </div>
+              )}
             </Step>
           )}
 
@@ -628,6 +662,7 @@ export function Wizard() {
                 parallelism={parallelism} courtCount={courtCount}
                 teamCount={validTeams.length} playoff={showPlayoff && !isGroup ? effectivePlayoff : 0}
                 groupCount={effectiveGroups} advancePerGroup={advancePerGroup} thirdPlace={thirdPlace}
+                consolation={effectiveConsolation}
               />
               {tmplName === null ? (
                 <button
@@ -831,7 +866,7 @@ function MinuteField({
 function Summary(props: {
   title: string; sport: string; format: Format; scoring: ScoringConfig;
   parallelism: Parallelism; courtCount: number; teamCount: number; playoff: number;
-  groupCount?: number; advancePerGroup?: number; thirdPlace?: boolean;
+  groupCount?: number; advancePerGroup?: number; thirdPlace?: boolean; consolation?: Consolation;
 }) {
   const isGroup = props.format === "group_playoff";
   const matchCount = useMemo(() => {
@@ -867,6 +902,8 @@ function Summary(props: {
     ]);
   else if (props.playoff) rows.push([no.wizard.s6Title, `${props.playoff} lag`]);
   if (props.thirdPlace) rows.push([no.wizard.thirdPlace, "Ja"]);
+  if (props.consolation && props.consolation !== "none")
+    rows.push([no.wizard.consolation, no.wizard.consolationOpts[props.consolation]]);
 
   return (
     <div className="panel stack" style={{ gap: 10 }}>

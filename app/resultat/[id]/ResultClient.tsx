@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client/api";
 import { no, aw } from "@/lib/locale/no";
-import { initials, finalRanking, championId, teamMap } from "@/lib/client/view";
+import { initials, finalRanking, championId, bChampionId, teamMap } from "@/lib/client/view";
 import { computeAwards } from "@/lib/tournament/awards";
 import { matchesCsv, standingsCsv } from "@/lib/tournament/csv";
 import { downloadText, safeFilename } from "@/lib/client/download";
@@ -34,6 +34,7 @@ export function ResultClient({ id }: { id: string }) {
     state.tournament.scoring,
   );
   const byId = teamMap(state.teams);
+  const bTeam = byId.get(bChampionId(state.matches) ?? "");
 
   return (
     <main className="result-page">
@@ -82,6 +83,18 @@ export function ResultClient({ id }: { id: string }) {
             <div className="result-champ-eyebrow">🏆 Vinner</div>
             <TeamCrest team={champTeam} size={86} />
             <div className="result-champ-name">{champTeam.name}</div>
+          </section>
+        )}
+
+        {bTeam && (
+          <section className="result-champ">
+            <div className="result-champ-eyebrow">
+              {state.tournament.config?.consolation === "first_round_losers"
+                ? no.board.winnerBCup
+                : no.board.winnerB}
+            </div>
+            <TeamCrest team={bTeam} size={54} />
+            <div className="result-champ-name">{bTeam.name}</div>
           </section>
         )}
 

@@ -267,10 +267,12 @@ export const api = {
       organiserCode,
     });
   },
-  finish(tournamentId: string, organiserCode: string) {
+  /** 409 `b_sluttspill_pagar` (data.count) while B-kamper står igjen, til `force` bekrefter. */
+  finish(tournamentId: string, organiserCode: string, opts?: { force?: boolean }) {
     return post<{ ok: true }>("/api/organiser/finish", {
       tournamentId,
       organiserCode,
+      force: opts?.force,
     });
   },
   timer(

@@ -134,7 +134,16 @@ export function OrganiserPanel({
             disabled={busy || !code}
             onClick={async () => {
               if (!confirm(no.control.finish + "?")) return;
-              await guard(() => api.finish(tournament.id, code));
+              await guard(async () => {
+                try {
+                  return await api.finish(tournament.id, code);
+                } catch (e) {
+                  // B-sluttspill/trøsterunde ikke ferdig: bare med vilje.
+                  if (!(e instanceof ApiError && e.code === "b_sluttspill_pagar")) throw e;
+                  if (!confirm(no.control.finishBOpen(Number(e.data?.count ?? 0)))) return null;
+                  return await api.finish(tournament.id, code, { force: true });
+                }
+              });
             }}
           >
             {no.control.finish}

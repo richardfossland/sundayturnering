@@ -5,9 +5,10 @@
 // mellom kolonnene) er inspirert av brackets-viewer.js (MIT, Drarig29) og
 // brackets-manager. Ingen kode er portet; kun ideen.
 //
-// Modulen er DB-agnostisk og tar flere braketter (`BracketInput[]`): i dag én
-// («A» + bronsefinale som egen liten seksjon), senere B-sluttspill og dobbel
-// utslag som egne braketter gjennom samme komponent.
+// Modulen er DB-agnostisk og tar flere braketter (`BracketInput[]`): «A» (+ bronsefinale
+// som egen liten seksjon) og B-sluttspill / trøsterunde, senere dobbel utslag, som egne
+// braketter gjennom samme komponent. Koblinger som kommer fra en ANNEN brakett
+// (taper av A → trøsterunden) gir etiketter som «Taper av KF2» på tomme plasser.
 //
 // Koordinater: y er i «kamprad-enheter» fra toppen av brakettlegemet (første
 // runde: hver kamp tar 1 enhet, sentrum på n + 0.5). Komponenten gjør enheten om
@@ -131,7 +132,11 @@ const bySlot = (a: LayoutMatch, b: LayoutMatch) =>
   (a.bracket_slot ?? 0) - (b.bracket_slot ?? 0) || a.id.localeCompare(b.id);
 
 /** Layout for én brakett. */
-export function layoutBracket(input: BracketInput): BracketLayout {
+export function layoutBracket(
+  input: BracketInput,
+  /** Kode (F, SF1 …) for kamper i andre braketter, til etiketter på tvers. */
+  foreignCodes: ReadonlyMap<string, string> = new Map(),
+): BracketLayout {
   const { id, label, matches, links } = input;
   const byId = new Map(matches.map((m) => [m.id, m]));
   const known = links.filter(
@@ -199,9 +204,13 @@ export function layoutBracket(input: BracketInput): BracketLayout {
 
   // Opprinnelsesetiketter for plasser som ikke er fylt av en kobling-kilde ennå.
   const origin = (toId: string, side: "home" | "away"): SlotOrigin | null => {
-    const l = (incoming.get(toId) ?? []).find((x) => x.to_slot === side);
+    const l =
+      (incoming.get(toId) ?? []).find((x) => x.to_slot === side) ??
+      links.find(
+        (x) => x.to_match_id === toId && x.to_slot === side && foreignCodes.has(x.from_match_id),
+      );
     if (!l) return null;
-    const code = codeOf.get(l.from_match_id);
+    const code = codeOf.get(l.from_match_id) ?? foreignCodes.get(l.from_match_id);
     if (!code) return null;
     return {
       fromId: l.from_match_id,
@@ -238,5 +247,37 @@ export function layoutBracket(input: BracketInput): BracketLayout {
 
 /** Layout for alle braketter (A, senere B / taperbrakett / finale). */
 export function layoutBrackets(brackets: BracketInput[]): BracketLayout[] {
-  return brackets.map(layoutBracket);
+  const first = brackets.map((b) => layoutBracket(b));
+  if (brackets.length < 2) return first;
+  // Andre runde: hver brakett får kodene til de andre, så «Taper av KF2» kan stå
+  // på en plass som mates fra en annen brakett.
+  return brackets.map((b, i) => {
+    const foreign = new Map<string, string>();
+    first.forEach((l, j) => {
+      if (j !== i)
+        for (const n of [...l.rounds.flatMap((r) => r.nodes), ...l.extras]) foreign.set(n.id, n.code);
+    });
+    return layoutBracket(b, foreign);
+  });
+}
+
+/** Del sluttspillkamper i braketter etter `bracket` (A først), med ekte koblinger
+ * når de finnes, ellers utledet fra runde/slot. `labels` gir visningsnavn. */
+export function bracketInputs(
+  playoff: (LayoutMatch & { bracket?: string })[],
+  links: LayoutLink[] | undefined,
+  labels: Record<string, string> = {},
+): BracketInput[] {
+  const ids = [...new Set(playoff.map((m) => m.bracket ?? "A"))].sort();
+  return ids.map((id) => {
+    const ms = playoff.filter((m) => (m.bracket ?? "A") === id);
+    const own = new Set(ms.map((m) => m.id));
+    const real = (links ?? []).filter((l) => own.has(l.from_match_id) || own.has(l.to_match_id));
+    return {
+      id,
+      label: labels[id] ?? id,
+      matches: ms,
+      links: real.length > 0 ? real : inferLinks(ms),
+    };
+  });
 }

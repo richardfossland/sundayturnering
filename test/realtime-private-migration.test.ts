@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 
-// Applies every migration (0001…0015) to an in-memory Postgres with a stubbed
+// Applies every migration (0001…0016) to an in-memory Postgres with a stubbed
 // Supabase `realtime` schema, then replays what Realtime does at join time: a
 // SELECT / INSERT on realtime.messages AS the subscriber's role with
 // realtime.topic() set to the channel topic. The stub mirrors the real shape
@@ -76,7 +76,7 @@ beforeAll(async () => {
     create table storage.buckets (id text primary key, name text, public boolean);
   `);
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
-  expect(files.at(-1)).toBe("0015_idempotent_result.sql");
+  expect(files.at(-1)).toBe("0016_brackets.sql");
   for (const f of files) await db.exec(readFileSync(join(MIGRATIONS, f), "utf8"));
   // Re-applying must be a no-op (idempotent).
   await db.exec(readFileSync(join(MIGRATIONS, "0011_realtime_private.sql"), "utf8"));

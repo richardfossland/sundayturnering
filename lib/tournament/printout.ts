@@ -15,6 +15,7 @@ type MatchLike = Pick<
   | "phase"
   | "round"
   | "bracket_slot"
+  | "bracket"
   | "group_no"
   | "court_id"
   | "queue_order"
@@ -37,13 +38,15 @@ const known = (m: MatchLike) => m.home_team_id !== null && m.away_team_id !== nu
 /** Antall sluttspillrunder (for «Finale»/«Semifinale»-navn). */
 export function playoffRounds(matches: MatchLike[]): number {
   let max = 0;
-  for (const m of matches) if (m.phase === "playoff") max = Math.max(max, m.round);
+  for (const m of matches)
+    if (m.phase === "playoff" && (m.bracket ?? "A") === "A") max = Math.max(max, m.round);
   return max;
 }
 
 /** «Gruppe A · Runde 2», «Semifinale», «Bronsefinale» eller «Runde 3». */
 export function roundText(m: MatchLike, totalPlayoffRounds: number): string {
   if (m.phase === "playoff") {
+    if (m.bracket === "B") return `${no.board.bracketB} · ${no.board.round} ${m.round}`;
     if (m.bracket_slot === BRONZE_SLOT && m.round === totalPlayoffRounds) return no.board.bronze;
     return bracketRoundLabel(m.round, totalPlayoffRounds);
   }

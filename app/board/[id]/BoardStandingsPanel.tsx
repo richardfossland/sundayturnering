@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { no } from "@/lib/locale/no";
 import { Standings, GroupStandings } from "./Standings";
-import { Bracket } from "./Bracket";
+import { Bracket, bracketLabels } from "./Bracket";
 import type { StateDTO } from "@/lib/dto";
-import type { Team } from "@/lib/types";
+import type { BracketId, Team } from "@/lib/types";
 
 /**
  * The board's right column. Standings are ALWAYS visible (top region) — they no
@@ -83,6 +83,26 @@ function BracketRegion({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
 
+  // A og B får sjelden plass samtidig: vis én om gangen med faner, og bytt av seg
+  // selv (~20 s) til noen trykker eller scroller.
+  const ids = useMemo(
+    () =>
+      [...new Set(matches.filter((m) => m.phase === "playoff").map((m) => m.bracket ?? "A"))]
+        .sort() as BracketId[],
+    [matches],
+  );
+  const labels = bracketLabels(tournament.config?.consolation);
+  const [picked, setPicked] = useState<BracketId>("A");
+  const active = ids.includes(picked) ? picked : ids[0];
+  useEffect(() => {
+    if (paused || ids.length < 2) return;
+    const t = setInterval(
+      () => setPicked((p) => ids[(Math.max(0, ids.indexOf(p)) + 1) % ids.length]),
+      20_000,
+    );
+    return () => clearInterval(t);
+  }, [paused, ids]);
+
   // Gently pan the bracket end↔start every ~15s so later rounds come into view
   // on a wide board without ever hiding the standings above. Any interaction
   // pauses it. This is the only remaining auto-motion (replaces the 9s flip).
@@ -105,6 +125,25 @@ function BracketRegion({
         <div className="section-title" style={{ marginBottom: 0 }}>
           {no.board.bracket}
         </div>
+        {ids.length > 1 && (
+          <div className="btn-row" role="tablist">
+            {ids.map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={id === active}
+                className={`btn${id === active ? " btn-gold" : ""}`}
+                onClick={() => {
+                  setPaused(true);
+                  setPicked(id);
+                }}
+              >
+                {labels[id] ?? id}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div
         className="board-bracket-scroll"
@@ -114,6 +153,9 @@ function BracketRegion({
           matches={matches}
           teams={teams}
           scoring={tournament.scoring}
+          links={state.links}
+          consolation={tournament.config?.consolation}
+          only={ids.length > 1 ? active : undefined}
           scrollRef={scrollRef}
         />
       </div>

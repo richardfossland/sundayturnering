@@ -159,6 +159,17 @@ export const no = {
     groupCount: "Antall grupper",
     advancePerGroup: "Videre fra hver gruppe",
     thirdPlace: "Spill om 3.-plass (bronsefinale)",
+    consolation: "Ekstra sluttspill",
+    consolationOpts: {
+      none: "Ingen",
+      b_playoff: "B-sluttspill for resten",
+      first_round_losers: "Trøsterunde for førsterunde-tapere",
+    } as const,
+    consolationHint: {
+      none: "Lag som ryker ut eller ikke kommer videre, er ferdige.",
+      b_playoff: "Lagene som ikke kom til sluttspillet får et eget B-sluttspill, seedet etter tabellen.",
+      first_round_losers: "Taperne av første runde møtes i en egen trøsterunde (frirunder tapper ikke).",
+    } as const,
     tiebreak: "Ved likt i tabellen",
     tiebreakOpts: { standard: "Standard", uefa: "Innbyrdes først (UEFA)" } as const,
     tiebreakHint: {
@@ -211,6 +222,11 @@ export const no = {
     winnerOf: (code: string) => `Vinner av ${code}`,
     loserOf: (code: string) => `Taper av ${code}`,
     bronze: "Bronsefinale",
+    bracketA: "A-sluttspill",
+    bracketB: "B-sluttspill",
+    bracketBCup: "Trøsterunde",
+    winnerB: "Vinner B-sluttspill",
+    winnerBCup: "Vinner trøsterunde",
     group: "Gruppe",
     groups: "Grupper",
     tbd: "Avventer",
@@ -353,6 +369,8 @@ export const no = {
     advanceConfirm: "Bygg sluttspillet fra tabellen nå?",
     override: "Overstyr resultat",
     finish: "Avslutt turnering",
+    finishBOpen: (n: number) =>
+      `B-sluttspillet er ikke ferdig (${n} ${n === 1 ? "kamp" : "kamper"} igjen). Avslutte turneringen likevel?`,
     wrongOrganiserCode: "Feil arrangørkode.",
     needOrganiser: "Denne handlingen krever arrangørkoden.",
 

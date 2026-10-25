@@ -4,6 +4,7 @@ import { db, getMatches, getTeams, bumpVersion } from "@/lib/server/store";
 import { buildCupMatches } from "@/lib/server/build";
 import { computeStandings, computeGroupStandings } from "@/lib/tournament/standings";
 import { seedKnockoutFromGroups } from "@/lib/tournament/groups";
+import { bSeedsFromGroups, bSeedsFromLeague, pendingFinals } from "@/lib/tournament/consolation";
 import { planDownstreamReset } from "@/lib/tournament/downstream";
 import { matchEnd } from "@/lib/tournament/schedule";
 import type { Match, Tournament } from "@/lib/types";
@@ -32,6 +33,9 @@ export async function advanceToPlayoff(t: Tournament): Promise<void> {
     const [teams, matches] = await Promise.all([getTeams(t.id), getMatches(t.id)]);
 
     let seedIds: string[];
+    // B-sluttspill for resten: lagene som ikke kom til A, seedet etter samme tabell.
+    let bSeeds: string[] | undefined;
+    const wantB = t.config?.consolation === "b_playoff";
     if (isGroup) {
       const perGroup = t.config?.advancePerGroup ?? 2;
       const groups = computeGroupStandings(teams, matches, t.scoring, perGroup, t.config?.tiebreak);
@@ -39,9 +43,19 @@ export async function advanceToPlayoff(t: Tournament): Promise<void> {
         g.rows.slice(0, perGroup).map((r) => r.team_id),
       );
       seedIds = seedKnockoutFromGroups(qualifiers);
+      if (wantB)
+        bSeeds = bSeedsFromGroups(
+          groups.map((g) => g.rows.map((r) => r.team_id)),
+          perGroup,
+        );
     } else {
       const standings = computeStandings(teams, matches, t.scoring, size, t.config?.tiebreak);
       seedIds = standings.slice(0, size).map((s) => s.team_id);
+      if (wantB)
+        bSeeds = bSeedsFromLeague(
+          standings.map((s) => s.team_id),
+          size,
+        );
     }
     if (seedIds.length < 2) throw new Error("For få lag til sluttspill.");
 
@@ -66,6 +80,7 @@ export async function advanceToPlayoff(t: Tournament): Promise<void> {
       thirdPlace: t.config?.thirdPlace,
       schedule,
       notBefore,
+      bSeeds: bSeeds && bSeeds.length >= 2 ? bSeeds : undefined,
     });
     await bumpVersion(t.id);
   } catch (e) {
@@ -147,8 +162,9 @@ export async function resetDownstream(
 
 /** After a playoff match resolves, push the winner into the next match's slot
  * (and, for a bronze final, the loser into its loser-link) via bracket_links.
- * The tournament finishes only when the FINAL (bracket_slot 0, no winner-link)
- * completes — never when a bronze final does. Returns whether it finished.
+ * The tournament finishes only when EVERY bracket final (bracket_slot 0, no
+ * winner-link: A, and B when there is one) has completed — never when a bronze
+ * final does. Returns whether it finished.
  *
  * The whole step runs as ONE atomic, idempotent Postgres RPC
  * (`propagate_playoff_result`, migration 0009) instead of the several
@@ -217,16 +233,27 @@ async function propagateResultLegacy(match: Match): Promise<boolean> {
   }
 
   if (winnerLinks.length === 0) {
-    // No onward winner-link. The final (slot 0) finishes the tournament; a
-    // bronze final (slot 1) just records third place.
-    const isFinal = match.bracket_slot === 0;
-    if (isFinal)
+    // No onward winner-link. A bracket final (slot 0) finishes the tournament
+    // once no other bracket final is left; a bronze final (slot 1) just
+    // records third place.
+    let decided = false;
+    if (match.bracket_slot === 0) {
+      const [{ data: allLinks }, all] = await Promise.all([
+        sb.from("bracket_links").select("from_match_id,feed").eq("tournament_id", match.tournament_id),
+        getMatches(match.tournament_id),
+      ]);
+      decided = pendingFinals(
+        all.map((m) => (m.id === match.id ? { ...m, status: "done" as const } : m)),
+        allLinks ?? [],
+      ).length === 0;
+    }
+    if (decided)
       await sb
         .from("tournaments")
         .update({ status: "finished" })
         .eq("id", match.tournament_id);
     await bumpVersion(match.tournament_id);
-    return isFinal;
+    return decided;
   }
 
   for (const link of winnerLinks) {

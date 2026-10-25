@@ -50,6 +50,7 @@ beforeEach(() => {
   rows.teams = [];
   rows.courts = [];
   rows.matches = [];
+  rows.bracket_links = [];
   __resetRateLimiter();
 });
 
@@ -67,6 +68,21 @@ describe("public state carries no codes", () => {
     expect(body.tournament).not.toHaveProperty("organiser_code");
     // belt and braces: the values appear nowhere in the payload
     for (const secret of ["402815", "KOLE-FR", "ABCD-EF"]) expect(text).not.toContain(secret);
+  });
+});
+
+describe("state carries the bracket links", () => {
+  it("exposes from/to/slot/feed (no tournament_id) so the board can draw real links", async () => {
+    rows.bracket_links = [
+      { id: "l1", tournament_id: ID, from_match_id: "a", to_match_id: "b", to_slot: "home", feed: "loser" },
+    ];
+    const res = await GET(new Request(`http://x/api/tournament/${ID}`), {
+      params: Promise.resolve({ id: ID }),
+    });
+    const body = await res.json();
+    // The fake client returns whole rows; the real select() narrows the columns.
+    expect(body.links).toHaveLength(1);
+    expect(body.links[0]).toMatchObject({ from_match_id: "a", to_match_id: "b", to_slot: "home", feed: "loser" });
   });
 });
 

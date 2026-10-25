@@ -208,6 +208,22 @@ describe("POST /api/organiser/finish", () => {
     expect(bumped).toBe(1);
   });
 
+  it("409 b_sluttspill_pagar while B matches are open; force finishes anyway", async () => {
+    matchesRows = [
+      { phase: "playoff", bracket: "A", status: "done" },
+      { phase: "playoff", bracket: "B", status: "scheduled" },
+      { phase: "playoff", bracket: "B", status: "bye" },
+    ] as Match[];
+    const res = await post(finish, auth);
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({ error: "b_sluttspill_pagar", count: 1 });
+    expect(updates).toHaveLength(0);
+
+    const forced = await post(finish, { ...auth, force: true });
+    expect(forced.status).toBe(200);
+    expect(updates).toEqual([{ status: "finished" }]);
+  });
+
   it("503 when the DB write fails, and the version is not bumped", async () => {
     dbError = { message: "boom" };
     const res = await post(finish, auth);
