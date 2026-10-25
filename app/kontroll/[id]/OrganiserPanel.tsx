@@ -284,11 +284,12 @@ function ShiftSection({
   }, []);
 
   const upcoming = matches
-    .filter((m) => m.status !== "done" && m.status !== "bye" && m.scheduled_at)
+    .filter((m) => m.status !== "done" && m.status !== "bye" && m.status !== "live" && m.scheduled_at)
     .filter((m) => !courtId || m.court_id === courtId)
     .sort((a, b) => Date.parse(a.scheduled_at!) - Date.parse(b.scheduled_at!));
   const fromMatch = upcoming.find((m) => m.id === fromId);
-  const fromIso = fromMatch?.scheduled_at ?? new Date(now).toISOString();
+  // Standard: alle uspilte kamper, også de som er forsinket (før «nå»).
+  const fromIso = fromMatch?.scheduled_at ?? new Date(0).toISOString();
   const mins = Number(minutes);
   const { changes, error } = previewShift(matches, {
     courtId: courtId || null,

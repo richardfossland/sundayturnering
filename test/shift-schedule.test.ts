@@ -30,11 +30,12 @@ describe("previewShift", () => {
     m("c", 20, C1),
     m("d", 30, C1, "done"),
     m("e", 40, C1, "bye"),
+    m("lv", 15, C1, "live"),
     m("f", null, C1),
     m("old", -30, C1),
   ];
 
-  it("shifts all courts from `from`, leaving done/bye/untimed/earlier alone", () => {
+  it("shifts all courts from `from`, leaving done/bye/live/untimed/earlier alone", () => {
     const r = previewShift(ms, req());
     expect(r.error).toBeNull();
     expect(r.changes.map((c) => c.matchId)).toEqual(["a", "b", "c"]);
@@ -72,6 +73,23 @@ describe("previewShift", () => {
     expect(previewShift(ms, req({ minutes: 1.5 })).error).toBe("ugyldig_skyv");
     expect(previewShift(ms, req({ minutes: NaN })).error).toBe("ugyldig_skyv");
     expect(previewShift(ms, req({ fromIso: "nope" })).error).toBe("ugyldig_skyv");
+  });
+
+  it("includes overdue unplayed matches when from is the epoch; a positive shift may stay in the past", () => {
+    const r = previewShift(ms, req({ fromIso: new Date(0).toISOString(), nowIso: at(30) }));
+    expect(r.error).toBeNull();
+    expect(r.changes.map((c) => c.matchId)).toEqual(["a", "b", "c", "old"]);
+    // old: -30 +10 = -20, still before now (+30): allowed because it moves later
+    expect(r.changes.find((c) => c.matchId === "old")!.after).toBe(at(-20));
+  });
+
+  it("never shifts live matches", () => {
+    expect(previewShift(ms, req()).changes.map((c) => c.matchId)).not.toContain("lv");
+  });
+
+  it("refuses a negative shift of an overdue match into the past", () => {
+    const r = previewShift(ms, req({ fromIso: new Date(0).toISOString(), minutes: -5, nowIso: at(30) }));
+    expect(r.error).toBe("skyv_for_tidlig");
   });
 
   it("reports ingen_kamper when nothing matches", () => {

@@ -299,7 +299,7 @@ export const no = {
     shiftCourt: "Bane",
     shiftAllCourts: "Alle baner",
     shiftFrom: "Fra",
-    shiftFromNow: "Nå",
+    shiftFromNow: "Alle kommende kamper",
     shiftMinutes: "Minutter (− tidligere, + senere)",
     shiftPreview: (n: number) => `${n} ${n === 1 ? "kamp" : "kamper"} flyttes`,
     shiftConfirm: "Bekreft",

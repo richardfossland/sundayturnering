@@ -229,7 +229,7 @@ export interface ShiftRequest {
   nowIso: string;
 }
 
-/** Hvilke kamper som flyttes (og til når) om tidsplanen skyves. Ferdige/bye-
+/** Hvilke kamper som flyttes (og til når) om tidsplanen skyves. Ferdige/bye-/live-
  * kamper og kamper uten klokkeslett røres aldri. */
 export function previewShift(
   matches: Pick<Match, "id" | "court_id" | "status" | "scheduled_at">[],
@@ -249,7 +249,7 @@ export function previewShift(
 
   const changes: ShiftChange[] = [];
   for (const m of matches) {
-    if (m.status === "done" || m.status === "bye" || !m.scheduled_at) continue;
+    if (m.status === "done" || m.status === "bye" || m.status === "live" || !m.scheduled_at) continue;
     if (req.courtId !== null && m.court_id !== req.courtId) continue;
     const t = Date.parse(m.scheduled_at);
     if (!Number.isFinite(t) || t < from) continue;
@@ -260,7 +260,7 @@ export function previewShift(
     });
   }
   if (changes.length === 0) return { changes, error: "ingen_kamper" };
-  if (changes.some((c) => Date.parse(c.after) < now - SHIFT_PAST_SLACK))
+  if (req.minutes < 0 && changes.some((c) => Date.parse(c.after) < now - SHIFT_PAST_SLACK))
     return { changes, error: "skyv_for_tidlig" };
   return { changes, error: null };
 }

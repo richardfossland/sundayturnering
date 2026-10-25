@@ -180,7 +180,8 @@ describe("0013 shift_schedule", () => {
     const rows: [string, string | null, string, number | null][] = [
       ["a", C1, "scheduled", 10],
       ["b", C2, "scheduled", 20],
-      ["c", C1, "live", 30],
+      ["c", C1, "scheduled", 30],
+      ["9", C1, "live", 35],
       ["d", C1, "done", 40],
       ["e", C1, "bye", 50],
       ["f", C1, "scheduled", null],
@@ -190,7 +191,7 @@ describe("0013 shift_schedule", () => {
       await db.query(
         `insert into turnering.matches (id, tournament_id, court_id, status, scheduled_at)
          values ($1, $2, $3, $4, $5)`,
-        [`${p}0000000-2222-4333-8444-555555555555`, T, court, status, min === null ? null : iso(min)],
+        [`${p.padEnd(1)}0000000-2222-4333-8444-555555555555`, T, court, status, min === null ? null : iso(min)],
       );
   });
 
@@ -198,11 +199,11 @@ describe("0013 shift_schedule", () => {
     const before = await sched();
     const v0 = await version();
     const r = await shift(C1, iso(8), 15);
-    expect(r.rows[0].n).toBe(2); // a (10) and c (30, live); not 1 (before from), not done/bye/untimed
+    expect(r.rows[0].n).toBe(2); // a (10) and c (30); not 1 (before from), not live/done/bye/untimed
     const after = await sched();
     expect(after.a! - before.a!).toBe(15 * 60_000);
     expect(after.c! - before.c!).toBe(15 * 60_000);
-    for (const k of ["b", "d", "e", "f", "1"]) expect(after[k]).toBe(before[k]);
+    for (const k of ["b", "d", "e", "f", "1", "9"]) expect(after[k]).toBe(before[k]);
     expect(await version()).toBe(v0 + 1);
   });
 
@@ -233,6 +234,23 @@ describe("0013 shift_schedule", () => {
     const v0 = await version();
     expect((await shift(null, iso(1000), 5)).rows[0].n).toBe(0);
     expect(await version()).toBe(v0);
+  });
+
+  it("includes overdue matches from the epoch; positive shift may stay in the past, negative may not", async () => {
+    await db.query(
+      `insert into turnering.matches (id, tournament_id, court_id, status, scheduled_at)
+       values ('20000000-2222-4333-8444-555555555555', $1, $2, 'scheduled', $3)`,
+      [T, C1, iso(-30)],
+    );
+    const epoch = new Date(0).toISOString();
+    const before = await sched();
+    await expect(shift(null, epoch, -5)).rejects.toThrow(/shift_in_past/);
+    expect(await sched()).toEqual(before);
+    const r = await shift(null, epoch, 10);
+    expect(r.rows[0].n).toBeGreaterThanOrEqual(4);
+    const after = await sched();
+    expect(after["2"]! - before["2"]!).toBe(10 * 60_000); // still overdue, allowed
+    expect(after["9"]).toBe(before["9"]); // live untouched
   });
 
   it("is executable by service_role only", async () => {

@@ -8,10 +8,10 @@
 --
 -- Rules (mirrored in lib/tournament/schedule.ts → previewShift, which the UI and
 -- the route use to give friendly errors; the RPC stays the authority):
---   * only matches of the tournament that are not done/bye and have a
+--   * only matches of the tournament that are not done/bye/live and have a
 --     scheduled_at >= p_from; optionally only one court
 --   * |p_minutes| <= 240 and p_minutes <> 0
---   * no resulting time may be earlier than now() - 1 minute
+--   * a NEGATIVE shift may not land earlier than now() - 1 minute (a positive shift of an overdue match is fine)
 -- Violations raise with errcode P0422 and message shift_too_large /
 -- shift_zero / shift_in_past (nothing is written). Returns the affected count;
 -- the tournament version is bumped only when something moved.
@@ -40,7 +40,7 @@ begin
     from (
       select id from turnering.matches
        where tournament_id = p_tournament
-         and status not in ('done', 'bye')
+         and status not in ('done', 'bye', 'live')
          and scheduled_at is not null
          and scheduled_at >= p_from
          and (p_court is null or court_id = p_court)
@@ -56,6 +56,7 @@ begin
   if exists (
     select 1 from turnering.matches
      where id = any(ids)
+       and p_minutes < 0
        and scheduled_at + make_interval(mins => p_minutes) < now() - interval '1 minute'
   ) then
     raise exception 'shift_in_past' using errcode = 'P0422';
