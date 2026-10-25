@@ -3,6 +3,7 @@ import type { Match, Team } from "@/lib/types";
 import type { StateDTO } from "@/lib/dto";
 import { BRONZE_SLOT } from "@/lib/tournament/bracket";
 import { no } from "@/lib/locale/no";
+import { doubleElimOutcome } from "@/lib/tournament/doubleElim";
 
 export function teamMap(teams: Team[]): Map<string, Team> {
   return new Map(teams.map((t) => [t.id, t]));
@@ -54,6 +55,8 @@ export function bChampionId(matches: Match[]): string | null {
 /** The champion's team id: playoff final winner if a bracket exists, else the
  * rank-1 league standing. Null until decided. */
 export function championId(state: StateDTO): string | null {
+  if (state.tournament.format === "double_elim")
+    return doubleElimOutcome(state.matches)?.champion ?? null;
   const playoff = state.matches.filter((m) => m.phase === "playoff" && inA(m));
   if (playoff.length > 0) {
     const finalRound = Math.max(...playoff.map((m) => m.round));
@@ -113,6 +116,7 @@ export function knockoutPodium(playoff: Match[]): string[] {
  * better), then seed. */
 export function finalRanking(state: StateDTO): Team[] {
   const { teams, standings, matches } = state;
+  if (state.tournament.format === "double_elim") return doubleElimRanking(teams, matches);
   const playoff = matches.filter((m) => m.phase === "playoff" && inA(m));
   const hasStandings =
     standings.length > 0 && standings.some((s) => s.played > 0);
@@ -150,6 +154,30 @@ export function finalRanking(state: StateDTO): Team[] {
     }
     const ra = lostRound.get(a.id) ?? 0;
     const rb = lostRound.get(b.id) ?? 0;
+    if (rb !== ra) return rb - ra;
+    return (a.seed ?? 99) - (b.seed ?? 99);
+  });
+}
+
+/** Dobbel utslag: 1 = vinneren av avgjørende finale, 2 = taperen, 3 = taperen av
+ * taperfinalen. Resten etter hvor sent de røk ut av taperbraketten (senere = bedre),
+ * så seed. Før finalen er avgjort rangeres alle slik. */
+function doubleElimRanking(teams: Team[], matches: Match[]): Team[] {
+  const out = doubleElimOutcome(matches);
+  const podium = out ? [out.champion, out.runnerUp, out.third].filter((id): id is string => !!id) : [];
+  const podiumRank = new Map(podium.map((id, i) => [id, i]));
+  const outRound = new Map<string, number>();
+  for (const m of matches) {
+    if (m.bracket !== "L" || m.status !== "done" || !m.winner_team_id) continue;
+    for (const tid of [m.home_team_id, m.away_team_id])
+      if (tid && tid !== m.winner_team_id) outRound.set(tid, Math.max(outRound.get(tid) ?? 0, m.round));
+  }
+  return [...teams].sort((a, b) => {
+    const pa = podiumRank.get(a.id) ?? 99;
+    const pb = podiumRank.get(b.id) ?? 99;
+    if (pa !== pb) return pa - pb;
+    const ra = outRound.get(a.id) ?? 0;
+    const rb = outRound.get(b.id) ?? 0;
     if (rb !== ra) return rb - ra;
     return (a.seed ?? 99) - (b.seed ?? 99);
   });

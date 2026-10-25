@@ -46,6 +46,9 @@ export function playoffRounds(matches: MatchLike[]): number {
 /** «Gruppe A · Runde 2», «Semifinale», «Bronsefinale» eller «Runde 3». */
 export function roundText(m: MatchLike, totalPlayoffRounds: number): string {
   if (m.phase === "playoff") {
+    if (m.bracket === "W") return `${no.board.bracketW} · ${no.board.round} ${m.round}`;
+    if (m.bracket === "L") return `${no.board.bracketL} · ${no.board.round} ${m.round}`;
+    if (m.bracket === "GF") return m.round === 1 ? no.board.final : no.board.rematch;
     if (m.bracket === "B") return `${no.board.bracketB} · ${no.board.round} ${m.round}`;
     if (m.bracket_slot === BRONZE_SLOT && m.round === totalPlayoffRounds) return no.board.bronze;
     return bracketRoundLabel(m.round, totalPlayoffRounds);

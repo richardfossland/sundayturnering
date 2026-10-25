@@ -38,7 +38,7 @@ export function matchesCsv(
     .map((m) => {
       const r = m.result ? resolve(scoring.profile, m.result, scoring) : null;
       return [
-        m.phase,
+        m.bracket === "W" || m.bracket === "L" || m.bracket === "GF" ? `${m.phase}:${m.bracket}` : m.phase,
         String(m.round),
         name(m.home_team_id),
         name(m.away_team_id),

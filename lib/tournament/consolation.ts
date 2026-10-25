@@ -148,12 +148,29 @@ export function buildCupConsolationSet(
 
 /** Avgjør hvilke brakettfinaler som ikke er spilt (ren motpart til RPC-en
  * `propagate_playoff_result`, brukt av fallback-stien og tester). En finale =
- * bracket_slot 0 uten vinner-kobling videre. */
+ * bracket_slot 0 uten vinner-kobling videre.
+ *
+ * Dobbel utslag: storfinalen (GF runde 1) har en vinner-kobling til omkampen, så
+ * omkampen (GF runde 2) er «finalen» som må være avgjort. Vant W-laget (hjemme)
+ * storfinalen, utgår omkampen og teller ikke som uspilt, selv om raden ennå ikke
+ * er flagget `bye`. */
 export function pendingFinals(
-  matches: readonly { id: string; phase: string; bracket_slot: number | null; status: string }[],
+  matches: readonly {
+    id: string;
+    phase: string;
+    bracket_slot: number | null;
+    status: string;
+    bracket?: string;
+    round?: number;
+    home_team_id?: string | null;
+    winner_team_id?: string | null;
+  }[],
   links: readonly { from_match_id: string; feed: string }[],
 ): string[] {
   const hasOnward = new Set(links.filter((l) => l.feed !== "loser").map((l) => l.from_match_id));
+  const gf1 = matches.find((m) => m.bracket === "GF" && m.round === 1);
+  const rematchVoid =
+    !!gf1 && gf1.status === "done" && !!gf1.winner_team_id && gf1.winner_team_id === gf1.home_team_id;
   return matches
     .filter(
       (m) =>
@@ -161,7 +178,8 @@ export function pendingFinals(
         m.bracket_slot === 0 &&
         !hasOnward.has(m.id) &&
         m.status !== "done" &&
-        m.status !== "bye",
+        m.status !== "bye" &&
+        !(rematchVoid && m.bracket === "GF" && m.round === 2),
     )
     .map((m) => m.id);
 }

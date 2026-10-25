@@ -6,8 +6,8 @@
 // brackets-manager. Ingen kode er portet; kun ideen.
 //
 // Modulen er DB-agnostisk og tar flere braketter (`BracketInput[]`): «A» (+ bronsefinale
-// som egen liten seksjon) og B-sluttspill / trøsterunde, senere dobbel utslag, som egne
-// braketter gjennom samme komponent. Koblinger som kommer fra en ANNEN brakett
+// som egen liten seksjon), B-sluttspill / trøsterunde og dobbel utslag (vinnerbrakett W,
+// taperbrakett L, storfinale GF) som egne braketter gjennom samme komponent. Koblinger som kommer fra en ANNEN brakett
 // (taper av A → trøsterunden) gir etiketter som «Taper av KF2» på tomme plasser.
 //
 // Koordinater: y er i «kamprad-enheter» fra toppen av brakettlegemet (første
@@ -29,7 +29,15 @@ export interface BracketInput {
   label: string;
   matches: LayoutMatch[];
   links: LayoutLink[];
+  /** Kamper uten matere midt i treet plasseres etter slot (ikke etter 2^runde):
+   * taperbrakett og storfinale halverer ikke antall kamper per runde. */
+  flat?: boolean;
 }
+
+/** Visningsrekkefølge for braketter (A, B, så dobbel utslag: W, L, GF). */
+export const BRACKET_ORDER = ["A", "B", "W", "L", "GF"];
+export const byBracketOrder = (a: string, b: string) =>
+  (BRACKET_ORDER.indexOf(a) + 1 || 99) - (BRACKET_ORDER.indexOf(b) + 1 || 99) || a.localeCompare(b);
 
 /** Hvor en ikke-avgjort plass kommer fra («Vinner av SF1»). */
 export interface SlotOrigin {
@@ -118,6 +126,25 @@ export function roundName(col: number, cols: number): string {
   return `${no.board.round} ${col + 1}`;
 }
 
+/** Rundenavn per brakett: L har «Taperrunde n» og «Taperfinale», GF «Finale» og «Omkamp». */
+function roundTitle(id: string, round: number, col: number, cols: number): string {
+  if (id === "L") return col === cols - 1 ? no.board.loserFinal : `${no.board.loserRound} ${col + 1}`;
+  if (id === "GF") return round === 1 ? no.board.final : no.board.rematch;
+  return roundName(col, cols);
+}
+
+/** Kort kode per kamp. Vinnerbrakettens koder får «V-» (V-SF1), taperbrakettens «T»
+ * (T2.1, T-F), så «Taper av V-SF1» er entydig på tvers av braketter. */
+function matchCode(
+  id: string, round: number, col: number, cols: number, index: number, count: number,
+): string {
+  if (id === "W") return `V-${roundCode(col, cols, index, count)}`;
+  if (id === "L")
+    return col === cols - 1 && count === 1 ? "T-F" : `T${col + 1}.${index + 1}`;
+  if (id === "GF") return round === 1 ? "F" : "OK";
+  return roundCode(col, cols, index, count);
+}
+
 function roundCode(col: number, cols: number, index: number, count: number): string {
   const fromEnd = cols - 1 - col;
   const n = index + 1;
@@ -137,7 +164,7 @@ export function layoutBracket(
   /** Kode (F, SF1 …) for kamper i andre braketter, til etiketter på tvers. */
   foreignCodes: ReadonlyMap<string, string> = new Map(),
 ): BracketLayout {
-  const { id, label, matches, links } = input;
+  const { id, label, matches, links, flat } = input;
   const byId = new Map(matches.map((m) => [m.id, m]));
   const known = links.filter(
     (l) => byId.has(l.from_match_id) && byId.has(l.to_match_id),
@@ -181,7 +208,7 @@ export function layoutBracket(
         y = leaf++ + 0.5;
       } else {
         // Uten matere midt i treet: der standardrutenettet ville plassert den.
-        y = ((m.bracket_slot ?? 0) + 0.5) * 2 ** (round - minRound);
+        y = ((m.bracket_slot ?? 0) + 0.5) * (flat ? 1 : 2 ** (round - minRound));
       }
       // Aldri tettere enn 1 enhet (sikrer monotone, ikke-overlappende kort).
       y = Math.max(y, prev + 1);
@@ -190,11 +217,11 @@ export function layoutBracket(
       return y;
     });
     const nodes: LayoutNode[] = ms.map((m, i) => {
-      const code = roundCode(col, cols, i, ms.length);
+      const code = matchCode(id, round, col, cols, i, ms.length);
       codeOf.set(m.id, code);
       return { id: m.id, round, col, y: ys[i], code, home: null, away: null };
     });
-    rounds.push({ round, col, name: roundName(col, cols), nodes });
+    rounds.push({ round, col, name: roundTitle(id, round, col, cols), nodes });
   });
 
   const extras: LayoutNode[] = extraMatches.map((m, i) => {
@@ -268,7 +295,7 @@ export function bracketInputs(
   links: LayoutLink[] | undefined,
   labels: Record<string, string> = {},
 ): BracketInput[] {
-  const ids = [...new Set(playoff.map((m) => m.bracket ?? "A"))].sort();
+  const ids = [...new Set(playoff.map((m) => m.bracket ?? "A"))].sort(byBracketOrder);
   return ids.map((id) => {
     const ms = playoff.filter((m) => (m.bracket ?? "A") === id);
     const own = new Set(ms.map((m) => m.id));
@@ -278,6 +305,7 @@ export function bracketInputs(
       label: labels[id] ?? id,
       matches: ms,
       links: real.length > 0 ? real : inferLinks(ms),
+      ...(id === "L" || id === "GF" ? { flat: true } : {}),
     };
   });
 }

@@ -7,6 +7,7 @@ import { clampPlayoffSize } from "@/lib/tournament/playoffSize";
 import { sanitiseSchedule } from "@/lib/tournament/schedule";
 import { sanitiseTiebreak } from "@/lib/tournament/standings";
 import { sanitiseConsolation } from "@/lib/tournament/consolation";
+import { DOUBLE_ELIM_MAX_TEAMS, DOUBLE_ELIM_MIN_TEAMS } from "@/lib/tournament/doubleElim";
 
 // POST /api/tournament — create a tournament from the onboarding wizard (and
 // /hurtig). This route is the seam between the wizard and lib/server/build:
@@ -15,7 +16,7 @@ import { sanitiseConsolation } from "@/lib/tournament/consolation";
 // group stage + bronze final: the wizard offered them, build.ts supported them,
 // and this route dropped them — see test/create-route-config.test.ts.)
 
-const FORMATS: readonly Format[] = ["league", "league_playoff", "cup", "group_playoff"];
+const FORMATS: readonly Format[] = ["league", "league_playoff", "cup", "group_playoff", "double_elim"];
 const PROFILES: readonly ScoringProfileKey[] = ["simple", "sets", "winner"];
 
 function intOr(v: unknown, dflt: number): number {
@@ -50,6 +51,11 @@ async function handlePOST(req: Request) {
   // Upper bound: 64 teams already implies ~2016 league matches — well past any
   // real classroom event, and a guard against an accidental/DoS huge schedule.
   if (body.teams.length > 64) return fail(400, "for_mange_lag");
+  // Dobbel utslag er bygget for 3–32 lag (L-braketten vokser fort).
+  if (body.format === "double_elim") {
+    if (body.teams.length < DOUBLE_ELIM_MIN_TEAMS) return fail(400, "for_fa_lag_dobbel");
+    if (body.teams.length > DOUBLE_ELIM_MAX_TEAMS) return fail(400, "for_mange_lag_dobbel");
+  }
   if (body.teams.some((t) => typeof t?.name !== "string" || !t.name.trim()))
     return fail(400, "lag_mangler_navn");
 
@@ -99,6 +105,9 @@ async function handlePOST(req: Request) {
         ...(schedule ? { schedule } : {}),
         ...(tiebreak ? { tiebreak } : {}),
         ...(consolation ? { consolation } : {}),
+        ...(body.format === "double_elim"
+          ? { doubleElim: { grandFinalReset: cfg.doubleElim?.grandFinalReset !== false } }
+          : {}),
       },
       organiserId: admin?.id ?? null,
       teams: body.teams.map((t) => ({

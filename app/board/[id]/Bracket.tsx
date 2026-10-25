@@ -24,6 +24,9 @@ export function bracketLabels(consolation?: Consolation): Record<string, string>
   return {
     A: no.board.bracketA,
     B: consolation === "first_round_losers" ? no.board.bracketBCup : no.board.bracketB,
+    W: no.board.bracketW,
+    L: no.board.bracketL,
+    GF: no.board.bracketGF,
   };
 }
 
@@ -51,8 +54,12 @@ export function Bracket({
   /** Gir forelderen (tavlas auto-panorering) tilgang til den horisontale scrolleren. */
   scrollRef?: RefObject<HTMLDivElement | null>;
 }) {
+  // En utgått omkamp (W-laget vant storfinalen) vises ikke.
   const playoff = useMemo(
-    () => matches.filter((m) => m.phase === "playoff"),
+    () =>
+      matches.filter(
+        (m) => m.phase === "playoff" && !(m.bracket === "GF" && m.round === 2 && m.status === "bye"),
+      ),
     [matches],
   );
   const layouts = useMemo(() => {
