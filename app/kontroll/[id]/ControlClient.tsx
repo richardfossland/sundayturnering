@@ -154,7 +154,8 @@ export function ControlClient({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [refetch, id],
   );
-  const { entries: unsent, flush: flushOutbox } = useOutbox(id, onOutbox);
+  const { entries: unsent, flush: flushOutbox, dismiss: dismissOutbox } = useOutbox(id, onOutbox);
+  const unsentPending = useMemo(() => unsent.filter((e) => !e.failed), [unsent]);
   const unsentByMatch = useMemo(() => new Map(unsent.map((e) => [e.matchId, e])), [unsent]);
   const [retrying, setRetrying] = useState(false);
 
@@ -293,9 +294,9 @@ export function ControlClient({ id }: { id: string }) {
     <main className="control">
       <OfflineBanner failures={failures} lastOkAt={lastOkAt} />
       <div className="control-head stack" style={{ gap: 10 }}>
-        {unsent.length > 0 && (
+        {unsentPending.length > 0 && (
           <div className="unsent-bar" role="status" aria-live="polite">
-            <span>{no.control.unsentBadge(unsent.length)}</span>
+            <span>{no.control.unsentBadge(unsentPending.length)}</span>
             <button
               className="btn btn-sm"
               disabled={retrying}
@@ -436,6 +437,7 @@ export function ControlClient({ id }: { id: string }) {
               profile={tournament.scoring.profile}
               selfDeviceId={self?.deviceId ?? null}
               unsent={unsentByMatch.get(m.id) ?? null}
+              onDismissUnsent={dismissOutbox}
               onTap={() => openMatch(m)}
               onStart={m.status === "scheduled" || m.status === "called" ? () => startMatch(m) : undefined}
             />
@@ -563,6 +565,7 @@ function MatchCard({
   profile,
   selfDeviceId,
   unsent,
+  onDismissUnsent,
   onTap,
   onStart,
 }: {
@@ -573,6 +576,7 @@ function MatchCard({
   selfDeviceId: string | null;
   /** A result for this match waits in the outbox: show it, block a second entry. */
   unsent: OutboxEntry | null;
+  onDismissUnsent: (requestId: string) => void;
   onTap: () => void;
   onStart?: () => void;
 }) {
@@ -589,7 +593,8 @@ function MatchCard({
   const lockName = locked ? m.locked_by!.split("|")[1] : null;
   const r = m.result ? resolve(profile, m.result) : null;
   const ready = h && a;
-  const tappable = !unsent && ((ready && m.status !== "done") || correctMsLeft != null);
+  // A failed entry no longer blocks: the referee may re-enter the score.
+  const tappable = (!unsent || unsent.failed) && ((ready && m.status !== "done") || correctMsLeft != null);
   const unsentScore = unsent ? resolve(profile, unsent.payload.result).display : null;
   const homeWon = !!(m.winner_team_id && m.winner_team_id === m.home_team_id);
   const awayWon = !!(m.winner_team_id && m.winner_team_id === m.away_team_id);
@@ -617,7 +622,23 @@ function MatchCard({
         <TeamLine team={a} win={m.status === "done" && awayWon} />
       </div>
       <div className="match-meta stack" style={{ gap: 4, alignItems: "flex-end" }}>
-        {unsentScore ? (
+        {unsentScore && unsent?.failed ? (
+          <>
+            <span className="pill pill-unsent" role="alert">{no.control.unsentCard(unsentScore)}</span>
+            <span className="muted" style={{ fontSize: ".8rem", textAlign: "right" }}>
+              {no.control.unsentFailed}
+            </span>
+            <button
+              className="btn btn-sm"
+              onClick={(ev) => {
+                ev.stopPropagation();
+                onDismissUnsent(unsent.requestId);
+              }}
+            >
+              {no.control.unsentDismiss}
+            </button>
+          </>
+        ) : unsentScore ? (
           <span className="pill pill-unsent">{no.control.unsentCard(unsentScore)}</span>
         ) : m.status === "done" && r ? (
           // Full scoreline (e.g. "2–1 (25–20, 23–25, 15–10)") — no longer

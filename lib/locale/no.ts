@@ -377,6 +377,8 @@ export const no = {
     unsentRetry: "Prøv nå",
     unsentRetrying: "Sender …",
     unsentCard: (score: string) => `Ikke sendt: ${score}`,
+    unsentFailed: "Kunne ikke lagres – registrer på nytt eller si fra til arrangør",
+    unsentDismiss: "Fjern",
     unsentSent: "Resultatet er sendt.",
     unsentRejected: "Et lagret resultat kunne ikke sendes, fordi kampen er endret av en annen enhet. Sjekk kampen på nytt.",
     codeRejected: "Kontrollkoden ble avvist — tast den på nytt.",

@@ -13,6 +13,8 @@ import {
 } from "@/lib/emblems";
 import {
   templates,
+  timeOfDay,
+  withTimeOfDay,
   type Template,
   type TemplateData,
 } from "@/lib/client/templates";
@@ -99,6 +101,16 @@ export function Wizard() {
       advancePerGroup,
       thirdPlace,
       grandFinalReset,
+      swissRounds,
+      tiebreak,
+      consolation,
+      schedule: {
+        on: scheduleOn,
+        startTime: timeOfDay(startLocal),
+        matchMinutes,
+        breakMinutes,
+        minRestMinutes,
+      },
       teams: validTeams.map((t) => ({
         name: t.name.trim(),
         colour: t.colour,
@@ -127,6 +139,18 @@ export function Wizard() {
     if (d.advancePerGroup) setAdvancePerGroup(d.advancePerGroup);
     setThirdPlace(!!d.thirdPlace);
     setGrandFinalReset(d.grandFinalReset !== false);
+    // Added after the first templates: absent = the wizard defaults.
+    setSwissRounds(d.swissRounds ?? null);
+    setTiebreak(d.tiebreak ?? "standard");
+    setConsolation(d.consolation ?? "none");
+    if (d.schedule) {
+      setScheduleOn(d.schedule.on);
+      // Only the time of day is saved; the date stays the wizard's default.
+      setStartLocal((cur) => withTimeOfDay(cur, d.schedule!.startTime));
+      setMatchMinutes(d.schedule.matchMinutes);
+      setBreakMinutes(d.schedule.breakMinutes);
+      setMinRestMinutes(d.schedule.minRestMinutes);
+    }
     setCount(d.teams.length || 8);
     setTeams(
       rollEmblems(

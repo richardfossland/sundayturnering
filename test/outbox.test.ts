@@ -8,6 +8,7 @@ import {
   classifySendError,
   indexedDbStore,
   localStorageStore,
+  MAX_ATTEMPTS,
   memoryStore,
   type OutboxEntry,
   type OutboxEvent,
@@ -159,19 +160,54 @@ describe("Outbox", () => {
     expect(outbox.snapshot()).toHaveLength(0);
   });
 
-  it("a network failure stops the pass (order kept, later entries untouched)", async () => {
+  it("a network failure keeps order per match but does not block other matches", async () => {
     const seen: string[] = [];
     const send = vi.fn(async (e: OutboxEntry) => {
-      seen.push(e.matchId);
-      throw net();
+      seen.push(e.requestId.slice(-1));
+      if (e.matchId === "m1") throw net();
+      return match;
     });
     const { outbox } = make(memoryStore(), send);
     await outbox.ready();
     await outbox.enqueue(entryInput(1));
+    await outbox.enqueue({ ...entryInput(3), matchId: "m1" }); // later entry, same match
     await outbox.enqueue(entryInput(2));
     await outbox.flush();
-    expect(seen).toEqual(["m1"]);
+    expect(seen).toEqual(["1", "2"]); // 3 waits behind 1; 2 (other match) went through
     expect(outbox.snapshot().map((e) => e.attempts)).toEqual([1, 0]);
+  });
+
+  it("marks an entry failed after MAX_ATTEMPTS, stops sending it, dismiss removes it", async () => {
+    const send = vi.fn(async () => {
+      throw new ApiError(503, "feil");
+    });
+    const store = memoryStore();
+    const { outbox } = make(store, send);
+    await outbox.ready();
+    await outbox.enqueue(entryInput(1));
+    for (let i = 0; i < MAX_ATTEMPTS; i++) await outbox.flush();
+    const [e] = outbox.snapshot();
+    expect(e).toMatchObject({ failed: true, attempts: MAX_ATTEMPTS });
+    expect((await store.all())[0].failed).toBe(true);
+    const calls = send.mock.calls.length;
+    await outbox.flush();
+    expect(send.mock.calls.length).toBe(calls); // no longer sent
+    await outbox.dismiss(e.requestId);
+    expect(outbox.snapshot()).toHaveLength(0);
+    expect(await store.all()).toHaveLength(0);
+  });
+
+  it("a re-entered result for the same match replaces its failed entry", async () => {
+    const send = vi.fn(async () => {
+      throw net();
+    });
+    const { outbox } = make(memoryStore(), send);
+    await outbox.ready();
+    await outbox.enqueue({ ...entryInput(1), attempts: MAX_ATTEMPTS - 1 });
+    await outbox.flush();
+    expect(outbox.snapshot()[0].failed).toBe(true);
+    await outbox.enqueue({ ...entryInput(5), matchId: "m1" });
+    expect(outbox.snapshot().filter((e) => e.failed)).toHaveLength(0);
   });
 
   it("never flushes in parallel: concurrent calls share one pass, one send", async () => {

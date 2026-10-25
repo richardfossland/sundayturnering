@@ -156,15 +156,23 @@ export function computeStandings(
 
   for (const r of acc.values()) r.diff = r.scoreFor - r.scoreAgainst;
 
-  // Form guide: each team's results in chronological (queue) order.
+  // Form guide: each team's results in chronological order. A Swiss bye is a
+  // result of its round, so byes sort in with the played matches by round
+  // (then queue order), not all up front.
   const formMap = new Map<string, ("W" | "D" | "L")[]>();
   const push = (id: string, v: "W" | "D" | "L") => {
     const arr = formMap.get(id) ?? [];
     arr.push(v);
     formMap.set(id, arr);
   };
-  for (const m of byes) push(m.home_team_id!, "W");
-  for (const m of [...leagueDone].sort((a, b) => a.queue_order - b.queue_order)) {
+  const timeline = [...byes, ...leagueDone].sort(
+    (a, b) => a.round - b.round || a.queue_order - b.queue_order,
+  );
+  for (const m of timeline) {
+    if (m.status === "bye") {
+      push(m.home_team_id!, "W");
+      continue;
+    }
     const { winner } = resolve(profile, m.result!, cfg);
     push(m.home_team_id!, winner === "draw" ? "D" : winner === "home" ? "W" : "L");
     push(m.away_team_id!, winner === "draw" ? "D" : winner === "away" ? "W" : "L");

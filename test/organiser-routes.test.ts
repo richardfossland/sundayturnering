@@ -186,10 +186,18 @@ describe("POST /api/organiser/advance", () => {
   });
 
   it("400 kunne_ikke_avansere when the bracket build throws", async () => {
-    advanceThrows = new Error("for få lag");
+    advanceThrows = new Error("For få lag til sluttspill.");
     const res = await post(advance, { ...auth, force: true });
     expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toMatchObject({ error: "kunne_ikke_avansere", detail: "for få lag" });
+    await expect(res.json()).resolves.toMatchObject({ error: "kunne_ikke_avansere", detail: "For få lag til sluttspill." });
+  });
+
+  it("does not leak a raw DB error in detail", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    advanceThrows = new Error('duplicate key value violates unique constraint "matches_pkey"');
+    const res = await post(advance, { ...auth, force: true });
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "kunne_ikke_avansere" });
   });
 
   it("503 midlertidig_feil when reading matches fails", async () => {

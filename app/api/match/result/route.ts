@@ -1,4 +1,5 @@
 import { ok, fail, readJson, rateLimit, ipKey, withApi } from "@/lib/server/http";
+import type { Match } from "@/lib/types";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateResult } from "@/lib/server/playoff";
 import { broadcast } from "@/lib/server/broadcast";
@@ -65,7 +66,24 @@ async function handlePOST(req: Request) {
       p_request_id: requestId,
       p_match_id: m.id,
     });
-    if (prior) return ok({ match: prior, replay: true });
+    if (prior) {
+      // The first send may have committed but died before propagating the
+      // bracket. propagate_playoff_result is a no-op once bracket_propagations
+      // holds this result_version, so re-running it on every replay is safe.
+      let propagated = true;
+      const pm = prior as Match;
+      if (pm.phase === "playoff") {
+        try {
+          await propagateResult(pm);
+        } catch (e) {
+          propagated = false;
+          console.error("[result] propagate failed on replay", e);
+        }
+      }
+      return ok(
+        propagated ? { match: prior, replay: true } : { match: prior, replay: true, propagated: false },
+      );
+    }
     if (m.status === "done") return fail(409, "kamp_ferdig");
   }
 
@@ -110,6 +128,10 @@ async function handlePOST(req: Request) {
   if (error) {
     if (error.message?.includes("version_conflict"))
       return fail(409, "konflikt");
+    // The id belongs to another match (migration 0019): a 409 makes the
+    // referee outbox drop the entry instead of retrying it forever.
+    if (error.message?.includes("request_id_conflict"))
+      return fail(409, "foresporsel_konflikt");
     console.error("[result]", error);
     return fail(500, "kunne_ikke_lagre");
   }

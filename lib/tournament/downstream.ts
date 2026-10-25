@@ -11,7 +11,7 @@ type LinkLike = Pick<BracketLink, "from_match_id" | "to_match_id" | "to_slot">;
 type MatchLike = Pick<Match, "id" | "status">;
 
 export interface DownstreamReset {
-  /** Later matches already live/done that must go back to 'scheduled'. */
+  /** Later matches already called/live/done that must go back to 'scheduled'. */
   reset: string[];
   /** Slots whose team came from a match being reset (or from the changed
    * match itself) and so are no longer known. The changed match's own slots
@@ -39,7 +39,8 @@ export function planDownstreamReset(
       // The root's own slots are refilled by propagation; deeper slots were
       // fed by a match we are resetting, so they become unknown.
       if (!isRoot) out.clearSlots.push({ matchId: target.id, slot: l.to_slot });
-      const started = target.status === "live" || target.status === "done";
+      const started =
+        target.status === "called" || target.status === "live" || target.status === "done";
       if (started && !seen.has(target.id)) {
         seen.add(target.id);
         out.reset.push(target.id);

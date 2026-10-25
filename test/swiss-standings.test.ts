@@ -88,6 +88,16 @@ describe("swiss-bye", () => {
   });
 });
 
+describe("swiss-bye i formkurven", () => {
+  it("byen står i riktig runde, ikke først", () => {
+    const t = ["A", "B", "C"].map((id, i) => team(id, i + 1));
+    // C: R1 taper mot A, R2 bye, R3 vinner mot B (queue_order følger opprettelse).
+    const g = [match(1, "A", "C", 1, 0), match(1, "B", null), match(2, "C", null), match(2, "A", "B", 1, 0), match(3, "C", "B", 2, 0)];
+    const c = computeStandings(t, g, cfg, 0, "swiss", { byeIsWin: true }).find((r) => r.team_id === "C")!;
+    expect(c.form).toEqual(["L", "W", "W"]);
+  });
+});
+
 describe("planSwissRound og swissProgress", () => {
   it("runde 1 etter seed, runde 2 etter tabellen uten omkamp; bye får poeng i tabellen", () => {
     const t = ["A", "B", "C", "D", "E"].map((id, i) => team(id, i + 1));

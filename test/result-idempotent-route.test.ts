@@ -13,6 +13,7 @@ const REQ = "33333333-3333-4333-8333-333333333333";
 let t: Tournament;
 let m: Match;
 let prior: unknown = null;
+let submitError: { message: string } | null = null;
 const calls: { fn: string; args: Record<string, unknown> }[] = [];
 
 vi.mock("@/lib/server/store", () => ({
@@ -23,12 +24,21 @@ vi.mock("@/lib/server/store", () => ({
       calls.push({ fn, args });
       if (fn === "code_blocked") return { data: false, error: null };
       if (fn === "result_request_outcome") return { data: prior, error: null };
+      if (submitError) return { data: null, error: submitError };
       return { data: [{ ...m, status: "done", result_version: 1 }], error: null };
     },
   }),
 }));
 vi.mock("@/lib/server/broadcast", () => ({ broadcast: async () => {} }));
-vi.mock("@/lib/server/playoff", () => ({ propagateResult: async () => true }));
+const propagated: unknown[] = [];
+let propagateFails = false;
+vi.mock("@/lib/server/playoff", () => ({
+  propagateResult: async (mm: unknown) => {
+    propagated.push(mm);
+    if (propagateFails) throw new Error("db down");
+    return true;
+  },
+}));
 
 import { POST } from "@/app/api/match/result/route";
 import { __resetRateLimiter } from "@/lib/server/http";
@@ -53,6 +63,9 @@ const submits = () => calls.filter((c) => c.fn === "submit_match_result");
 beforeEach(() => {
   __resetRateLimiter();
   calls.length = 0;
+  propagated.length = 0;
+  submitError = null;
+  propagateFails = false;
   prior = null;
   t = {
     id: ID,
@@ -114,5 +127,39 @@ describe("result route: requestId", () => {
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe("kamp_ferdig");
     expect(submits()).toEqual([]);
+  });
+
+  it("replay of a playoff match re-runs propagation (lost first propagation)", async () => {
+    m = { ...m, phase: "playoff", status: "done", result_version: 1 } as Match;
+    prior = { id: MID, phase: "playoff", status: "done", result_version: 1, winner_team_id: "h" };
+    const res = await post({ requestId: REQ });
+    expect(res.status).toBe(200);
+    expect(propagated).toEqual([prior]);
+    expect(submits()).toEqual([]);
+  });
+
+  it("replay: a propagation failure is flagged, not a 5xx", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    propagateFails = true;
+    m = { ...m, phase: "playoff", status: "done", result_version: 1 } as Match;
+    prior = { id: MID, phase: "playoff", status: "done", result_version: 1, winner_team_id: "h" };
+    const res = await post({ requestId: REQ });
+    expect(res.status).toBe(200);
+    expect((await res.json()).propagated).toBe(false);
+  });
+
+  it("replay of a league match does not propagate", async () => {
+    m = { ...m, status: "done", result_version: 1 } as Match;
+    prior = { id: MID, phase: "league", status: "done", result_version: 1 };
+    await post({ requestId: REQ });
+    expect(propagated).toEqual([]);
+  });
+
+  it("a request id owned by another match answers 409 (outbox drops it)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    submitError = { message: "request_id_conflict" };
+    const res = await post({ requestId: REQ });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("foresporsel_konflikt");
   });
 });
