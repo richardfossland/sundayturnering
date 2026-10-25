@@ -34,6 +34,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* Backstop for the Referrer-Policy header: prerendered pages served
+            from OpenNext's cache interception may skip next.config headers(),
+            and /kontroll?code= carries the control code in its URL. */}
+        <meta name="referrer" content="no-referrer" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>

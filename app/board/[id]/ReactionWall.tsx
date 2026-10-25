@@ -53,7 +53,11 @@ function ReactionWall({
     emptyReactionCounts,
   );
 
+  // Pending reap timeouts, cleared on unmount so none fires setState afterwards.
+  const reapTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
   useEffect(() => {
+    const timers = reapTimers.current;
     handleRef.current = {
       push(raw) {
         const p = parseReactionPayload(raw);
@@ -74,14 +78,17 @@ function ReactionWall({
         // Reap after the longest animation so the list can't grow unbounded.
         const maxDur = Math.max(...born.map((b) => b.dur)) * 1000 + 200;
         const ids = new Set(born.map((b) => b.id));
-        setTimeout(
-          () => setFloaters((prev) => prev.filter((f) => !ids.has(f.id))),
-          maxDur,
-        );
+        const timer = setTimeout(() => {
+          timers.delete(timer);
+          setFloaters((prev) => prev.filter((f) => !ids.has(f.id)));
+        }, maxDur);
+        timers.add(timer);
       },
     };
     return () => {
       handleRef.current = null;
+      for (const t of timers) clearTimeout(t);
+      timers.clear();
     };
   }, [handleRef]);
 

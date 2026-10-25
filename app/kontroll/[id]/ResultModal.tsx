@@ -6,6 +6,7 @@ import { ResultInput } from "@/lib/client/ResultInput";
 import { no } from "@/lib/locale/no";
 import { errorMessage } from "@/lib/locale/errors";
 import { useEscape } from "@/lib/client/useEscape";
+import { useFocusTrap } from "@/lib/client/useFocusTrap";
 import type { Match, MatchResult, Team } from "@/lib/types";
 import type { TournamentDTO } from "@/lib/dto";
 
@@ -44,6 +45,7 @@ export function ResultModal({
   // 422 detail or "tournament finished" never reached the referee).
   const [err, setErr] = useState<string | null>(null);
   useEscape(onClose);
+  const dialogRef = useFocusTrap<HTMLDivElement>();
   // Live score: debounce the referee's taps, skip unchanged pushes, and stop
   // once the final result is being saved. Only for a fresh entry on a live
   // match — a self-correct of a finished match must not flip it back.
@@ -173,6 +175,7 @@ export function ResultModal({
     // the score being typed. ✕ or Escape closes.
     <div className="scrim">
       <div
+        ref={dialogRef}
         className="card card-pad modal stack"
         role="dialog"
         aria-modal="true"

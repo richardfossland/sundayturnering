@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { OfflineBanner } from "@/lib/client/OfflineBanner";
 import { useTournament } from "@/lib/client/useTournament";
 import { ApiError } from "@/lib/client/api";
@@ -23,6 +23,39 @@ function fmtClock(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+/** Event-handler clock read (kept out of the component body for react-hooks/purity). */
+function wallClock(): number {
+  return Date.now();
+}
+
+/** 1 s wall clock for LEAF components only. Ticking in ControlClient re-rendered
+ * the whole control screen (all cards, organiser panel, modal) every second;
+ * here just the tiny component that shows a countdown re-renders.
+ * 0 until mounted keeps SSR/hydration identical. */
+function useNow(active = true): number {
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- first client read after hydration
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [active]);
+  return now;
+}
+
+function TimerLeft({ endsAt }: { endsAt: number }) {
+  const now = useNow();
+  if (!now) return null;
+  const left = endsAt - now;
+  return (
+    <strong className="timer-left" data-low={left < 60_000}>
+      {" "}
+      {fmtClock(left)}
+    </strong>
+  );
+}
+
 export function ControlClient({ id }: { id: string }) {
   const { state, error, failures, lastOkAt, refetch } = useTournament(id);
   const [tab, setTab] = useState<Tab>("scheduled");
@@ -34,7 +67,6 @@ export function ControlClient({ id }: { id: string }) {
   const [showRoster, setShowRoster] = useState(false);
   const [showStandings, setShowStandings] = useState(false);
   const [busyTimer, setBusyTimer] = useState(false);
-  const [nowMs, setNowMs] = useState(0);
   // The referee credential. undefined = not read yet (SSR/first paint); null =
   // this device never attached with the code (deep link, cleared storage, or
   // the server rejected the stored one) → the CodeGate below asks for it.
@@ -46,7 +78,6 @@ export function ControlClient({ id }: { id: string }) {
     setSelf({ deviceId: identity.deviceId(), name: identity.deviceName() || "Enhet" });
     setCourtId(identity.pinnedCourt(id));
     setCtl(identity.controlCode(id));
-    setNowMs(Date.now());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [id]);
 
@@ -64,18 +95,26 @@ export function ControlClient({ id }: { id: string }) {
     return false;
   }
 
-  // 1s tick drives the self-correct countdown + live timer remaining.
-  useEffect(() => {
-    const t = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
   const devices = usePresence(id, self);
   const teams = useMemo(() => teamMap(state?.teams ?? []), [state?.teams]);
 
+  // One pending hide-timer: a new toast replaces (and restarts) the previous
+  // one instead of the older timeout hiding the newer message early, and an
+  // unmount never fires setState on a dead component.
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    },
+    [],
+  );
   function flash(msg: string) {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast(msg);
-    setTimeout(() => setToast(null), 2600);
+    toastTimer.current = setTimeout(() => {
+      toastTimer.current = null;
+      setToast(null);
+    }, 2600);
   }
 
   if (error && !state)
@@ -137,8 +176,9 @@ export function ControlClient({ id }: { id: string }) {
 
   function openMatch(m: Match) {
     if (m.status === "done") {
-      // nowMs ticks every second; the server re-checks the window authoritatively.
-      if (self && canSelfCorrect(m, self.deviceId, nowMs)) {
+      // Read the clock at tap time (no per-second state in this component);
+      // the server re-checks the window authoritatively.
+      if (self && canSelfCorrect(m, self.deviceId, wallClock())) {
         setOpenMode("correct");
         setOpen(m);
       } else {
@@ -170,10 +210,8 @@ export function ControlClient({ id }: { id: string }) {
   const activeTimer: TimerState | null = timerCourtId
     ? (courts.find((c) => c.id === timerCourtId)?.timer ?? null)
     : (tournament.timer ?? null);
-  const timerLeft =
-    activeTimer?.running && activeTimer.endsAt
-      ? Date.parse(activeTimer.endsAt) - nowMs
-      : null;
+  const timerEndsAt =
+    activeTimer?.running && activeTimer.endsAt ? Date.parse(activeTimer.endsAt) : null;
 
   async function timerAction(action: "start" | "add" | "stop", durationSec?: number) {
     if (!ctl) return;
@@ -270,12 +308,7 @@ export function ControlClient({ id }: { id: string }) {
         <div className="timer-bar">
           <span className="timer-label">
             {no.control.matchTimer}
-            {timerLeft != null ? (
-              <strong className="timer-left" data-low={timerLeft < 60_000}>
-                {" "}
-                {fmtClock(timerLeft)}
-              </strong>
-            ) : null}
+            {timerEndsAt != null ? <TimerLeft endsAt={timerEndsAt} /> : null}
           </span>
           <div className="btn-row" style={{ gap: 6 }}>
             {[5, 8, 10].map((min) => (
@@ -322,11 +355,7 @@ export function ControlClient({ id }: { id: string }) {
               teams={teams}
               courts={courts}
               profile={tournament.scoring.profile}
-              correctMsLeft={
-                m.status === "done" && self && canSelfCorrect(m, self.deviceId, nowMs)
-                  ? selfCorrectMsLeft(m, nowMs)
-                  : null
-              }
+              selfDeviceId={self?.deviceId ?? null}
               onTap={() => openMatch(m)}
               onStart={m.status === "scheduled" ? () => startMatch(m) : undefined}
             />
@@ -369,7 +398,11 @@ export function ControlClient({ id }: { id: string }) {
         />
       )}
 
-      {toast && <div className="toast toast-danger">{toast}</div>}
+      {/* Always mounted so the live region exists before the text lands —
+          screen readers announce content changes, not freshly inserted regions. */}
+      <div role="status" aria-live="polite" className={toast ? "toast toast-danger" : undefined}>
+        {toast}
+      </div>
     </main>
   );
 }
@@ -446,7 +479,7 @@ function MatchCard({
   teams,
   courts,
   profile,
-  correctMsLeft,
+  selfDeviceId,
   onTap,
   onStart,
 }: {
@@ -454,10 +487,16 @@ function MatchCard({
   teams: Map<string, Team>;
   courts: Court[];
   profile: import("@/lib/types").ScoringProfileKey;
-  correctMsLeft: number | null;
+  selfDeviceId: string | null;
   onTap: () => void;
   onStart?: () => void;
 }) {
+  // Only finished cards run the self-correct countdown clock.
+  const now = useNow(m.status === "done" && !!selfDeviceId);
+  const correctMsLeft =
+    now && selfDeviceId && canSelfCorrect(m, selfDeviceId, now)
+      ? selfCorrectMsLeft(m, now)
+      : null;
   const h = m.home_team_id ? teams.get(m.home_team_id) : null;
   const a = m.away_team_id ? teams.get(m.away_team_id) : null;
   const court = courts.find((c) => c.id === m.court_id);
