@@ -179,3 +179,11 @@ export function grandFinalAction(
   if (!hasReset || !gf1.winner_team_id) return null;
   return gf1.winner_team_id === gf1.home_team_id ? "void" : "restore";
 }
+
+/** Spillerekkefølge på tvers av braketter (lavest først), brukt som `queue_order`
+ * og i tidsplanen. W-runde r kommer før L-rundene den mater; storfinalen sist. */
+export function doubleElimOrder(bracket: string, round: number): number {
+  if (bracket === "W") return round;
+  if (bracket === "L") return Math.floor(round / 2) + 1.5 + (round > 1 && round % 2 === 1 ? 0.1 : 0);
+  return 1000 + round; // GF
+}

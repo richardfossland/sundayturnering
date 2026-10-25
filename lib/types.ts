@@ -1,7 +1,7 @@
 // Domain types — mirror the Postgres tables (spec §2). DB rows use snake_case;
 // these are the shapes the service-role client reads/writes and the API serves.
 
-export type Format = "league" | "league_playoff" | "cup" | "group_playoff";
+export type Format = "league" | "league_playoff" | "cup" | "group_playoff" | "double_elim";
 
 /** Optional board countdown timer (spec extension). endsAt is an ISO instant. */
 export interface TimerState {
@@ -65,6 +65,8 @@ export interface TournamentConfig {
   tiebreak?: TiebreakConfig;
   /** Ekstra sluttspill: B-sluttspill for resten (liga/gruppe) eller trøsterunde (cup). */
   consolation?: Consolation;
+  /** double_elim only: omkamp i finalen hvis taperbraketten vinner (default true). */
+  doubleElim?: { grandFinalReset: boolean };
 }
 
 /** Tidsplan-oppsett (lagres i `tournaments.config.schedule`). Alle tidspunkt er ISO. */

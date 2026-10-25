@@ -111,6 +111,10 @@ export const no = {
         name: "Gruppespill",
         blurb: "Lagene deles i grupper, så går de beste til sluttspill.",
       },
+      double_elim: {
+        name: "Dobbel utslag",
+        blurb: "Du er ikke ute før du har tapt to ganger. Vinnerbrakett og taperbrakett.",
+      },
     },
 
     s3Title: "Poengtelling",
@@ -143,6 +147,7 @@ export const no = {
       "Lim inn alle deltakerne (ett navn per linje) – de fordeles tilfeldig og jevnt på lagene. Fint for gymtimen!",
     s4Members: (n: number) => `${n} spillere`,
     s4Min: "Minst 2 lag.",
+    s4MinDouble: "Dobbel utslag trenger minst 3 lag.",
     s4Count: (n: number) => `${n} lag`,
 
     s5Title: "Baner & avvikling",
@@ -159,6 +164,9 @@ export const no = {
     groupCount: "Antall grupper",
     advancePerGroup: "Videre fra hver gruppe",
     thirdPlace: "Spill om 3.-plass (bronsefinale)",
+    grandFinalReset: "Omkamp i finalen hvis taperbraketten vinner",
+    grandFinalResetHint:
+      "Laget fra vinnerbraketten har ikke tapt ennå. Taper det første finale, spilles en avgjørende omkamp.",
     consolation: "Ekstra sluttspill",
     consolationOpts: {
       none: "Ingen",
@@ -225,6 +233,12 @@ export const no = {
     bracketA: "A-sluttspill",
     bracketB: "B-sluttspill",
     bracketBCup: "Trøsterunde",
+    bracketW: "Vinnerbrakett",
+    bracketL: "Taperbrakett",
+    bracketGF: "Finale",
+    loserRound: "Taperrunde",
+    loserFinal: "Taperfinale",
+    rematch: "Omkamp",
     winnerB: "Vinner B-sluttspill",
     winnerBCup: "Vinner trøsterunde",
     group: "Gruppe",

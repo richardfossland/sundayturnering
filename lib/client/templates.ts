@@ -18,6 +18,8 @@ export interface TemplateData {
   groupCount?: number;
   advancePerGroup?: number;
   thirdPlace?: boolean;
+  /** Dobbel utslag: omkamp i finalen (eldre maler mangler den = ja). */
+  grandFinalReset?: boolean;
   teams: { name: string; colour: string; members: string[] }[];
 }
 

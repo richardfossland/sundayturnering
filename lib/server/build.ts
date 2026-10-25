@@ -12,6 +12,7 @@ import {
   cupConsolationFeasible,
   type BracketSet,
 } from "@/lib/tournament/consolation";
+import { buildDoubleElim, doubleElimOrder } from "@/lib/tournament/doubleElim";
 import { splitIntoGroups } from "@/lib/tournament/groups";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import { sanitiseTiebreak } from "@/lib/tournament/standings";
@@ -98,7 +99,10 @@ export async function createTournament(
   const config: TournamentConfig = {
     playoffSize: hasPlayoff ? input.config.playoffSize : 0,
     roundRobinDouble: !!input.config.roundRobinDouble,
-    thirdPlace: !!input.config.thirdPlace,
+    thirdPlace: input.format === "double_elim" ? false : !!input.config.thirdPlace,
+    ...(input.format === "double_elim"
+      ? { doubleElim: { grandFinalReset: input.config.doubleElim?.grandFinalReset !== false } }
+      : {}),
     ...(input.format === "group_playoff"
       ? {
           groupCount: clampInt(input.config.groupCount, 2, 8, 2),
@@ -110,10 +114,10 @@ export async function createTournament(
   const schedule = sanitiseSchedule(input.config.schedule);
   if (schedule && schedule !== "invalid") config.schedule = schedule;
   const tiebreak = sanitiseTiebreak(input.config.tiebreak);
-  if (tiebreak && tiebreak !== "invalid" && input.format !== "cup") config.tiebreak = tiebreak;
+  if (tiebreak && tiebreak !== "invalid" && input.format !== "cup" && input.format !== "double_elim") config.tiebreak = tiebreak;
   const consolation = validConsolation(input);
   if (consolation !== "none") config.consolation = consolation;
-  const status = input.format === "cup" ? "playoff" : "league";
+  const status = input.format === "cup" || input.format === "double_elim" ? "playoff" : "league";
 
   const { data: trow, error: terr } = await sb
     .from("tournaments")
@@ -216,6 +220,11 @@ async function buildRest(
       thirdPlace: t.config.thirdPlace,
       schedule: t.config.schedule,
       consolation: t.config.consolation,
+    });
+  } else if (input.format === "double_elim") {
+    await buildDoubleElimMatches(t.id, teamIds, courtIds, {
+      schedule: t.config.schedule,
+      grandFinalReset: t.config.doubleElim?.grandFinalReset !== false,
     });
   } else if (input.format === "group_playoff") {
     await buildGroupMatches(t, teamIds, courtIds);
@@ -378,18 +387,50 @@ export async function buildCupMatches(
     bSeeds?: string[];
   },
 ): Promise<void> {
-  const sb = db();
   const set: BracketSet =
     opts?.consolation === "first_round_losers"
       ? buildCupConsolationSet(seededTeamIds, { thirdPlace: opts.thirdPlace })
       : buildPlayoffSet(seededTeamIds, { thirdPlace: opts?.thirdPlace, bSeeds: opts?.bSeeds });
+  await persistBracketSet(tournamentId, set, courtIds, opts);
+}
+
+/** Dobbel utslag: vinnerbrakett (W), taperbrakett (L) og storfinale (GF) lagres
+ * som vanlige sluttspillkamper + koblinger, og tidsplanlegges i ett pass så de
+ * deler banene (L-runder kommer etter W-rundene som mater dem). */
+export async function buildDoubleElimMatches(
+  tournamentId: string,
+  seededTeamIds: string[],
+  courtIds: string[],
+  opts?: { schedule?: ScheduleConfig; grandFinalReset?: boolean },
+): Promise<void> {
+  const set = buildDoubleElim(seededTeamIds, { grandFinalReset: opts?.grandFinalReset });
+  await persistBracketSet(tournamentId, set, courtIds, {
+    schedule: opts?.schedule,
+    order: doubleElimOrder,
+  });
+}
+
+/** Lagre et brakettsett: kamper (med tidsplan), så koblinger med riktige id-er. */
+async function persistBracketSet(
+  tournamentId: string,
+  set: BracketSet,
+  courtIds: string[],
+  opts?: {
+    schedule?: ScheduleConfig;
+    notBefore?: Date;
+    /** Spillerekkefølge (lavest først); default runde for runde, brakett for brakett. */
+    order?: (bracket: string, round: number) => number;
+  },
+): Promise<void> {
+  const sb = db();
 
   // Spillerekkefølge: runde for runde, A før B, så B-runde 1 kommer rett etter
   // A-runde 1 (og ikke etter hele A). Med bare A er dette samme rekkefølge som før.
   const flat = set.brackets.flatMap(({ id, bracket }, bi) =>
     bracket.matches.map((m) => ({ id, bi, m })),
   );
-  flat.sort((x, y) => x.m.round - y.m.round || x.bi - y.bi || x.m.slot - y.m.slot);
+  const at = (id: string, round: number) => opts?.order?.(id, round) ?? round;
+  flat.sort((x, y) => at(x.id, x.m.round) - at(y.id, y.m.round) || x.bi - y.bi || x.m.slot - y.m.slot);
 
   let queue = 0;
   const plain = flat.map(({ id, m }) => {

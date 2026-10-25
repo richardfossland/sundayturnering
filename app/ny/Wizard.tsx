@@ -63,6 +63,7 @@ export function Wizard() {
   const [advancePerGroup, setAdvancePerGroup] = useState(2);
   const [thirdPlace, setThirdPlace] = useState(false);
   const [consolation, setConsolation] = useState<Consolation>("none");
+  const [grandFinalReset, setGrandFinalReset] = useState(true);
   const [tiebreak, setTiebreak] = useState<TiebreakPreset>("standard");
   // Valgfri tidsplan (av som standard). Starttid i lokal tid, "YYYY-MM-DDTHH:mm".
   const [scheduleOn, setScheduleOn] = useState(false);
@@ -94,6 +95,7 @@ export function Wizard() {
       groupCount,
       advancePerGroup,
       thirdPlace,
+      grandFinalReset,
       teams: validTeams.map((t) => ({
         name: t.name.trim(),
         colour: t.colour,
@@ -121,6 +123,7 @@ export function Wizard() {
     if (d.groupCount) setGroupCount(d.groupCount);
     if (d.advancePerGroup) setAdvancePerGroup(d.advancePerGroup);
     setThirdPlace(!!d.thirdPlace);
+    setGrandFinalReset(d.grandFinalReset !== false);
     setCount(d.teams.length || 8);
     setTeams(
       rollEmblems(
@@ -137,10 +140,12 @@ export function Wizard() {
   // steps shown — step 6 hosts knockout options (playoff size / groups / bronze)
   const isGroup = format === "group_playoff";
   const isCup = format === "cup";
+  const isDouble = format === "double_elim";
+  const minTeams = isDouble ? 3 : 2;
   const showPlayoff = format === "league_playoff" || isGroup;
   // Cup has no league phase but still has a knockout → show step 6 for the
-  // bronze-final toggle.
-  const showStep6 = showPlayoff || isCup;
+  // bronze-final toggle. Dobbel utslag viser steget for omkamp-valget.
+  const showStep6 = showPlayoff || isCup || isDouble;
 
   function setProfile(p: ScoringProfileKey) {
     setScoring(defaultScoringConfig(p));
@@ -260,9 +265,10 @@ export function Wizard() {
         config: {
           playoffSize: showPlayoff && !isGroup ? effectivePlayoff : 0,
           roundRobinDouble: false,
-          thirdPlace: showStep6 ? thirdPlace : false,
+          thirdPlace: showStep6 && !isDouble ? thirdPlace : false,
+          ...(isDouble ? { doubleElim: { grandFinalReset } } : {}),
           ...(showStep6 && effectiveConsolation !== "none" ? { consolation: effectiveConsolation } : {}),
-          ...(!isCup && tiebreak !== "standard" ? { tiebreak } : {}),
+          ...(!isCup && !isDouble && tiebreak !== "standard" ? { tiebreak } : {}),
           ...(isGroup ? { groupCount: effectiveGroups, advancePerGroup } : {}),
           ...(scheduleOn && startLocal && !Number.isNaN(new Date(startLocal).getTime())
             ? {
@@ -296,7 +302,7 @@ export function Wizard() {
     }
   }
 
-  const canNext = stepValid(step, { title, validTeams, courtNames, courtCount, parallelism });
+  const canNext = stepValid(step, { title, validTeams, courtNames, courtCount, parallelism, minTeams });
 
   return (
     <main className="center-screen">
@@ -364,7 +370,7 @@ export function Wizard() {
           {step === 2 && (
             <Step title={no.wizard.s2Title}>
               <div className="opt-grid">
-                {(["league", "league_playoff", "group_playoff", "cup"] as Format[]).map((f) => (
+                {(["league", "league_playoff", "group_playoff", "cup", "double_elim"] as Format[]).map((f) => (
                   <button key={f} className="opt" data-on={format === f} onClick={() => setFormat(f)}>
                     <h3>{no.wizard.formats[f].name}</h3>
                     <p>{no.wizard.formats[f].blurb}</p>
@@ -409,7 +415,7 @@ export function Wizard() {
                   ))}
                 </div>
               </div>
-              {!isCup && (
+              {!isCup && !isDouble && (
                 <div className="field">
                   <label className="label">{no.wizard.tiebreak}</label>
                   <div className="chips">
@@ -516,7 +522,7 @@ export function Wizard() {
                   <button className="btn" onClick={applyBulk} disabled={!bulk.trim()}>{no.wizard.s4BulkApply}</button>
                 </div>
               </details>
-              <div className="faint">{no.wizard.s4Count(validTeams.length)}{validTeams.length < 2 ? ` — ${no.wizard.s4Min}` : ""}</div>
+              <div className="faint">{no.wizard.s4Count(validTeams.length)}{validTeams.length < minTeams ? ` — ${isDouble ? no.wizard.s4MinDouble : no.wizard.s4Min}` : ""}</div>
             </Step>
           )}
 
@@ -575,7 +581,7 @@ export function Wizard() {
 
           {step === 6 && showStep6 && (
             <Step title={no.wizard.s6Title}>
-              {isCup ? null : isGroup ? (
+              {isCup || isDouble ? null : isGroup ? (
                 <>
                   <div className="field">
                     <label className="label">{no.wizard.groupCount}</label>
@@ -626,14 +632,28 @@ export function Wizard() {
                   <span className="faint">{no.wizard.playoffCapped(validTeams.length)} · {effectivePlayoff} går videre</span>
                 </div>
               )}
-              <label className="row" style={{ gap: 10, cursor: "pointer", marginTop: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={thirdPlace}
-                  onChange={(e) => setThirdPlace(e.target.checked)}
-                />
-                <span>{no.wizard.thirdPlace}</span>
-              </label>
+              {isDouble ? (
+                <div className="field">
+                  <label className="row" style={{ gap: 10, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={grandFinalReset}
+                      onChange={(e) => setGrandFinalReset(e.target.checked)}
+                    />
+                    <span>{no.wizard.grandFinalReset}</span>
+                  </label>
+                  <span className="faint">{no.wizard.grandFinalResetHint}</span>
+                </div>
+              ) : (
+                <label className="row" style={{ gap: 10, cursor: "pointer", marginTop: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={thirdPlace}
+                    onChange={(e) => setThirdPlace(e.target.checked)}
+                  />
+                  <span>{no.wizard.thirdPlace}</span>
+                </label>
+              )}
               {consolationChoices.length > 1 && (
                 <div className="field" style={{ marginTop: 8 }}>
                   <label className="label">{no.wizard.consolation}</label>
@@ -662,13 +682,14 @@ export function Wizard() {
                 parallelism={parallelism} courtCount={courtCount}
                 teamCount={validTeams.length} playoff={showPlayoff && !isGroup ? effectivePlayoff : 0}
                 groupCount={effectiveGroups} advancePerGroup={advancePerGroup} thirdPlace={thirdPlace}
+                grandFinalReset={isDouble ? grandFinalReset : undefined}
                 consolation={effectiveConsolation}
               />
               {tmplName === null ? (
                 <button
                   className="btn btn-block"
                   onClick={() => setTmplName(title || sport || "Mal")}
-                  disabled={validTeams.length < 2}
+                  disabled={validTeams.length < minTeams}
                 >
                   💾 {no.wizard.saveTemplate}
                 </button>
@@ -712,7 +733,7 @@ export function Wizard() {
             <button
               className="btn btn-gold btn-lg"
               onClick={create}
-              disabled={creating || validTeams.length < 2 || (isGroup && !groupsPossible)}
+              disabled={creating || validTeams.length < minTeams || (isGroup && !groupsPossible)}
             >
               {creating ? <span className="spin" /> : null}
               {creating ? no.wizard.creating : no.wizard.create}
@@ -771,9 +792,9 @@ function stepNumberLabel(step: number, showPlayoff: boolean): number {
 
 function stepValid(
   step: number,
-  d: { title: string; validTeams: unknown[]; courtNames: string[]; courtCount: number; parallelism: Parallelism },
+  d: { title: string; validTeams: unknown[]; courtNames: string[]; courtCount: number; parallelism: Parallelism; minTeams: number },
 ): boolean {
-  if (step === 4) return d.validTeams.length >= 2;
+  if (step === 4) return d.validTeams.length >= d.minTeams;
   if (step === 5 && d.parallelism === "parallel")
     return d.courtNames.slice(0, d.courtCount).every((n) => n.trim().length > 0);
   return true;
@@ -867,10 +888,14 @@ function Summary(props: {
   title: string; sport: string; format: Format; scoring: ScoringConfig;
   parallelism: Parallelism; courtCount: number; teamCount: number; playoff: number;
   groupCount?: number; advancePerGroup?: number; thirdPlace?: boolean; consolation?: Consolation;
+  grandFinalReset?: boolean;
 }) {
   const isGroup = props.format === "group_playoff";
   const matchCount = useMemo(() => {
     if (props.format === "cup") return Math.max(0, props.teamCount - 1);
+    // Dobbel utslag: 2N−2 kamper, +1 hvis omkampen spilles (øvre grense vises).
+    if (props.format === "double_elim")
+      return Math.max(0, 2 * props.teamCount - 2) + (props.grandFinalReset ? 1 : 0);
     if (isGroup) {
       const g = props.groupCount ?? 2;
       const base = Math.floor(props.teamCount / g);
@@ -883,8 +908,8 @@ function Summary(props: {
       return total;
     }
     return roundRobinMatchCount(props.teamCount);
-  }, [props.format, props.teamCount, isGroup, props.groupCount]);
-  const rounds = props.format === "cup" || isGroup ? null : roundRobinRoundCount(props.teamCount);
+  }, [props.format, props.teamCount, isGroup, props.groupCount, props.grandFinalReset]);
+  const rounds = props.format === "cup" || props.format === "double_elim" || isGroup ? null : roundRobinRoundCount(props.teamCount);
 
   const rows: [string, string][] = [
     [no.wizard.s1Name, props.title || "—"],
@@ -902,6 +927,7 @@ function Summary(props: {
     ]);
   else if (props.playoff) rows.push([no.wizard.s6Title, `${props.playoff} lag`]);
   if (props.thirdPlace) rows.push([no.wizard.thirdPlace, "Ja"]);
+  if (props.grandFinalReset) rows.push([no.wizard.grandFinalReset, "Ja"]);
   if (props.consolation && props.consolation !== "none")
     rows.push([no.wizard.consolation, no.wizard.consolationOpts[props.consolation]]);
 

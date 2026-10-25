@@ -10,6 +10,8 @@ const MESSAGES: Record<string, string> = {
   // create
   minst_to_lag: "En turnering trenger minst to lag.",
   for_mange_lag: "For mange lag — maks 64.",
+  for_fa_lag_dobbel: "Dobbel utslag trenger minst tre lag.",
+  for_mange_lag_dobbel: "Dobbel utslag støtter maks 32 lag.",
   lag_mangler_navn: "Alle lag må ha et navn.",
   for_mange_grupper: "For mange grupper for antall lag — hver gruppe trenger minst to lag.",
   ugyldig_antall_grupper: "Velg mellom 2 og 8 grupper.",

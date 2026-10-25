@@ -5,6 +5,7 @@ import { buildCupMatches } from "@/lib/server/build";
 import { computeStandings, computeGroupStandings } from "@/lib/tournament/standings";
 import { seedKnockoutFromGroups } from "@/lib/tournament/groups";
 import { bSeedsFromGroups, bSeedsFromLeague, pendingFinals } from "@/lib/tournament/consolation";
+import { grandFinalAction } from "@/lib/tournament/doubleElim";
 import { planDownstreamReset } from "@/lib/tournament/downstream";
 import { matchEnd } from "@/lib/tournament/schedule";
 import type { Match, Tournament } from "@/lib/types";
@@ -232,30 +233,6 @@ async function propagateResultLegacy(match: Match): Promise<boolean> {
     }
   }
 
-  if (winnerLinks.length === 0) {
-    // No onward winner-link. A bracket final (slot 0) finishes the tournament
-    // once no other bracket final is left; a bronze final (slot 1) just
-    // records third place.
-    let decided = false;
-    if (match.bracket_slot === 0) {
-      const [{ data: allLinks }, all] = await Promise.all([
-        sb.from("bracket_links").select("from_match_id,feed").eq("tournament_id", match.tournament_id),
-        getMatches(match.tournament_id),
-      ]);
-      decided = pendingFinals(
-        all.map((m) => (m.id === match.id ? { ...m, status: "done" as const } : m)),
-        allLinks ?? [],
-      ).length === 0;
-    }
-    if (decided)
-      await sb
-        .from("tournaments")
-        .update({ status: "finished" })
-        .eq("id", match.tournament_id);
-    await bumpVersion(match.tournament_id);
-    return decided;
-  }
-
   for (const link of winnerLinks) {
     const col = link.to_slot === "home" ? "home_team_id" : "away_team_id";
     await sb
@@ -263,6 +240,55 @@ async function propagateResultLegacy(match: Match): Promise<boolean> {
       .update({ [col]: match.winner_team_id })
       .eq("id", link.to_match_id);
   }
+
+  // Dobbel utslag: storfinalen avgjør om omkampen utgår (W-laget vant) eller skal
+  // spilles (L-laget vant; gjenåpnes hvis den var utgått etter en overstyring).
+  let all: Match[] | null = null;
+  let voided: string | null = null;
+  if (match.bracket === "GF" && match.round === 1) {
+    all = await getMatches(match.tournament_id);
+    const gf2 = all.find((m) => m.bracket === "GF" && m.round === 2);
+    const action = grandFinalAction(match, !!gf2);
+    if (gf2 && action === "void") {
+      await sb
+        .from("matches")
+        .update({ status: "bye", winner_team_id: match.winner_team_id, result: null })
+        .eq("id", gf2.id);
+      voided = gf2.id;
+    } else if (gf2 && action === "restore" && gf2.status === "bye") {
+      await sb
+        .from("matches")
+        .update({ status: "scheduled", winner_team_id: null, result: null })
+        .eq("id", gf2.id);
+      await sb
+        .from("tournaments")
+        .update({ status: "playoff" })
+        .eq("id", match.tournament_id)
+        .eq("status", "finished");
+    }
+  }
+
+  // A bracket final (slot 0, nothing onward) finishes the tournament once no
+  // other bracket final is left; a bronze final (slot 1) just records third
+  // place. A voided rematch makes the grand final the deciding match.
+  const isFinal = (winnerLinks.length === 0 && match.bracket_slot === 0) || voided !== null;
+  if (!isFinal) {
+    await bumpVersion(match.tournament_id);
+    return false;
+  }
+  const [{ data: allLinks }, current] = await Promise.all([
+    sb.from("bracket_links").select("from_match_id,feed").eq("tournament_id", match.tournament_id),
+    all ? Promise.resolve(all) : getMatches(match.tournament_id),
+  ]);
+  const decided =
+    pendingFinals(
+      current.map((m) =>
+        m.id === match.id ? { ...m, status: "done" as const } : m.id === voided ? { ...m, status: "bye" as const } : m,
+      ),
+      allLinks ?? [],
+    ).length === 0;
+  if (decided)
+    await sb.from("tournaments").update({ status: "finished" }).eq("id", match.tournament_id);
   await bumpVersion(match.tournament_id);
-  return false;
+  return decided;
 }
