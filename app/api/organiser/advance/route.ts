@@ -1,6 +1,7 @@
 import { ok, fail, readJson, organiserLimit, withApi } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { advanceToPlayoff } from "@/lib/server/playoff";
+import { advanceSwiss } from "@/lib/server/swiss";
 import { getMatches } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
@@ -19,6 +20,18 @@ async function handlePOST(req: Request) {
   }>(req);
   const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode, req);
   if (!t) return fail(403, "feil_arrangorkode");
+  // Swiss: «advance» legger neste runde (når den forrige er ferdigspilt).
+  if (t.format === "swiss") {
+    let r;
+    try {
+      r = await advanceSwiss(t);
+    } catch (e) {
+      return fail(400, "kunne_ikke_avansere", { detail: (e as Error).message });
+    }
+    if (!r.ok) return fail(r.status, r.code, r.data);
+    defer(() => broadcast(channels.tournament(t.id), events.structure, {}), "advance");
+    return ok({ ok: true, round: r.round });
+  }
   if (t.format !== "league_playoff" && t.format !== "group_playoff")
     return fail(400, "ikke_sluttspillformat");
   if (t.status === "playoff" || t.status === "finished")

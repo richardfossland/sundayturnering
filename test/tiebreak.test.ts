@@ -45,7 +45,7 @@ describe("tiebreak: presets and validation", () => {
     expect(sanitiseTiebreak(undefined)).toBeUndefined();
     expect(sanitiseTiebreak("uefa")).toBe("uefa");
     expect(sanitiseTiebreak(["points", "points", "name"])).toEqual(["points", "name"]);
-    for (const bad of ["x", [], ["buchholz"], 3, {}, [1]]) expect(sanitiseTiebreak(bad)).toBe("invalid");
+    for (const bad of ["x", [], ["bogus"], 3, {}, [1]]) expect(sanitiseTiebreak(bad)).toBe("invalid");
   });
 });
 

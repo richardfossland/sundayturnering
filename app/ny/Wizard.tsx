@@ -32,6 +32,7 @@ import type {
 import { myTournaments } from "@/lib/client/myTournaments";
 import { errorMessage } from "@/lib/locale/errors";
 import { clampGroupCount, clampPlayoffSize } from "@/lib/tournament/playoffSize";
+import { defaultSwissRounds, maxSwissRounds } from "@/lib/tournament/swiss";
 import { consolationOptions, cupConsolationFeasible } from "@/lib/tournament/consolation";
 
 interface DraftTeam {
@@ -65,6 +66,8 @@ export function Wizard() {
   const [consolation, setConsolation] = useState<Consolation>("none");
   const [grandFinalReset, setGrandFinalReset] = useState(true);
   const [tiebreak, setTiebreak] = useState<TiebreakPreset>("standard");
+  // Swiss: antall runder; null = standard (ceil(log2 N)).
+  const [swissRounds, setSwissRounds] = useState<number | null>(null);
   // Valgfri tidsplan (av som standard). Starttid i lokal tid, "YYYY-MM-DDTHH:mm".
   const [scheduleOn, setScheduleOn] = useState(false);
   const [startLocal, setStartLocal] = useState(defaultStartLocal);
@@ -141,7 +144,8 @@ export function Wizard() {
   const isGroup = format === "group_playoff";
   const isCup = format === "cup";
   const isDouble = format === "double_elim";
-  const minTeams = isDouble ? 3 : 2;
+  const isSwiss = format === "swiss";
+  const minTeams = isDouble || isSwiss ? 3 : 2;
   const showPlayoff = format === "league_playoff" || isGroup;
   // Cup has no league phase but still has a knockout → show step 6 for the
   // bronze-final toggle. Dobbel utslag viser steget for omkamp-valget.
@@ -239,6 +243,8 @@ export function Wizard() {
         ? teamsOutOfA >= 2
         : true,
   );
+  const swissMax = maxSwissRounds(validTeams.length);
+  const effectiveSwissRounds = Math.min(swissRounds ?? defaultSwissRounds(validTeams.length), swissMax);
   const effectiveConsolation = consolationChoices.includes(consolation) ? consolation : "none";
 
   function next() {
@@ -268,7 +274,8 @@ export function Wizard() {
           thirdPlace: showStep6 && !isDouble ? thirdPlace : false,
           ...(isDouble ? { doubleElim: { grandFinalReset } } : {}),
           ...(showStep6 && effectiveConsolation !== "none" ? { consolation: effectiveConsolation } : {}),
-          ...(!isCup && !isDouble && tiebreak !== "standard" ? { tiebreak } : {}),
+          ...(isSwiss ? { swiss: { rounds: effectiveSwissRounds }, tiebreak: tiebreak === "standard" ? "standard" : "swiss" } : {}),
+          ...(!isCup && !isDouble && !isSwiss && tiebreak !== "standard" ? { tiebreak } : {}),
           ...(isGroup ? { groupCount: effectiveGroups, advancePerGroup } : {}),
           ...(scheduleOn && startLocal && !Number.isNaN(new Date(startLocal).getTime())
             ? {
@@ -370,13 +377,39 @@ export function Wizard() {
           {step === 2 && (
             <Step title={no.wizard.s2Title}>
               <div className="opt-grid">
-                {(["league", "league_playoff", "group_playoff", "cup", "double_elim"] as Format[]).map((f) => (
-                  <button key={f} className="opt" data-on={format === f} onClick={() => setFormat(f)}>
+                {(["league", "league_playoff", "group_playoff", "cup", "double_elim", "swiss"] as Format[]).map((f) => (
+                  <button
+                    key={f}
+                    className="opt"
+                    data-on={format === f}
+                    onClick={() => {
+                      setFormat(f);
+                      // Swiss har egen tiebreak-forvalg; bort fra Swiss tilbake til standard.
+                      if (f === "swiss") setTiebreak("swiss");
+                      else if (tiebreak === "swiss") setTiebreak("standard");
+                    }}
+                  >
                     <h3>{no.wizard.formats[f].name}</h3>
                     <p>{no.wizard.formats[f].blurb}</p>
                   </button>
                 ))}
               </div>
+              {isSwiss && (
+                <div className="field">
+                  <label className="label" htmlFor="swiss-rounds">{no.wizard.swissRounds}</label>
+                  <select
+                    id="swiss-rounds"
+                    className="input"
+                    value={effectiveSwissRounds}
+                    onChange={(e) => setSwissRounds(Number(e.target.value))}
+                  >
+                    {Array.from({ length: swissMax }, (_, i) => i + 1).map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                  <span className="faint">{no.wizard.swissRoundsHint}</span>
+                </div>
+              )}
             </Step>
           )}
 
@@ -419,7 +452,7 @@ export function Wizard() {
                 <div className="field">
                   <label className="label">{no.wizard.tiebreak}</label>
                   <div className="chips">
-                    {(["standard", "uefa"] as TiebreakPreset[]).map((p) => (
+                    {((isSwiss ? ["swiss", "standard"] : ["standard", "uefa"]) as TiebreakPreset[]).map((p) => (
                       <button key={p} className="chip" data-on={tiebreak === p} onClick={() => setTiebreak(p)}>
                         {no.wizard.tiebreakOpts[p]}
                       </button>
@@ -678,7 +711,7 @@ export function Wizard() {
           {step === 7 && (
             <Step title={no.wizard.s7Title}>
               <Summary
-                title={title} sport={sport} format={format} scoring={scoring}
+                title={title} sport={sport} format={format} scoring={scoring} swissRounds={effectiveSwissRounds}
                 parallelism={parallelism} courtCount={courtCount}
                 teamCount={validTeams.length} playoff={showPlayoff && !isGroup ? effectivePlayoff : 0}
                 groupCount={effectiveGroups} advancePerGroup={advancePerGroup} thirdPlace={thirdPlace}
@@ -888,7 +921,7 @@ function Summary(props: {
   title: string; sport: string; format: Format; scoring: ScoringConfig;
   parallelism: Parallelism; courtCount: number; teamCount: number; playoff: number;
   groupCount?: number; advancePerGroup?: number; thirdPlace?: boolean; consolation?: Consolation;
-  grandFinalReset?: boolean;
+  grandFinalReset?: boolean; swissRounds?: number;
 }) {
   const isGroup = props.format === "group_playoff";
   const matchCount = useMemo(() => {
@@ -896,6 +929,7 @@ function Summary(props: {
     // Dobbel utslag: 2N−2 kamper, +1 hvis omkampen spilles (øvre grense vises).
     if (props.format === "double_elim")
       return Math.max(0, 2 * props.teamCount - 2) + (props.grandFinalReset ? 1 : 0);
+    if (props.format === "swiss") return (props.swissRounds ?? 0) * Math.floor(props.teamCount / 2);
     if (isGroup) {
       const g = props.groupCount ?? 2;
       const base = Math.floor(props.teamCount / g);
@@ -908,8 +942,8 @@ function Summary(props: {
       return total;
     }
     return roundRobinMatchCount(props.teamCount);
-  }, [props.format, props.teamCount, isGroup, props.groupCount, props.grandFinalReset]);
-  const rounds = props.format === "cup" || props.format === "double_elim" || isGroup ? null : roundRobinRoundCount(props.teamCount);
+  }, [props.format, props.teamCount, isGroup, props.groupCount, props.grandFinalReset, props.swissRounds]);
+  const rounds = props.format === "swiss" ? props.swissRounds : props.format === "cup" || props.format === "double_elim" || isGroup ? null : roundRobinRoundCount(props.teamCount);
 
   const rows: [string, string][] = [
     [no.wizard.s1Name, props.title || "—"],

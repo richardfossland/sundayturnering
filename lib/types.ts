@@ -212,5 +212,7 @@ export interface StandingRow {
   diff: number; // scoreFor - scoreAgainst
   rank: number;
   inPlayoff: boolean; // above the top-N cut line
+  /** Swiss only: summen av motstandernes poeng (Buchholz). */
+  buchholz?: number;
   form?: ("W" | "D" | "L")[]; // last few league results, oldest → newest
 }

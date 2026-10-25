@@ -1,8 +1,8 @@
 import "server-only";
 
-import { db, getMatches, getTeams } from "@/lib/server/store";
+import { bumpVersion, db, getMatches, getTeams } from "@/lib/server/store";
 import { assignSlots, matchEnd } from "@/lib/tournament/schedule";
-import { planSwissRound } from "@/lib/tournament/swiss";
+import { planSwissRound, swissProgress } from "@/lib/tournament/swiss";
 import type { Tournament } from "@/lib/types";
 
 /** Legg neste Swiss-runde i databasen: parr (runde 1 etter seed, senere etter
@@ -57,4 +57,34 @@ export async function insertSwissRound(t: Tournament, round: number): Promise<nu
     throw new Error(`insert swiss round: ${error.message}`);
   }
   return rows.length;
+}
+
+export type SwissAdvance =
+  | { ok: true; round: number }
+  | { ok: false; status: number; code: string; data?: Record<string, unknown> };
+
+/** Neste runde, når den forrige er ferdigspilt. To arrangører som trykker samtidig
+ * kan ikke legge samme runde to ganger: kravet er en CAS på `tournaments.version`
+ * (bare den som får bumpet versjonen fra den lest, bygger runden). */
+export async function advanceSwiss(t: Tournament): Promise<SwissAdvance> {
+  if (t.status === "finished") return { ok: false, status: 409, code: "turnering_avsluttet" };
+  const total = t.config?.swiss?.rounds ?? 0;
+  const progress = swissProgress(await getMatches(t.id), total);
+  if (progress.round === 0) return { ok: false, status: 400, code: "kunne_ikke_avansere" };
+  if (!progress.complete) return { ok: false, status: 409, code: "runden_pagar", data: { count: progress.open } };
+  if (progress.round >= total) return { ok: false, status: 409, code: "alle_runder_spilt" };
+
+  const { data: claimed, error } = await db()
+    .from("tournaments")
+    .update({ version: t.version + 1 })
+    .eq("id", t.id)
+    .eq("version", t.version)
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!claimed || claimed.length === 0) return { ok: false, status: 409, code: "konflikt" };
+
+  const round = progress.round + 1;
+  await insertSwissRound(t, round);
+  await bumpVersion(t.id);
+  return { ok: true, round };
 }

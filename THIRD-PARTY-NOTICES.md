@@ -100,7 +100,7 @@ SOFTWARE.
 
 ## @echecs/buchholz og @echecs/sonneborn-berger (Swiss-tiebreak)
 
-- Kilder: https://github.com/echecsjs (pakkene `@echecs/buchholz`, `@echecs/sonneborn-berger`)
+- Kilder: https://github.com/echecsjs/buchholz og https://github.com/echecsjs/sonneborn-berger
 - Lisens: MIT
 - Brukt i: `lib/tournament/standings.ts` — kun idéene (Buchholz = summen av motstandernes poeng,
   «cut 1» uten den laveste, Sonneborn-Berger = motstanderens poeng for seier, halvparten for uavgjort).

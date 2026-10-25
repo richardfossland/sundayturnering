@@ -107,7 +107,8 @@ export async function getState(t: Tournament): Promise<StateDTO> {
           matches,
           t.scoring,
           t.config?.playoffSize ?? 0,
-          t.config?.tiebreak,
+          t.config?.tiebreak ?? (t.format === "swiss" ? "swiss" : undefined),
+          { byeIsWin: t.format === "swiss" },
         );
   const groupStandings =
     t.format === "group_playoff"

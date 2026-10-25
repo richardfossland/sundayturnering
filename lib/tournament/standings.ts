@@ -210,6 +210,9 @@ export function computeStandings(
       rank: r.rank,
       inPlayoff: r.inPlayoff,
       form: (formMap.get(r.team_id) ?? []).slice(-5),
+      ...(opts.byeIsWin
+        ? { buchholz: opponentPoints(r.team_id, ctx.games, ctx.points).reduce((a, b) => a + b, 0) }
+        : {}),
     }),
   );
 }
