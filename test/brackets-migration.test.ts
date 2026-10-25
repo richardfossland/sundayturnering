@@ -4,7 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 
 // Migrasjon 0016 (matches.bracket + propagate_playoff_result for flere
-// braketter) mot en ekte Postgres i minnet: alle migrasjoner 0001…0016 kjøres,
+// braketter) mot en ekte Postgres i minnet: alle migrasjoner 0001…0017 kjøres,
 // så spilles en cup med trøsterunde gjennom RPC-en.
 
 const MIGRATIONS = join(__dirname, "..", "supabase", "migrations");
@@ -91,7 +91,7 @@ beforeAll(async () => {
     create table storage.buckets (id text primary key, name text, public boolean);
   `);
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
-  expect(files.at(-1)).toBe("0016_brackets.sql");
+  expect(files.at(-1)).toBe("0017_double_elim.sql");
   for (const f of files) await db.exec(readFileSync(join(MIGRATIONS, f), "utf8"));
   // Idempotent: kjøres 0016 på nytt skal ingenting feile.
   await db.exec(readFileSync(join(MIGRATIONS, "0016_brackets.sql"), "utf8"));

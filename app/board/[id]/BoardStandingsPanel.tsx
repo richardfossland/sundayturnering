@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { no } from "@/lib/locale/no";
 import { Standings, GroupStandings } from "./Standings";
 import { Bracket, bracketLabels } from "./Bracket";
+import { byBracketOrder } from "@/lib/tournament/bracketLayout";
 import type { StateDTO } from "@/lib/dto";
 import type { BracketId, Team } from "@/lib/types";
 
@@ -30,8 +31,12 @@ export function BoardStandingsPanel({
   // the cut line is always kept (see capRows in Standings.tsx).
   const standingsLimit = hasBracket ? 8 : undefined;
 
+  // Dobbel utslag har ingen tabell: braketten får hele kolonnen.
+  const noTable = tournament.format === "double_elim";
+
   return (
     <section className="board-right" style={{ minHeight: 0 }}>
+      {!noTable && (
       <div className="card card-pad board-standings-region">
         <div className="section-title" style={{ marginBottom: 8 }}>
           {no.board.standings}
@@ -56,6 +61,7 @@ export function BoardStandingsPanel({
           )}
         </div>
       </div>
+      )}
 
       {hasBracket && <BracketRegion state={state} teams={teams} />}
     </section>
@@ -88,7 +94,7 @@ function BracketRegion({
   const ids = useMemo(
     () =>
       [...new Set(matches.filter((m) => m.phase === "playoff").map((m) => m.bracket ?? "A"))]
-        .sort() as BracketId[],
+        .sort(byBracketOrder) as BracketId[],
     [matches],
   );
   const labels = bracketLabels(tournament.config?.consolation);

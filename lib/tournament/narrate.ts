@@ -18,6 +18,7 @@
 // storylines verbatim when no key is configured (degrade gracefully). The pure
 // diff here is the source of truth and the place all the test coverage lives.
 
+import { doubleElimOutcome } from "@/lib/tournament/doubleElim";
 import type { StateDTO } from "@/lib/dto";
 import type { Match, StandingRow, Team } from "@/lib/types";
 import { resolve } from "@/lib/tournament/scoring";
@@ -362,6 +363,13 @@ function statusStorylines(
 
 /** The playoff final match if it transitioned to live in this diff. */
 function finalKickoff(before: StateDTO, after: StateDTO): Match | null {
+  // Dobbel utslag: storfinalen (og en eventuell omkamp) er «finalen».
+  if (after.tournament.format === "double_elim") {
+    const gf = after.matches.find(
+      (m) => m.bracket === "GF" && m.status === "live" && before.matches.find((b) => b.id === m.id)?.status !== "live",
+    );
+    return gf ?? null;
+  }
   // Bare hovedbraketten har «finalen» — en B-finale er ingen sluttspillfinale.
   const playoff = after.matches.filter((m) => m.phase === "playoff" && (m.bracket ?? "A") === "A");
   if (playoff.length === 0) return null;
@@ -379,6 +387,8 @@ function finalKickoff(before: StateDTO, after: StateDTO): Match | null {
  * (Local copy — narrate is pure and must not import the client `view` module,
  * which pulls in "use client" deps.) */
 function championId(state: StateDTO): string | null {
+  if (state.tournament.format === "double_elim")
+    return doubleElimOutcome(state.matches)?.champion ?? null;
   const playoff = state.matches.filter((m) => m.phase === "playoff" && (m.bracket ?? "A") === "A");
   if (playoff.length > 0) {
     const finalRound = Math.max(...playoff.map((m) => m.round));

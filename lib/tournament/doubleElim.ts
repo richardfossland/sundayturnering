@@ -19,6 +19,7 @@
 
 import { buildBracket, type BuiltBracket, type BuiltMatch } from "@/lib/tournament/bracket";
 import type { BracketSet, CrossLink } from "@/lib/tournament/consolation";
+import type { Match } from "@/lib/types";
 
 /** Minste og største antall lag dobbel utslag bygges for. */
 export const DOUBLE_ELIM_MIN_TEAMS = 3;
@@ -186,4 +187,44 @@ export function doubleElimOrder(bracket: string, round: number): number {
   if (bracket === "W") return round;
   if (bracket === "L") return Math.floor(round / 2) + 1.5 + (round > 1 && round % 2 === 1 ? 0.1 : 0);
   return 1000 + round; // GF
+}
+
+type OutcomeMatch = Pick<
+  Match,
+  "phase" | "round" | "bracket_slot" | "status" | "home_team_id" | "away_team_id" | "winner_team_id"
+> & { bracket?: string };
+
+export interface DoubleElimOutcome {
+  champion: string;
+  runnerUp: string | null;
+  /** Taperen av taperfinalen (L), ellers null. */
+  third: string | null;
+}
+
+const otherSide = (m: OutcomeMatch) =>
+  m.home_team_id === m.winner_team_id ? m.away_team_id : m.home_team_id;
+
+/** Sluttresultatet av en dobbel utslag, eller null til storfinalen er avgjort.
+ * 1 = vinneren av den avgjørende storfinalen (omkampen hvis den ble spilt),
+ * 2 = taperen av den, 3 = taperen av taperfinalen. */
+export function doubleElimOutcome(matches: readonly OutcomeMatch[]): DoubleElimOutcome | null {
+  const gf1 = matches.find((m) => m.bracket === "GF" && m.round === 1);
+  const gf2 = matches.find((m) => m.bracket === "GF" && m.round === 2);
+  if (!gf1) return null;
+  // Omkampen avgjør når den er spilt; er den utgått (bye), avgjorde storfinalen.
+  const deciding =
+    gf2 && gf2.status === "done"
+      ? gf2
+      : gf1.status === "done" && (!gf2 || gf2.status === "bye")
+        ? gf1
+        : null;
+  if (!deciding?.winner_team_id) return null;
+  const l = matches.filter((m) => m.bracket === "L" && m.phase === "playoff");
+  const lFinalRound = l.length ? Math.max(...l.map((m) => m.round)) : 0;
+  const lFinal = l.find((m) => m.round === lFinalRound && m.bracket_slot === 0 && m.status === "done");
+  return {
+    champion: deciding.winner_team_id,
+    runnerUp: otherSide(deciding),
+    third: lFinal?.winner_team_id ? otherSide(lFinal) : null,
+  };
 }

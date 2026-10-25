@@ -98,13 +98,17 @@ export async function getState(t: Tournament): Promise<StateDTO> {
     getMatches(t.id),
     getLinks(t.id),
   ]);
-  const standings = computeStandings(
-    teams,
-    matches,
-    t.scoring,
-    t.config?.playoffSize ?? 0,
-    t.config?.tiebreak,
-  );
+  // Dobbel utslag har ingen tabell (bare braketter), så ingen rader å vise.
+  const standings =
+    t.format === "double_elim"
+      ? []
+      : computeStandings(
+          teams,
+          matches,
+          t.scoring,
+          t.config?.playoffSize ?? 0,
+          t.config?.tiebreak,
+        );
   const groupStandings =
     t.format === "group_playoff"
       ? computeGroupStandings(
