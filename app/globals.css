@@ -921,6 +921,25 @@ textarea {
   background: rgba(235, 184, 75, 0.14);
 }
 
+/* referee outbox: «Ikke sendt ennå (n)» badge + queued match card */
+.unsent-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--warn);
+  background: rgba(224, 137, 74, 0.14);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.pill-unsent {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: rgba(224, 137, 74, 0.14);
+}
+
 /* next up */
 .next-list {
   display: flex;

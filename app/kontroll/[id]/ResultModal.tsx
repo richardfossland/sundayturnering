@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/client/api";
+import { submitResultOrQueue } from "@/lib/client/outbox";
 import { ResultInput } from "@/lib/client/ResultInput";
 import { no } from "@/lib/locale/no";
 import { errorMessage } from "@/lib/locale/errors";
@@ -20,6 +21,7 @@ export function ResultModal({
   mode = "new",
   onClose,
   onDone,
+  onQueued,
   onConflict,
   onAuthError,
 }: {
@@ -33,6 +35,8 @@ export function ResultModal({
   mode?: "new" | "correct";
   onClose: () => void;
   onDone: () => void;
+  /** The result could not be sent (no network) and sits in the phone's outbox. */
+  onQueued?: () => void;
   onConflict: () => void;
   /** The server rejected the control code. Return true when handled (the
    * parent re-prompts), so the modal does not also report a conflict. */
@@ -150,7 +154,21 @@ export function ResultModal({
     try {
       const device = { deviceId, deviceName };
       if (correcting) await api.correct(match.id, version, result, device, controlCode);
-      else await api.submitResult(match.id, version, result, device, controlCode);
+      else {
+        const r = await submitResultOrQueue({
+          tournamentId: tournament.id,
+          matchId: match.id,
+          expectedVersion: version,
+          result,
+          device,
+          controlCode,
+        });
+        if (r.queued) {
+          onQueued?.();
+          onClose();
+          return;
+        }
+      }
       onDone();
     } catch (e) {
       if (onAuthError?.(e)) return;
