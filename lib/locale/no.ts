@@ -88,7 +88,7 @@ export const no = {
 
     // «Kom i gang»
     startTitle: "Kom i gang",
-    startIntro: "Tre steg, så er turneringen i gang.",
+    startIntro: "Gjør dette, så er turneringen i gang.",
     startHide: "Skjul",
     startShow: "Vis",
     stepDone: "Gjort",
