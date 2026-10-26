@@ -7,7 +7,7 @@ import {
   shiftConflicts,
   type SlotLink,
 } from "@/lib/tournament/schedule";
-import type { Match, ScheduleConfig } from "@/lib/types";
+import type { Match, ScheduleConfig, TournamentStatus } from "@/lib/types";
 
 const T0 = Date.parse("2026-10-25T09:00:00.000Z");
 const MIN = 60_000;
@@ -43,9 +43,9 @@ const m = (
 });
 
 /** Skyv `court`-kamper fra `from` med `minutes` og kjør konfliktsjekken. */
-function shift(matches: M[], links: SlotLink[], courtId: string | null, minutes: number, c = cfg(), status?: Match["status"]) {
+function shift(matches: M[], links: SlotLink[], courtId: string | null, minutes: number, c = cfg(), status?: TournamentStatus) {
   const { changes } = previewShift(matches, { courtId, fromIso: at(-1000), minutes, nowIso: at(-2000) });
-  return shiftConflicts(matches, links, changes, c, status === undefined ? undefined : "playoff");
+  return shiftConflicts(matches, links, changes, c, status);
 }
 
 describe("shiftConflicts (A4)", () => {

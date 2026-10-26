@@ -12,7 +12,6 @@ import { resetStore, seed, storedCourts, storedTournament } from "./helpers/memo
 import { clearTimerAfterDone } from "@/lib/server/timer";
 import { isTimerAction, timerToClear } from "@/lib/tournament/timer";
 import { POST as matchTimer } from "@/app/api/match/timer/route";
-import { POST as organiserTimer } from "@/app/api/organiser/timer/route";
 import { __resetRateLimiter } from "@/lib/server/http";
 
 const TID = "00000000-0000-4000-8000-0000000000a1";
