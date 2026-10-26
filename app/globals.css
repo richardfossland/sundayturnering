@@ -27,8 +27,10 @@
 
   --paper: #faf7f0;
   --txt: #f3efe6;
-  --txt-dim: #9aa0ad;
-  --txt-faint: #6b7280;
+  /* WCAG AA (4.5:1) on every ground/surface the text sits on, both themes. */
+  --txt-dim: #a8afbc;
+  --txt-faint: #929aa9;
+  --ctl-border: #8a93a3; /* form-control outline (>= 3:1 non-text contrast) */
 
   /* page ground (body radial stops) */
   --ground-a: #232c3c;
@@ -53,6 +55,14 @@
   --live: #4fbf7b;
   --warn: #e0894a;
   --danger: #d2554d;
+  /* the same hues as readable TEXT — flipped per theme (the fills above are
+     too light for cream surfaces) */
+  --live-ink: #4fbf7b;
+  --warn-ink: #e0894a;
+  --danger-ink: #f0968f;
+  --medal-gold: #ebb84b;
+  --medal-silver: #b8c0cc;
+  --medal-bronze: #cd8a55;
 
   --display: var(--font-display), "Playfair Display", Georgia, serif;
   --body: var(--font-body), "Hanken Grotesk", -apple-system, BlinkMacSystemFont,
@@ -60,6 +70,31 @@
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
   --maxw: 1180px;
+
+  /* spacing scale (4 / 8 / 12 / 16 / 24 / 32 / 48 / 64) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* type scale */
+  --fs-xs: 0.8125rem; /* 13px — badges, never body copy */
+  --fs-sm: 0.875rem; /* 14px — labels, hints, secondary text (the floor) */
+  --fs-base: 1rem;
+  --fs-md: 1.125rem;
+  --fs-lg: 1.375rem;
+  --fs-xl: 1.75rem;
+  --fs-2xl: 2.25rem;
+
+  /* content widths */
+  --w-form: 720px; /* wizard / single-column forms */
+  --w-page: 960px; /* organiser / wide single-column pages */
+
+  --tap: 44px; /* minimum touch target */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -71,7 +106,7 @@
 }
 
 :root[data-theme="light"] {
-  --gold-ink: #8c6a0e; /* deep gold — readable on light surfaces */
+  --gold-ink: #7a5c0a; /* deep gold — readable on light surfaces (>= 5:1) */
 
   --ink-2: #ffffff; /* card surfaces */
   --ink-3: #fbf8f1;
@@ -81,7 +116,15 @@
 
   --txt: #161b27;
   --txt-dim: #4f586a;
-  --txt-faint: #6b7384;
+  --txt-faint: #566074;
+  --ctl-border: #687083;
+
+  --live-ink: #2a7a4b;
+  --warn-ink: #a8501f;
+  --danger-ink: #a8372f;
+  --medal-gold: #a87d12;
+  --medal-silver: #6c7482;
+  --medal-bronze: #9a5a2b;
 
   --ground-a: #ffffff;
   --ground-b: #f6f1e8;
@@ -220,18 +263,29 @@ textarea {
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--sp-5);
 }
 .row {
   display: flex;
-  gap: 12px;
+  gap: var(--sp-3);
   align-items: center;
 }
 .spread {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
+}
+/* page-width helpers (centre a single column at the shared content widths) */
+.w-form {
+  width: 100%;
+  max-width: var(--w-form);
+  margin-inline: auto;
+}
+.w-page {
+  width: 100%;
+  max-width: var(--w-page);
+  margin-inline: auto;
 }
 .wrap-gap {
   flex-wrap: wrap;
@@ -278,25 +332,31 @@ textarea {
   box-shadow: var(--shadow-2);
 }
 .card-pad {
-  padding: 28px;
+  padding: var(--sp-6);
 }
 .panel {
   background: var(--s-025);
   border: 1px solid var(--ink-line);
   border-radius: var(--radius-sm);
-  padding: 16px;
+  padding: var(--sp-5);
 }
 
 /* ============ buttons ============ */
 .btn {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--tap);
   border: 1px solid var(--ink-line-strong);
   background: var(--s-05);
   color: var(--txt);
-  padding: 12px 20px;
+  padding: var(--sp-3) var(--sp-5);
   border-radius: 12px;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: var(--fs-base);
+  line-height: 1.25;
   cursor: pointer;
   transition:
     transform 0.12s var(--ease),
@@ -331,54 +391,94 @@ textarea {
 }
 .btn-danger {
   border-color: rgba(210, 85, 77, 0.5);
-  color: #f0a6a0;
+  color: var(--danger-ink);
 }
 .btn-lg {
-  padding: 16px 28px;
-  font-size: 1.1rem;
+  padding: var(--sp-4) var(--sp-6);
+  font-size: var(--fs-md);
 }
 .btn-block {
   width: 100%;
-  justify-content: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 .btn-row {
   display: flex;
-  gap: 10px;
+  gap: var(--sp-3);
   flex-wrap: wrap;
+}
+/* Lucide glyph (lib/client/Icon.tsx): inline with text, never shrinks. The
+   global `svg { display: block }` would otherwise break it out of the line. */
+.icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -0.2em;
+}
+.icon-title {
+  display: inline-block;
+  margin-right: var(--sp-2);
+  vertical-align: -0.1em;
+  color: var(--gold-ink);
+}
+.icon-inline {
+  display: inline-block;
+  vertical-align: -0.15em;
+}
+.back-link,
+.label-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
 }
 
 /* ============ inputs ============ */
 .field {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--sp-2);
 }
 .label {
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--txt-dim);
   letter-spacing: 0.01em;
+}
+/* hint / helper text under a field — same floor as labels */
+.hint {
+  font-size: var(--fs-sm);
+  color: var(--txt-faint);
+  line-height: 1.45;
 }
 .input,
 .select,
 .textarea {
   width: 100%;
+  min-height: 48px;
   background: var(--k-28);
-  border: 1px solid var(--ink-line-strong);
+  border: 1px solid var(--ctl-border);
   border-radius: 11px;
-  padding: 13px 15px;
-  font-size: 1rem;
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-base);
   color: var(--txt);
-  transition: border-color 0.16s var(--ease);
+  transition:
+    border-color 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+}
+.input:hover,
+.select:hover,
+.textarea:hover {
+  border-color: var(--gold-ink);
 }
 .input:focus,
 .select:focus,
 .textarea:focus {
   outline: none;
   border-color: var(--gold-ink);
+  box-shadow: 0 0 0 3px rgba(235, 184, 75, 0.28);
+}
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .input::placeholder,
 .textarea::placeholder {
@@ -389,6 +489,186 @@ textarea {
   min-height: 92px;
   font-family: var(--body);
 }
+/* ---- native controls, restyled to the brand ---- */
+select.input,
+select.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 44px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23a8afbc' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 20px;
+}
+:root[data-theme="light"] select.input,
+:root[data-theme="light"] select.select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%234f586a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+select option {
+  background: var(--ink-2);
+  color: var(--txt);
+}
+input[type="checkbox"],
+input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  display: inline-grid;
+  place-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border: 1.5px solid var(--ctl-border);
+  border-radius: 6px;
+  background: var(--k-28);
+  cursor: pointer;
+  transition:
+    background 0.14s var(--ease),
+    border-color 0.14s var(--ease),
+    box-shadow 0.14s var(--ease);
+}
+input[type="radio"] {
+  border-radius: 50%;
+}
+input[type="checkbox"]:hover,
+input[type="radio"]:hover {
+  border-color: var(--gold-ink);
+}
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+  background-color: var(--gold);
+  border-color: var(--gold-deep);
+}
+input[type="checkbox"]:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2314171e' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5 10 17.5 19 7.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px;
+}
+input[type="radio"]:checked {
+  background-image: radial-gradient(circle, #14171e 0 36%, transparent 40%);
+}
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* a labelled checkbox/radio row: the whole row is the hit area */
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]) {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  cursor: pointer;
+}
+input[type="color"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: var(--tap);
+  height: var(--tap);
+  padding: 4px;
+  border: 1px solid var(--ctl-border);
+  border-radius: 12px;
+  background: var(--k-28);
+  cursor: pointer;
+}
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 8px;
+}
+input[type="color"]::-moz-color-swatch {
+  border: 0;
+  border-radius: 8px;
+}
+
+/* ---- NumberField (lib/client/NumberField.tsx) ---- */
+.numfield {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  max-width: 100%;
+}
+.numfield-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.numfield-input {
+  width: 5.5rem;
+  text-align: center;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding-inline: var(--sp-2);
+}
+.numfield-step {
+  appearance: none;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: 12px;
+  border: 1px solid var(--ink-line-strong);
+  background: var(--s-05);
+  color: var(--txt);
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    transform 0.1s var(--ease);
+}
+.numfield-step:hover:not(:disabled) {
+  background: var(--s-hover);
+}
+.numfield-step:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.numfield-step:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.numfield-suffix {
+  color: var(--txt-dim);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.numfield-hint {
+  font-size: var(--fs-sm);
+  color: var(--warn-ink);
+  font-weight: 600;
+}
+.numfield-hint:empty {
+  display: none;
+}
+.numfield[data-invalid="true"] .numfield-input {
+  border-color: var(--warn-ink);
+}
+.numfield-compact .numfield-input {
+  width: 4.5rem;
+}
+/* score boxes in the set grid fill their column and read big */
+.set-input.numfield,
+.set-input.numfield .numfield-row {
+  width: 100%;
+}
+.set-input .numfield-input {
+  width: 100%;
+  min-width: 0;
+  font-size: 1.4rem;
+  padding: var(--sp-2);
+}
+
 .code-input {
   font-family: var(--mono);
   font-size: 2rem;
@@ -402,17 +682,28 @@ textarea {
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .chip {
-  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 40px;
+  padding: var(--sp-2) var(--sp-4);
   border-radius: 999px;
   border: 1px solid var(--ink-line-strong);
   background: var(--s-04);
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: var(--fs-sm);
   transition: all 0.15s var(--ease);
+}
+.chip:hover:not([data-on="true"]):not(:disabled) {
+  background: var(--s-hover);
+}
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 /* a chip holding two actions (template: load + delete) */
 .chip-btn {
@@ -449,11 +740,11 @@ textarea {
 /* selectable option cards (format / profile / parallelism) */
 .opt-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .opt {
   text-align: left;
-  padding: 18px;
+  padding: var(--sp-5);
   border-radius: 14px;
   border: 1.5px solid var(--ink-line);
   background: var(--s-03);
@@ -469,29 +760,60 @@ textarea {
   box-shadow: 0 0 0 1px var(--gold) inset;
 }
 .opt h3 {
-  font-size: 1.15rem;
-  margin-bottom: 4px;
+  font-size: var(--fs-md);
+  margin-bottom: var(--sp-1);
 }
 .opt p {
   color: var(--txt-dim);
-  font-size: 0.92rem;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
 }
 
 /* pills / badges */
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 11px;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3);
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   border: 1px solid var(--ink-line-strong);
 }
+/* A pill that is a BUTTON (board view tabs, standings toggle, device roster):
+   the UA gives <button> a grey/white fill and its own font — without this the
+   inherited light text sat on a white button in the dark theme. */
+button.pill {
+  appearance: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  min-height: 36px;
+  padding: var(--sp-1) var(--sp-4);
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+button.pill:hover {
+  background: var(--s-hover);
+  border-color: var(--ctl-border);
+}
+button.pill:active {
+  transform: translateY(1px);
+}
+button.pill[data-on="true"],
+button.pill[data-on="true"]:hover,
+button.pill[aria-selected="true"],
+button.pill[aria-selected="true"]:hover {
+  color: var(--on-gold);
+  background: var(--gold-grad);
+  border-color: transparent;
+}
 .pill-live {
-  color: var(--live);
+  color: var(--live-ink);
   border-color: rgba(79, 191, 123, 0.4);
   background: rgba(79, 191, 123, 0.1);
 }
@@ -568,7 +890,7 @@ textarea {
 }
 .toast-danger {
   border-color: rgba(210, 85, 77, 0.5);
-  color: #f0a6a0;
+  color: var(--danger-ink);
 }
 @keyframes toast-in {
   from {
@@ -941,7 +1263,7 @@ textarea {
   font-size: 0.95rem;
 }
 .pill-unsent {
-  color: var(--warn);
+  color: var(--warn-ink);
   border-color: var(--warn);
   background: rgba(224, 137, 74, 0.14);
 }
@@ -1075,7 +1397,7 @@ textarea {
   padding-bottom: 8px;
 }
 .brk-head-bronze {
-  color: #c08a3e;
+  color: var(--medal-bronze);
   text-align: left;
 }
 .brk-body {
@@ -1165,7 +1487,7 @@ textarea {
   letter-spacing: 0.06em;
 }
 .brk-state.live {
-  color: var(--live);
+  color: var(--live-ink);
 }
 .brk-state.called {
   color: var(--gold-ink);
@@ -1607,7 +1929,7 @@ button.brk-row:focus-visible {
   font-weight: 800;
 }
 .win-mark {
-  color: var(--live);
+  color: var(--live-ink);
   font-weight: 800;
 }
 
@@ -1655,7 +1977,7 @@ button.brk-row:focus-visible {
   color: var(--gold-ink);
 }
 .timer-left[data-low="true"] {
-  color: var(--danger, #d2554d);
+  color: var(--danger-ink);
 }
 
 /* next-match hint */
@@ -2023,7 +2345,7 @@ button.brk-row:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 .board-timer.low {
-  color: var(--danger);
+  color: var(--danger-ink);
   border-color: rgba(210, 85, 77, 0.5);
   animation: timerpulse 1s infinite;
 }
@@ -2117,6 +2439,8 @@ button.brk-row:focus-visible {
   max-width: 760px;
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
 }
 .result-sheet {
   width: 100%;
@@ -2931,4 +3255,58 @@ button.brk-row:focus-visible {
     padding: 0;
     border-radius: 0;
   }
+}
+
+/* ============ icon placement (Lucide in place of emoji) ============ */
+.champion-eyebrow,
+.result-champ-eyebrow,
+.sound-hint,
+.speaker-ticker-badge,
+.special-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.champion-eyebrow,
+.result-champ-eyebrow {
+  justify-content: center;
+}
+.speaker-icon,
+.react-btn-emoji,
+.reaction-tally-emoji {
+  display: inline-grid;
+  place-items: center;
+}
+.speaker-icon {
+  color: var(--gold-ink);
+}
+.speaker-ticker-icon {
+  display: inline-block;
+  vertical-align: -0.2em;
+}
+.champion-badge .icon {
+  color: #fff;
+}
+.react-btn-emoji {
+  color: var(--gold-ink);
+}
+.react-btn-goal .react-btn-emoji {
+  color: var(--on-gold);
+}
+.reaction-floater {
+  color: var(--gold);
+}
+.diploma-place .place {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.place-1 .icon {
+  color: var(--medal-gold);
+}
+.place-2 .icon {
+  color: var(--medal-silver);
+}
+.place-3 .icon {
+  color: var(--medal-bronze);
 }

@@ -54,7 +54,7 @@ export function OrganiserHub({ id }: { id: string }) {
         <div className="champion-eyebrow">{no.hub.eyebrow}</div>
         {title && <h1 style={{ fontSize: "1.5rem" }}>{title}</h1>}
         {live && (
-          <div className="faint" style={{ fontSize: ".85rem", marginTop: -8 }}>
+          <div className="faint" style={{ fontSize: "var(--fs-sm)", marginTop: -8 }}>
             {no.admin.status[live.status]}
           </div>
         )}
@@ -72,7 +72,7 @@ export function OrganiserHub({ id }: { id: string }) {
               <CodeBlock label={no.hub.boardCode} value={mine.board_code} />
               <CodeBlock label={no.control.organiserCode} value={mine.organiser_code} warn />
             </div>
-            <p className="faint" style={{ fontSize: ".85rem" }}>
+            <p className="faint" style={{ fontSize: "var(--fs-sm)" }}>
               {no.hub.organiserNote}
             </p>
           </>
@@ -139,7 +139,7 @@ function OpenBoardButton({ id }: { id: string }) {
         {no.hub.openBoard}
       </button>
       {state === "opened" && (
-        <span className="faint" style={{ fontSize: ".85rem" }} role="status">
+        <span className="faint" style={{ fontSize: "var(--fs-sm)" }} role="status">
           {no.hub.boardOpened}
         </span>
       )}
@@ -189,7 +189,7 @@ function CodeBlock({
       >
         {value}
       </div>
-      <div className="faint" style={{ fontSize: ".72rem" }}>
+      <div className="faint" style={{ fontSize: "var(--fs-sm)" }}>
         {copied ? no.hub.copied : no.hub.copy}
       </div>
     </button>

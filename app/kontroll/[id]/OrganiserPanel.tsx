@@ -112,7 +112,7 @@ export function OrganiserPanel({
           onChange={(e) => saveCode(e.target.value.toUpperCase())}
           placeholder="KODE-XX"
         />
-        <span className="faint" style={{ fontSize: ".82rem" }}>
+        <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
           {no.control.organiserHint}
         </span>
       </div>

@@ -1,6 +1,5 @@
 import {
   ArrowLeft,
-  ArrowRight,
   Award,
   Check,
   ChevronDown,
@@ -26,7 +25,6 @@ import {
   Save,
   Settings,
   Smartphone,
-  Star,
   TrendingUp,
   Trophy,
   Volume2,
@@ -48,7 +46,6 @@ import type { ReactionKind } from "@/lib/realtime";
 const icons = {
   award: Award,
   back: ArrowLeft,
-  next: ArrowRight,
   check: Check,
   chevronDown: ChevronDown,
   close: X,
@@ -73,7 +70,6 @@ const icons = {
   settings: Settings,
   soundOn: Volume2,
   soundOff: VolumeX,
-  star: Star,
   templates: FolderOpen,
   trophy: Trophy,
   quick: Zap,

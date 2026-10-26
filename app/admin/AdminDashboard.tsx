@@ -135,7 +135,7 @@ export function AdminDashboard({
                         <strong style={{ fontSize: "1.1rem" }}>
                           {t.title || "—"}
                         </strong>
-                        <span className="faint" style={{ fontSize: ".85rem" }}>
+                        <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
                           {[t.sport_label, STATUS[t.status]]
                             .filter(Boolean)
                             .join(" · ")}

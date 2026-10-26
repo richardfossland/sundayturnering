@@ -346,7 +346,7 @@ export function Wizard() {
             <span className="brand-mark" style={{ width: 26, height: 26, fontSize: ".8rem" }}>T</span>
             {no.wizard.title}
           </span>
-          <span className="faint" style={{ fontSize: ".82rem" }}>
+          <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
             {no.wizard.step(stepNumberLabel(step, showStep6), showStep6 ? 7 : 6)}
           </span>
         </div>
@@ -519,7 +519,7 @@ export function Wizard() {
                     </button>
                   ))}
                 </div>
-                <span className="faint" style={{ fontSize: ".82rem" }}>
+                <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
                   {no.wizard.s4GenerateHint}
                 </span>
               </div>
@@ -528,7 +528,6 @@ export function Wizard() {
                   <div className="panel" key={i} style={{ padding: 10 }}>
                     <div className="row">
                       <input type="color" value={t.colour} onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, colour: e.target.value } : x))}
-                        style={{ width: 42, height: 42, border: "none", borderRadius: 10, background: "none" }}
                         aria-label={`Farge, lag ${i + 1}`} />
                       <input className="input grow" value={t.name} placeholder={no.wizard.s4Name}
                         aria-label={`${no.wizard.s4Name} ${i + 1}`}
@@ -545,7 +544,7 @@ export function Wizard() {
                     {t.members.length > 0 && (
                       <div className="chips" style={{ marginTop: 8 }}>
                         {t.members.map((m, mi) => (
-                          <span className="chip" key={mi} style={{ fontSize: ".78rem", cursor: "default" }}>
+                          <span className="chip" key={mi} style={{ fontSize: "var(--fs-sm)", cursor: "default" }}>
                             {m}
                           </span>
                         ))}
@@ -571,7 +570,7 @@ export function Wizard() {
                       {no.wizard.s4DrawDo}
                     </button>
                   </div>
-                  <span className="faint" style={{ fontSize: ".82rem" }}>
+                  <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
                     {parseNames(draw).length > 0
                       ? `${parseNames(draw).length} deltakere → ${Math.min(count, parseNames(draw).length)} lag. `
                       : ""}

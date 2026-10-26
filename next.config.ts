@@ -15,6 +15,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Dev-only "N" badge: bottom-left it covered the theme toggle.
+  devIndicators: { position: "bottom-right" },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

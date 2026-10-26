@@ -39,7 +39,7 @@ export function MyTournaments() {
             </Link>
             <button
               className="btn btn-ghost"
-              style={{ padding: "8px 12px", fontSize: ".85rem" }}
+              style={{ padding: "8px 12px", fontSize: "var(--fs-sm)" }}
               aria-label={`${no.hub.forget}: ${t.title || no.hub.untitled}`}
               onClick={() => {
                 if (!window.confirm(no.hub.forgetConfirm)) return;
