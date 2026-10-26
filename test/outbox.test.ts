@@ -312,3 +312,28 @@ describe("persistence across re-instantiation (reload)", () => {
     expect(outbox.snapshot()).toHaveLength(0);
   });
 });
+
+describe("sent events carry the propagation flag (C6)", () => {
+  it("a bare match answer counts as propagated; {match, propagated:false} is passed on", async () => {
+    const a = make(memoryStore(), async () => match);
+    await a.outbox.enqueue(entryInput(1));
+    await a.outbox.flush();
+    expect(a.events[0]).toMatchObject({ type: "sent", propagated: true });
+
+    const b = make(memoryStore(), (async () => ({ match, propagated: false })) as never);
+    await b.outbox.enqueue(entryInput(2));
+    await b.outbox.flush();
+    expect(b.events[0]).toMatchObject({ type: "sent", propagated: false, match });
+  });
+
+  it("the private deviceSecret rides along in the queued payload", async () => {
+    const seen: OutboxEntry[] = [];
+    const c = make(memoryStore(), async (e) => (seen.push(e), match));
+    await c.outbox.enqueue({
+      ...entryInput(3),
+      payload: { ...entryInput(3).payload, deviceSecret: "device-secret-0123456789abcdef" },
+    });
+    await c.outbox.flush();
+    expect(seen[0].payload.deviceSecret).toBe("device-secret-0123456789abcdef");
+  });
+});

@@ -71,6 +71,34 @@ describe("public state carries no codes", () => {
   });
 });
 
+describe("state carries no device identity (C3)", () => {
+  it("matches expose only the display names of the lock holder and result saver", async () => {
+    rows.matches = [
+      {
+        id: "m1",
+        tournament_id: ID,
+        phase: "league",
+        round: 1,
+        status: "done",
+        queue_order: 0,
+        locked_by: "6f1c2a9e-1111-4222-8333-444455556666|Bane 2",
+        result_by: "o1.AbCdEf_-0123456789|Bane 1",
+        result_version: 2,
+      },
+      { id: "m2", tournament_id: ID, phase: "league", round: 1, status: "live", queue_order: 1, locked_by: "raw-device-id", result_by: null },
+    ];
+    const res = await GET(new Request(`http://x/api/tournament/${ID}`), {
+      params: Promise.resolve({ id: ID }),
+    });
+    const text = await res.text();
+    const body = JSON.parse(text);
+    expect(body.matches[0]).toMatchObject({ locked_by: "Bane 2", result_by: "Bane 1" });
+    // A lock with no name still has a label; nothing from the id half survives.
+    expect(body.matches[1]).toMatchObject({ locked_by: "Enhet", result_by: null });
+    for (const leak of ["6f1c2a9e", "o1.AbCdEf", "raw-device-id"]) expect(text).not.toContain(leak);
+  });
+});
+
 describe("state carries the bracket links", () => {
   it("exposes from/to/slot/feed (no tournament_id) so the board can draw real links", async () => {
     rows.bracket_links = [

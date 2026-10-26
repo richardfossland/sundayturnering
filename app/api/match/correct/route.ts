@@ -42,12 +42,6 @@ async function handlePOST(req: Request) {
   const m = await getMatch(body.matchId);
   if (!m) return fail(404, "finnes_ikke");
   if (m.status !== "done") return fail(409, "ikke_ferdig");
-  // Ownership: only the phone that knows the secret behind result_by. Results
-  // saved before this scheme (raw device id) or by a client without a secret
-  // can only be changed by the organiser.
-  if (!(await ownsResult(m.result_by, body.deviceSecret))) return fail(403, "ikke_din_kamp");
-  if (!inSelfCorrectWindow(m, Date.now())) return fail(409, "for_sent");
-  if (!m.home_team_id || !m.away_team_id) return fail(409, "kamp_ikke_klar");
 
   const blocked = prefetchBlocked(req, m.tournament_id);
   const t = await getTournament(m.tournament_id).catch((e) => {
@@ -56,6 +50,12 @@ async function handlePOST(req: Request) {
   });
   if (!t) return fail(404, "finnes_ikke");
   if (!(await checkControlCode(req, t, body.controlCode, blocked))) return fail(403, "feil_kontrollkode");
+  // Ownership: only the phone that knows the secret behind result_by. Results
+  // saved before this scheme (raw device id) or by a client without a secret
+  // can only be changed by the organiser.
+  if (!(await ownsResult(m.result_by, body.deviceSecret))) return fail(403, "ikke_din_kamp");
+  if (!inSelfCorrectWindow(m, Date.now())) return fail(409, "for_sent");
+  if (!m.home_team_id || !m.away_team_id) return fail(409, "kamp_ikke_klar");
   // Same sperrer as «Lagre», so a corrected result cannot quietly change what a
   // later phase was built from. The deciding final is the exception: saving it
   // finished the tournament, and its referee still has the grace window.
