@@ -3,6 +3,7 @@ import { ok, fail, readJson, organiserLimit, must, withApi } from "@/lib/server/
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { db, getMatch } from "@/lib/server/store";
 import { resetDownstream } from "@/lib/server/playoff";
+import { clearTimerAfterDone } from "@/lib/server/timer";
 import type { Match } from "@/lib/types";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
@@ -86,6 +87,9 @@ async function handlePOST(req: Request) {
   if (rpc.error?.code === "P0409" || rpc.error?.message === "downstream_played")
     return downstreamPlayed(Number.parseInt(rpc.error.details ?? "", 10) || 0);
   const saved = must(rpc) as Match;
+  // First completion of this match (not a correction of an old result): stop the
+  // countdown that belonged to it, unless another match on the court is live.
+  if (m.status !== "done") await clearTimerAfterDone(t, saved);
 
   defer(() => broadcast(channels.tournament(t.id), events.matchUpdated, {
     matchId: m.id,

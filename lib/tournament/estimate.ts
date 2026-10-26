@@ -8,7 +8,7 @@
 // hver runde).
 
 import type { Consolation, Format, ScheduleConfig } from "@/lib/types";
-import { generateRoundRobin } from "@/lib/tournament/roundRobin";
+import { planRoundRobins } from "@/lib/tournament/roundRobin";
 import { splitIntoGroups, seedKnockoutFromGroups } from "@/lib/tournament/groups";
 import {
   bSeedsFromGroups,
@@ -89,21 +89,28 @@ export function estimateEnd(input: EstimateInput): Estimate {
 
   let matchCount = 0;
   let end = start;
+  // Lagenes siste sluttidspunkt føres videre mellom fasene (serie → sluttspill,
+  // sveitsisk runde → neste), som `priorEnds` gjør i serverens bygging.
+  const teamEnds = new Map<string, number>();
   /** Kjør en gruppe kamper og flytt `end` til siste sluttidspunkt. */
   const run = (rows: SlotMatch[], links: SlotLink[] = [], notBefore?: number) => {
     const planned = planSlots(rows, courts, schedule, {
       links,
       notBefore: notBefore !== undefined ? new Date(notBefore) : undefined,
+      priorEnds: teamEnds,
+      endsOut: teamEnds,
     });
     matchCount += planned.size;
     for (const p of planned.values())
       end = Math.max(end, Date.parse(p.at) + schedule.matchMinutes * MIN);
   };
-  const rr = (teamIds: string[], queueFrom: number): SlotMatch[] =>
-    generateRoundRobin(teamIds, { courtCount: courts.length }).map((p, i) => ({
-      id: `rr:${queueFrom + i}`,
-      queue_order: queueFrom + i,
-      court_id: p.courtIndex !== null ? (courts[p.courtIndex] ?? null) : null,
+  // Som serverens bygging med tidsplan: banen er ikke forhåndssatt (planleggeren
+  // velger), og gruppene deler én kø runde for runde.
+  const rr = (groups: string[][]): SlotMatch[] =>
+    planRoundRobins(groups).map((p) => ({
+      id: `rr:${p.queueOrder}`,
+      queue_order: p.queueOrder,
+      court_id: null,
       home_team_id: p.homeId,
       away_team_id: p.awayId,
       status: p.awayId === null ? "bye" : "scheduled",
@@ -137,14 +144,7 @@ export function estimateEnd(input: EstimateInput): Estimate {
     }
   } else if (format === "group_playoff") {
     const groups = splitIntoGroups(ids(teamCount), input.groupCount ?? 2);
-    let queue = 0;
-    const rows: SlotMatch[] = [];
-    for (const g of groups) {
-      const part = rr(g, queue);
-      queue += part.length;
-      rows.push(...part);
-    }
-    run(rows);
+    run(rr(groups));
     const per = input.advancePerGroup ?? 2;
     const qualifiers = seedKnockoutFromGroups(groups.map((g) => g.slice(0, per)));
     const bSeeds =
@@ -155,7 +155,7 @@ export function estimateEnd(input: EstimateInput): Estimate {
     run(pr, links, end);
   } else {
     // liga / liga + sluttspill
-    run(rr(ids(teamCount), 0));
+    run(rr([ids(teamCount)]));
     const size = input.playoffSize ?? 0;
     if (format === "league_playoff" && size >= 2) {
       const ranked = ids(teamCount);

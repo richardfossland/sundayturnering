@@ -59,6 +59,7 @@ const MESSAGES: Record<string, string> = {
   for_stort_skyv: "Du kan flytte kamper maks 240 minutter om gangen.",
   skyv_for_tidlig: "Kamper kan ikke flyttes til et tidspunkt som allerede er passert.",
   ingen_kamper: "Ingen kamper å flytte fra det tidspunktet.",
+  ugyldig_handling: "Ugyldig handling for nedtellingen.",
   // call-up (A3)
   bane_finnes_ikke: "Banen finnes ikke i denne turneringen.",
   bane_opptatt: "Banen er opptatt. En kamp pågår eller er allerede kalt opp.",

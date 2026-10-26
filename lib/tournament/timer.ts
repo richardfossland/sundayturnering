@@ -3,7 +3,35 @@
 // timer (per-court, parallel mode). A malformed/absent endsAt is guarded so
 // `add` can't crash on Date.parse → NaN.
 
-import type { TimerState } from "@/lib/types";
+import type { Match, Tournament, TimerState } from "@/lib/types";
+
+export const TIMER_ACTIONS = ["start", "add", "stop"] as const;
+export type TimerAction = (typeof TIMER_ACTIONS)[number];
+
+/** Er verdien en kjent timer-handling? Ukjent `action` skal avvises (400), ikke
+ * starte en 10-minutters nedtelling. */
+export function isTimerAction(v: unknown): v is TimerAction {
+  return typeof v === "string" && (TIMER_ACTIONS as readonly string[]).includes(v);
+}
+
+/** Hvilken nedtelling som skal nullstilles når `done` nettopp ble lagret som
+ * ferdig: banens (kampen ligger på en bane) eller turneringens (sekvensiell, ingen
+ * baner). Ikke hvis en annen kamp på samme bane/tidslinje fortsatt er i gang og
+ * dermed bruker den. Ellers arver neste kamp en gammel nedtelling. */
+export function timerToClear(
+  done: Pick<Match, "id" | "court_id">,
+  matches: Pick<Match, "id" | "court_id" | "status">[],
+  parallelism: Tournament["parallelism"],
+): { court: string } | "tournament" | null {
+  const stillLive = (same: (m: { court_id: string | null }) => boolean) =>
+    matches.some((m) => m.id !== done.id && m.status === "live" && same(m));
+  if (done.court_id)
+    return stillLive((m) => m.court_id === done.court_id) ? null : { court: done.court_id };
+  // Uten bane: bare i sekvensiell modus ligger nedtellingen på turneringen. I
+  // parallell modus er den turneringsnivå-klokka arrangørens til brettet.
+  if (parallelism !== "sequential") return null;
+  return stillLive(() => true) ? null : "tournament";
+}
 
 export function computeTimer(
   prev: TimerState | null,

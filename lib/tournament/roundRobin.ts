@@ -4,8 +4,10 @@
 //   N teams → N-1 rounds (single), 2(N-1) rounds (double).
 //   Odd N → a phantom "bye" slot rotates so exactly one real team sits out per
 //   round, distributed fairly across teams.
-//   Parallel mode spreads a round's matches across courts; sequential leaves
-//   court assignment null and just orders the global queue.
+//   Parallel mode spreads the matches across courts with ONE running counter
+//   (round-robin over the courts in queue order, so every court is used even when
+//   a round has fewer matches than courts); sequential leaves court assignment
+//   null and just orders the global queue.
 
 export interface RRPairing {
   round: number; // 1-based
@@ -17,7 +19,7 @@ export interface RRPairing {
 
 export interface RROptions {
   double?: boolean; // home/away double round-robin
-  courtCount?: number; // >0 → parallel: spread each round across this many courts
+  courtCount?: number; // >0 → parallel: spread the matches across this many courts
 }
 
 const BYE = "__bye__";
@@ -43,6 +45,7 @@ export function generateRoundRobin(
 
   const pairings: RRPairing[] = [];
   let queueOrder = 0;
+  let courtCursor = 0; // løpende teller over hele serien (ikke nullstilt per runde)
 
   for (let leg = 0; leg < legs; leg++) {
     for (let r = 0; r < roundsPerLeg; r++) {
@@ -59,8 +62,7 @@ export function generateRoundRobin(
         else roundMatches.push({ homeId: a, awayId: b });
       }
 
-      // Assign queue order + court within the round. Byes don't take a court.
-      let courtCursor = 0;
+      // Assign queue order + court. Byes don't take a court.
       for (const m of roundMatches) {
         const isBye = m.awayId === null;
         const courtIndex =
@@ -80,6 +82,31 @@ export function generateRoundRobin(
   }
 
   return pairings;
+}
+
+export interface GroupRRPairing extends RRPairing {
+  /** 0-based gruppe pairingen hører til. */
+  group: number;
+}
+
+/** Rundeturnering i flere grupper på en felles kø: runde 1 i alle gruppene først,
+ * så runde 2 osv., slik at gruppene spilles samtidig i stedet for etter hverandre.
+ * `queueOrder` er global; `courtIndex` følger én løpende teller over hele køen
+ * (frirunder tar ingen bane). Én gruppe gir samme resultat som `generateRoundRobin`. */
+export function planRoundRobins(
+  groups: string[][],
+  opts: RROptions = {},
+): GroupRRPairing[] {
+  const { double = false, courtCount = 0 } = opts;
+  const all = groups.flatMap((ids, group) =>
+    generateRoundRobin(ids, { double }).map((p, i) => ({ ...p, group, i })),
+  );
+  all.sort((a, b) => a.round - b.round || a.group - b.group || a.i - b.i);
+  let courtCursor = 0;
+  return all.map(({ i: _i, ...p }, queueOrder) => {
+    const takesCourt = p.awayId !== null && courtCount > 0;
+    return { ...p, queueOrder, courtIndex: takesCourt ? courtCursor++ % courtCount : null };
+  });
 }
 
 /** Rotate all but the first element clockwise (circle method step). */
