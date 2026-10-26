@@ -1,3 +1,4 @@
+import { OrganiserHeader } from "@/lib/client/OrganiserHeader";
 import { PrintClient } from "./PrintClient";
 
 export default async function PrintPage({
@@ -6,5 +7,10 @@ export default async function PrintPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <PrintClient id={id} />;
+  return (
+    <>
+      <OrganiserHeader id={id} />
+      <PrintClient id={id} />
+    </>
+  );
 }

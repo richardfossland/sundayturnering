@@ -87,16 +87,12 @@ export function PrintClient({ id }: { id: string }) {
     <main className="print-page">
       <div className="print-toolbar card card-pad stack">
         <div className="row" style={{ justifyContent: "space-between", gap: 12 }}>
-          <Link href={`/arrangor/${id}`} className="faint back-link">
-            <Icon name="back" size={16} />
-            {no.print.back}
-          </Link>
+          <strong>{no.print.choose}</strong>
           <button className="btn btn-gold" onClick={() => window.print()}>
             <Icon name="print" />
             {no.print.action}
           </button>
         </div>
-        <strong>{no.print.choose}</strong>
         <div className="print-options">
           <Check label={no.print.programmeCourt} on={showCourt} set={setShowCourt} />
           <Check label={no.print.programmeTeam} on={showTeam} set={setShowTeam} />

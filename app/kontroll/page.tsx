@@ -6,6 +6,7 @@ import { api } from "@/lib/client/api";
 import { pairErrorMessage } from "@/lib/locale/errors";
 import { identity } from "@/lib/client/identity";
 import { no } from "@/lib/locale/no";
+import { SiteHeader, backToHome } from "@/lib/client/SiteHeader";
 import { parseControlTarget, withControlTarget } from "@/lib/client/controlTarget";
 
 function AttachInner() {
@@ -39,32 +40,36 @@ function AttachInner() {
 
   return (
     <main className="center-screen">
-      <div className="card card-pad stack" style={{ maxWidth: 420, width: "100%" }}>
-        <div className="brand" style={{ justifyContent: "center" }}>
-          <span className="brand-mark">T</span>
-          {no.brand}
+      <div className="card stack entry-card">
+        <div className="stack" style={{ gap: "var(--sp-3)" }}>
+          <h1 style={{ fontSize: "var(--fs-xl)" }}>{no.pair.controlTitle}</h1>
+          <p className="entry-lede">{no.pair.controlExplain}</p>
         </div>
-        <h2 className="center">{no.pair.controlTitle}</h2>
-        <input
-          className="input code-input"
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-          placeholder="000000"
-          inputMode="numeric"
-          maxLength={6}
-          autoFocus
-          onKeyDown={(e) => e.key === "Enter" && code.length === 6 && attach(code)}
-        />
         <div className="field">
-          <label className="label">{no.pair.deviceName}</label>
+          <label className="label" htmlFor="control-code">{no.pair.controlCodeLabel}</label>
           <input
+            id="control-code"
+            className="input code-input"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000"
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+            onKeyDown={(e) => e.key === "Enter" && code.length === 6 && attach(code)}
+          />
+        </div>
+        <div className="field">
+          <label className="label" htmlFor="device-name">{no.pair.deviceName}</label>
+          <input
+            id="device-name"
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={no.pair.deviceNamePlaceholder}
           />
         </div>
-        {err && <div className="toast-danger" style={{ fontSize: ".9rem" }}>{err}</div>}
+        {err && <div className="toast-danger" role="alert" style={{ fontSize: "var(--fs-sm)" }}>{err}</div>}
         <button
           className="btn btn-gold btn-block btn-lg"
           disabled={busy || code.length !== 6}
@@ -80,8 +85,11 @@ function AttachInner() {
 
 export default function ControlAttach() {
   return (
-    <Suspense fallback={<main className="center-screen"><span className="spin" /></main>}>
-      <AttachInner />
-    </Suspense>
+    <>
+      <SiteHeader back={backToHome} />
+      <Suspense fallback={<main className="center-screen"><span className="spin" /></main>}>
+        <AttachInner />
+      </Suspense>
+    </>
   );
 }

@@ -8,6 +8,7 @@ import { boardPath, openBoardWindow } from "@/lib/client/boardWindow";
 import { api, ApiError } from "@/lib/client/api";
 import { createAuthBrowserClient } from "@/lib/supabase/auth-browser";
 import { no } from "@/lib/locale/no";
+import { SiteHeader, backToHome } from "@/lib/client/SiteHeader";
 import type { OrganiserTournamentRow } from "@/lib/server/store";
 
 const STATUS = no.admin.status;
@@ -72,136 +73,138 @@ export function AdminDashboard({
   }
 
   return (
-    <main className="center-screen" style={{ alignItems: "start" }}>
-      <div className="stack" style={{ maxWidth: 720, width: "100%" }}>
-        <div className="spread wrap-gap">
-          <div className="stack" style={{ gap: 4 }}>
-            <h1 className="brand" style={{ fontSize: "1.8rem" }}>
-              {no.admin.title}
-            </h1>
-            <p className="faint">{no.admin.lede}</p>
-          </div>
-          <button className="btn btn-ghost" onClick={signOut} type="button">
-            {no.admin.signOut}
-          </button>
-        </div>
+    <>
+      <SiteHeader back={backToHome} />
+        <main className="center-screen" style={{ alignItems: "start" }}>
+          <div className="stack" style={{ maxWidth: 720, width: "100%" }}>
+            <div className="spread wrap-gap">
+              <div className="stack" style={{ gap: 4 }}>
+                <h1 className="brand" style={{ fontSize: "1.8rem" }}>
+                  {no.admin.title}
+                </h1>
+                <p className="faint">{no.admin.lede}</p>
+              </div>
+              <button className="btn btn-ghost" onClick={signOut} type="button">
+                {no.admin.signOut}
+              </button>
+            </div>
 
-        <div className="row wrap-gap">
-          <button
-            className="btn btn-gold"
-            onClick={() => router.push("/ny")}
-            type="button"
-          >
-            {no.admin.create}
-          </button>
-        </div>
+            <div className="row wrap-gap">
+              <button
+                className="btn btn-gold"
+                onClick={() => router.push("/ny")}
+                type="button"
+              >
+                {no.admin.create}
+              </button>
+            </div>
 
-        {error && (
-          <p className="faint" style={{ color: "#f0a6a0" }}>
-            {error}
-          </p>
-        )}
+            {error && (
+              <p className="faint" style={{ color: "#f0a6a0" }}>
+                {error}
+              </p>
+            )}
 
-        {rows.length === 0 ? (
-          <div className="card card-pad stack">
-            <p>{no.admin.empty}</p>
-            <p className="faint">{no.admin.emptyHint}</p>
-          </div>
-        ) : (
-          <ul className="stack" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {rows.map((t) => (
-              <li key={t.id} className="card card-pad stack">
-                {editing === t.id ? (
-                  <EditRow
-                    row={t}
-                    busy={busyId === t.id}
-                    onCancel={() => setEditing(null)}
-                    onSaved={async (patch) => {
-                      await withBusy(t.id, async () => {
-                        await api.editTournament(t.id, patch);
-                        setRows((r) =>
-                          r.map((x) =>
-                            x.id === t.id ? { ...x, ...patch } : x,
-                          ),
-                        );
-                        setEditing(null);
-                      });
-                    }}
-                  />
-                ) : (
-                  <>
-                    <div className="spread wrap-gap">
-                      <div className="stack" style={{ gap: 2 }}>
-                        <strong style={{ fontSize: "1.1rem" }}>
-                          {t.title || "—"}
-                        </strong>
-                        <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
-                          {[t.sport_label, STATUS[t.status]]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="btn-row">
-                      <button
-                        className="btn"
-                        onClick={() => {
-                          // Board codes overlay reads them from this device.
-                          identity.setControlCode(t.id, t.control_code);
-                          identity.setBoardCode(t.id, t.board_code);
-                          if (!openBoardWindow(t.id)) router.push(boardPath(t.id));
+            {rows.length === 0 ? (
+              <div className="card card-pad stack">
+                <p>{no.admin.empty}</p>
+                <p className="faint">{no.admin.emptyHint}</p>
+              </div>
+            ) : (
+              <ul className="stack" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {rows.map((t) => (
+                  <li key={t.id} className="card card-pad stack">
+                    {editing === t.id ? (
+                      <EditRow
+                        row={t}
+                        busy={busyId === t.id}
+                        onCancel={() => setEditing(null)}
+                        onSaved={async (patch) => {
+                          await withBusy(t.id, async () => {
+                            await api.editTournament(t.id, patch);
+                            setRows((r) =>
+                              r.map((x) =>
+                                x.id === t.id ? { ...x, ...patch } : x,
+                              ),
+                            );
+                            setEditing(null);
+                          });
                         }}
-                        type="button"
-                      >
-                        {no.admin.openBoard}
-                      </button>
-                      <button
-                        className="btn"
-                        onClick={() => {
-                          // The control page needs the referee credential.
-                          identity.setControlCode(t.id, t.control_code);
-                          router.push(`/kontroll/${t.id}`);
-                        }}
-                        type="button"
-                      >
-                        {no.admin.openControl}
-                      </button>
-                      <button
-                        className="btn"
-                        onClick={() => setEditing(t.id)}
-                        type="button"
-                        disabled={busyId === t.id}
-                      >
-                        {no.admin.edit}
-                      </button>
-                      {t.status === "finished" && (
-                        <button
-                          className="btn"
-                          onClick={() => onReopen(t)}
-                          type="button"
-                          disabled={busyId === t.id}
-                        >
-                          {busyId === t.id ? no.admin.reopening : no.admin.reopen}
-                        </button>
-                      )}
-                      <button
-                        className="btn btn-danger"
-                        onClick={() => onDelete(t)}
-                        type="button"
-                        disabled={busyId === t.id}
-                      >
-                        {busyId === t.id ? no.admin.deleting : no.admin.delete}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </main>
-  );
+                      />
+                    ) : (
+                      <>
+                        <div className="spread wrap-gap">
+                          <div className="stack" style={{ gap: 2 }}>
+                            <strong style={{ fontSize: "1.1rem" }}>
+                              {t.title || "—"}
+                            </strong>
+                            <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
+                              {[t.sport_label, STATUS[t.status]]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="btn-row">
+                          <button
+                            className="btn"
+                            onClick={() => {
+                              // Board codes overlay reads them from this device.
+                              identity.setControlCode(t.id, t.control_code);
+                              identity.setBoardCode(t.id, t.board_code);
+                              if (!openBoardWindow(t.id)) router.push(boardPath(t.id));
+                            }}
+                            type="button"
+                          >
+                            {no.admin.openBoard}
+                          </button>
+                          <button
+                            className="btn"
+                            onClick={() => {
+                              // The control page needs the referee credential.
+                              identity.setControlCode(t.id, t.control_code);
+                              router.push(`/kontroll/${t.id}`);
+                            }}
+                            type="button"
+                          >
+                            {no.admin.openControl}
+                          </button>
+                          <button
+                            className="btn"
+                            onClick={() => setEditing(t.id)}
+                            type="button"
+                            disabled={busyId === t.id}
+                          >
+                            {no.admin.edit}
+                          </button>
+                          {t.status === "finished" && (
+                            <button
+                              className="btn"
+                              onClick={() => onReopen(t)}
+                              type="button"
+                              disabled={busyId === t.id}
+                            >
+                              {busyId === t.id ? no.admin.reopening : no.admin.reopen}
+                            </button>
+                          )}
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => onDelete(t)}
+                            type="button"
+                            disabled={busyId === t.id}
+                          >
+                            {busyId === t.id ? no.admin.deleting : no.admin.delete}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </main>
+    </>  );
 }
 
 function EditRow({
