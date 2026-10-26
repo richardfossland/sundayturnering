@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useCommentator } from "@/lib/client/useCommentator";
+import { Icon, type IconName } from "@/lib/client/Icon";
 import { initials, teamMap } from "@/lib/client/view";
 import { no } from "@/lib/locale/no";
 import {
@@ -13,17 +14,17 @@ import {
 import type { StateDTO } from "@/lib/dto";
 import type { Storyline, StorylineKind } from "@/lib/tournament/narrate";
 
-const ICON: Record<StorylineKind, string> = {
-  champion: "🏆",
-  final: "🥇",
-  playoff: "🎬",
-  upset: "⚡",
-  clinch: "✅",
-  lead_change: "📈",
-  rout: "💥",
-  draw: "🤝",
-  result: "⚽",
-  live: "🔴",
+const ICON: Record<StorylineKind, IconName> = {
+  champion: "trophy",
+  final: "medal",
+  playoff: "kickoff",
+  upset: "upset",
+  clinch: "result",
+  lead_change: "trend",
+  rout: "quick",
+  draw: "draw",
+  result: "goal",
+  live: "live",
 };
 
 const CUTIN_MS = 6000;
@@ -88,7 +89,8 @@ export function Commentator({ state }: { state: StateDTO | null }) {
           aria-label={tts ? no.narrate.ttsOnTitle : no.narrate.ttsOffTitle}
           title={tts ? no.narrate.ttsOnTitle : no.narrate.ttsOffTitle}
         >
-          {tts ? "🗣️" : "💬"} {no.narrate.ttsOff}
+          <Icon name={tts ? "soundOn" : "commentary"} size={18} />
+          {no.narrate.ttsOff}
         </button>
       )}
 
@@ -108,7 +110,9 @@ export function Commentator({ state }: { state: StateDTO | null }) {
                   {initials(teams.get(cutin.teamId)!.name)}
                 </span>
               ) : (
-                <span className="speaker-icon">{ICON[cutin.kind]}</span>
+                <span className="speaker-icon">
+                  <Icon name={ICON[cutin.kind]} size={56} />
+                </span>
               )}
             </div>
             <div className="speaker-card-text">
@@ -124,11 +128,16 @@ export function Commentator({ state }: { state: StateDTO | null }) {
 
       {ticker.length > 0 && (
         <div className="speaker-ticker" aria-live="polite" aria-atomic="false">
-          <span className="speaker-ticker-badge">🎙️ {no.narrate.badge}</span>
+          <span className="speaker-ticker-badge">
+            <Icon name="mic" size={16} />
+            {no.narrate.badge}
+          </span>
           <div className="speaker-ticker-track">
             {ticker.map((l) => (
               <span key={l.key} className="speaker-ticker-item">
-                <span className="speaker-ticker-icon">{ICON[l.kind]}</span>
+                <span className="speaker-ticker-icon">
+                  <Icon name={ICON[l.kind]} size={16} />
+                </span>
                 {l.headline}
                 {l.detail ? ` · ${l.detail}` : ""}
               </span>

@@ -37,11 +37,13 @@ export const events = {
 export const reactionKinds = ["clap", "fire", "goal"] as const;
 export type ReactionKind = (typeof reactionKinds)[number];
 
-/** The emoji each cheer floats up as on the board. */
-export const reactionEmoji: Record<ReactionKind, string> = {
-  clap: "👏",
-  fire: "🔥",
-  goal: "📣",
+/** Plain-text name of each cheer (a11y labels, tests). The glyph it floats up
+ * as is chosen client-side at render time (lib/client/Icon.tsx `reactionIcon`):
+ * the wire carries only the `kind`, so old and new clients interoperate. */
+export const reactionLabel: Record<ReactionKind, string> = {
+  clap: "Applaus",
+  fire: "Fyrverkeri",
+  goal: "Mål",
 };
 
 /** Wire shape of a `reaction` broadcast. `n` lets a client coalesce several

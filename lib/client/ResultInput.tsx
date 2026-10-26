@@ -9,6 +9,8 @@ import type {
 } from "@/lib/types";
 import { validateResult } from "@/lib/tournament/scoring";
 import { no } from "@/lib/locale/no";
+import { Icon } from "@/lib/client/Icon";
+import { NumberField } from "@/lib/client/NumberField";
 
 // Profile-driven result entry (spec §3) + quick-score helpers + a special-result
 // affordance (walkover / abandoned / DQ). Renders a live scoreboard with
@@ -30,6 +32,9 @@ interface Props {
    * picks who went through (penalties / extra time). */
   knockout?: boolean;
 }
+
+// Generous ceiling for one set (tennis tiebreaks, table tennis to 21 …).
+const MAX_SET_SCORE = 999;
 
 // A few common scorelines offered as one-tap chips (simple profile).
 const QUICK_SCORES: [number, number][] = [
@@ -198,31 +203,32 @@ export function ResultInput({
           </div>
           {sets.map((s, i) => (
             <div className="set-row" key={i}>
-              <input
-                className="input set-input"
-                type="number"
+              <NumberField
+                compact
+                className="set-input"
                 min={0}
-                inputMode="numeric"
+                max={MAX_SET_SCORE}
                 value={s[0]}
-                onChange={(e) => updateSet(sets, setSets, i, 0, e.target.value)}
+                onChange={(n) => updateSet(sets, setSets, i, 0, n)}
                 aria-label={`${home.name} sett ${i + 1}`}
               />
               <span className="versus-mid">–</span>
-              <input
-                className="input set-input"
-                type="number"
+              <NumberField
+                compact
+                className="set-input"
                 min={0}
-                inputMode="numeric"
+                max={MAX_SET_SCORE}
                 value={s[1]}
-                onChange={(e) => updateSet(sets, setSets, i, 1, e.target.value)}
+                onChange={(n) => updateSet(sets, setSets, i, 1, n)}
                 aria-label={`${away.name} sett ${i + 1}`}
               />
               {sets.length > 1 ? (
                 <button
                   className="btn btn-ghost"
+                  aria-label={`Fjern sett ${i + 1}`}
                   onClick={() => setSets(sets.filter((_, j) => j !== i))}
                 >
-                  ✕
+                  <Icon name="close" />
                 </button>
               ) : (
                 <span style={{ width: 44 }} />
@@ -250,7 +256,8 @@ export function ResultInput({
       <div className="special-box">
         {!showSpecial ? (
           <button className="special-toggle" onClick={() => setShowSpecial(true)}>
-            {no.control.special} ▾
+            {no.control.special}
+            <Icon name="chevronDown" size={16} />
           </button>
         ) : (
           <div className="stack" style={{ gap: 10 }}>
@@ -266,6 +273,7 @@ export function ResultInput({
                   setSpecialWinner(null);
                 }}
               >
+                <Icon name="back" size={16} />
                 {no.control.specialBack}
               </button>
             </div>
@@ -368,9 +376,8 @@ function updateSet(
   setSets: (s: [number, number][]) => void,
   idx: number,
   side: 0 | 1,
-  raw: string,
+  n: number,
 ) {
-  const n = Math.max(0, Math.floor(Number(raw) || 0));
   const next = sets.map((s, i) =>
     i === idx ? ((side === 0 ? [n, s[1]] : [s[0], n]) as [number, number]) : s,
   );

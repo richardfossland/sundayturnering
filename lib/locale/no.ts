@@ -6,7 +6,7 @@ export const no = {
   // landing
   landing: {
     createCta: "Lag ny turnering",
-    quickCta: "⚡ Hurtigkamp (1v1)",
+    quickCta: "Hurtigkamp (1v1)",
     boardCta: "Åpne tavle",
     controlCta: "Bli med (kontroll)",
     blurb:
@@ -37,7 +37,7 @@ export const no = {
     codeForOther: "Den koden tilhører en annen turnering.",
     reenterTitle: "Tast kontrollkoden",
     reenterHint:
-      "Kontrollkoden får du av arrangøren (den vises også på tavla under ⚿). Den bekrefter at du er dommer før resultater kan registreres.",
+      "Kontrollkoden får du av arrangøren (den vises også på tavla, bak kode-knappen). Den bekrefter at du er dommer før resultater kan registreres.",
     boardCodeTitle: "Skriv inn tavlekoden",
     attached: "tilkoblet",
     devices: "Tilkoblede enheter",
@@ -52,17 +52,17 @@ export const no = {
       "Ta vare på arrangørkoden — den kreves for å starte sluttspill, overstyre resultater og avslutte. Del bare kontrollkoden med dommerne.",
     savedNote:
       "Kodene er lagret på denne enheten. Du finner siden igjen under «Mine turneringer» på forsiden.",
-    openBoard: "🖥 Åpne tavla på storskjerm",
+    openBoard: "Åpne tavla på storskjerm",
     boardOpened:
-      "Tavla er åpnet i et eget vindu. Dra det over til projektoren og trykk F (eller ⛶ i menyen) for fullskjerm — denne siden blir stående her.",
+      "Tavla er åpnet i et eget vindu. Dra det over til projektoren og trykk F (eller fullskjerm-knappen i menyen) for fullskjerm — denne siden blir stående her.",
     boardBlocked: "Nettleseren stoppet det nye vinduet.",
     boardBlockedLink: "Åpne tavla i ny fane",
-    control: "📱 Registrer resultater og arrangørpanel",
-    follow: "📣 Kopier følge-lenke (publikum)",
+    control: "Registrer resultater og arrangørpanel",
+    follow: "Kopier følge-lenke (publikum)",
     followCopied: "Lenke kopiert!",
-    results: "🏆 Resultater og diplom",
-    print: "🖨️ Skriv ut kampprogram og kampkort",
-    toLanding: "← Til forsiden",
+    results: "Resultater og diplom",
+    print: "Skriv ut kampprogram og kampkort",
+    toLanding: "Til forsiden",
     copy: "trykk for å kopiere",
     copied: "Kopiert!",
     missingTitle: "Kodene finnes ikke på denne enheten",
@@ -144,7 +144,7 @@ export const no = {
     s4GenerateHint: "Lager nummererte lag du kan gi navn etterpå.",
     s4Bulk: "Lim inn lagnavn (ett per linje)",
     s4BulkApply: "Legg til alle",
-    s4Draw: "🎲 Trekk lag fra deltakerliste",
+    s4Draw: "Trekk lag fra deltakerliste",
     s4DrawTeams: "Antall lag",
     s4DrawDo: "Trekk lag",
     s4DrawHint:
@@ -282,8 +282,8 @@ export const no = {
     noAccessBody:
       "Kampkortene inneholder QR-koder med kontrollkoden, så siden åpner bare på enheten som opprettet turneringen. Gå til arrangørsiden og logg inn der.",
     toOrganiser: "Til arrangørsiden",
-    back: "← Tilbake",
-    action: "🖨️ Skriv ut / lagre som PDF",
+    back: "Tilbake",
+    action: "Skriv ut / lagre som PDF",
     choose: "Hva skal skrives ut?",
     programmeCourt: "Kampprogram per bane",
     programmeTeam: "Kampprogram per lag",
@@ -359,7 +359,7 @@ export const no = {
     specialAbandoned: "Avbrutt / annullert",
     specialPickWinner: "Hvilket lag gikk videre?",
     specialAbandonedHint: "Kampen telles ikke i tabellen.",
-    specialBack: "← Vanlig resultat",
+    specialBack: "Vanlig resultat",
     pickTeam: "Velg lag",
 
     // referee match controls
@@ -416,6 +416,7 @@ export const no = {
     courtLive: "Spiller nå",
     courtCalled: "Kalt opp",
     courtSuggested: "Foreslått neste",
+    suggestedTag: "foreslått",
     courtNoSuggestion: "Ingen hvilte lag klare",
     courtEmpty: "Ledig",
     callUp: "Kall opp",
@@ -510,6 +511,14 @@ export const no = {
     error: "Noe gikk galt.",
     retry: "Prøv igjen",
   },
+
+  // NumberField (lib/client/NumberField.tsx)
+  field: {
+    less: "Mindre",
+    more: "Mer",
+    max: (n: number) => `Maks ${n}`,
+    min: (n: number) => `Minst ${n}`,
+  },
 } as const;
 
 export type Locale = typeof no;
@@ -543,7 +552,7 @@ export const narr = {
   finalHeadline: (home: string, away: string) =>
     `Finale! ${home} mot ${away} om tittelen.`,
 
-  championHeadline: (team: string) => `${team} vinner turneringen! 🏆`,
+  championHeadline: (team: string) => `${team} vinner turneringen!`,
   championDetail: "Gratulerer til vinneren – og takk for kampen, alle sammen!",
 } as const;
 

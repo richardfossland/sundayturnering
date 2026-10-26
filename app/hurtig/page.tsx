@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/client/api";
 import { no } from "@/lib/locale/no";
+import { Icon } from "@/lib/client/Icon";
 import { paletteColour } from "@/lib/palette";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import type { ScoringProfileKey } from "@/lib/types";
@@ -53,7 +54,10 @@ export default function HurtigPage() {
     <main className="center-screen">
       <div className="card card-pad stack" style={{ maxWidth: 440, width: "100%" }}>
         <div className="stack" style={{ gap: 4 }}>
-          <h1 style={{ fontSize: "1.5rem" }}>⚡ {no.hurtig.title}</h1>
+          <h1 style={{ fontSize: "1.5rem" }}>
+            <Icon name="quick" size={22} className="icon-title" />
+            {no.hurtig.title}
+          </h1>
           <p className="faint" style={{ fontSize: ".9rem" }}>{no.hurtig.blurb}</p>
         </div>
 

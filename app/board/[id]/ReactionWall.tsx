@@ -5,12 +5,12 @@ import {
   addReaction,
   emptyReactionCounts,
   parseReactionPayload,
-  reactionEmoji,
   reactionKinds,
 } from "@/lib/realtime";
 import type { ReactionKind } from "@/lib/realtime";
+import { Icon, reactionIcon } from "@/lib/client/Icon";
 
-// Floating-emoji overlay for the board. Driven entirely by ephemeral `reaction`
+// Floating-icon overlay for the board. Driven entirely by ephemeral `reaction`
 // broadcasts forwarded from useTournament — no DB, no authoritative state. The
 // imperative handle lets BoardClient push a reaction in without re-rendering the
 // whole board on every cheer.
@@ -21,7 +21,7 @@ export interface ReactionWallHandle {
 
 interface Floater {
   id: number;
-  emoji: string;
+  kind: ReactionKind;
   left: number; // vw-ish offset 0..100
   drift: number; // horizontal drift in px
   dur: number; // seconds
@@ -63,13 +63,12 @@ function ReactionWall({
         const p = parseReactionPayload(raw);
         if (!p) return;
         addCount(p);
-        const emoji = reactionEmoji[p.kind];
         // Spawn a few floaters (capped) — one per coalesced tap, max 8 visuals
         // per message so a big `n` doesn't choke the board.
         const visuals = Math.min(p.n, 8);
         const born: Floater[] = Array.from({ length: visuals }, () => ({
           id: seq++,
-          emoji,
+          kind: p.kind,
           left: 4 + Math.random() * 92,
           drift: (Math.random() - 0.5) * 80,
           dur: 2.6 + Math.random() * 1.4,
@@ -108,7 +107,7 @@ function ReactionWall({
             } as React.CSSProperties
           }
         >
-          {f.emoji}
+          <Icon name={reactionIcon[f.kind]} size="1em" strokeWidth={2} />
         </span>
       ))}
       {total > 0 && (
@@ -117,7 +116,9 @@ function ReactionWall({
             .filter((k) => counts[k] > 0)
             .map((k) => (
               <span className="reaction-tally-item" key={k}>
-                <span className="reaction-tally-emoji">{reactionEmoji[k]}</span>
+                <span className="reaction-tally-emoji">
+                  <Icon name={reactionIcon[k]} size="1em" strokeWidth={2} />
+                </span>
                 <span className="reaction-tally-count">{counts[k]}</span>
               </span>
             ))}

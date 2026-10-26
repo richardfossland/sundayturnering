@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { no } from "@/lib/locale/no";
 import { championId, initials } from "@/lib/client/view";
 import { playFanfare } from "@/lib/client/sound";
+import { Icon } from "@/lib/client/Icon";
 import { Confetti } from "./Confetti";
 import type { Team } from "@/lib/types";
 import type { StateDTO } from "@/lib/dto";
@@ -26,7 +27,10 @@ export function Champion({ state }: { state: StateDTO }) {
     <main className="champion">
       <Confetti />
       <div className="champion-inner">
-        <div className="champion-eyebrow">🏆 {no.board.champion}</div>
+        <div className="champion-eyebrow">
+          <Icon name="trophy" size={22} />
+          {no.board.champion}
+        </div>
         {champ?.logo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img className="champion-logo" src={champ.logo_url} alt="" />
@@ -35,7 +39,7 @@ export function Champion({ state }: { state: StateDTO }) {
             className="champion-badge"
             style={{ background: champ?.colour ?? "var(--gold)" }}
           >
-            {champ ? initials(champ.name) : "🏆"}
+            {champ ? initials(champ.name) : <Icon name="trophy" size={64} />}
           </div>
         )}
         <h1 className="champion-name">{champ?.name ?? "—"}</h1>
@@ -46,7 +50,8 @@ export function Champion({ state }: { state: StateDTO }) {
           rel="noopener"
           style={{ marginTop: 24 }}
         >
-          🏅 Resultater &amp; diplom
+          <Icon name="award" />
+          Resultater &amp; diplom
         </a>
       </div>
     </main>

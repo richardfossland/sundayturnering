@@ -6,6 +6,7 @@ import { api } from "@/lib/client/api";
 import { identity } from "@/lib/client/identity";
 import { myTournaments } from "@/lib/client/myTournaments";
 import { QRCode } from "@/lib/client/QRCode";
+import { Icon } from "@/lib/client/Icon";
 import { teamMap, matchTime } from "@/lib/client/view";
 import {
   cardMatches,
@@ -86,8 +87,12 @@ export function PrintClient({ id }: { id: string }) {
     <main className="print-page">
       <div className="print-toolbar card card-pad stack">
         <div className="row" style={{ justifyContent: "space-between", gap: 12 }}>
-          <Link href={`/arrangor/${id}`} className="faint">{no.print.back}</Link>
+          <Link href={`/arrangor/${id}`} className="faint back-link">
+            <Icon name="back" size={16} />
+            {no.print.back}
+          </Link>
           <button className="btn btn-gold" onClick={() => window.print()}>
+            <Icon name="print" />
             {no.print.action}
           </button>
         </div>

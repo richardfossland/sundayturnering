@@ -6,6 +6,7 @@ import { api, ApiError } from "@/lib/client/api";
 import { boardPath, openBoardWindow } from "@/lib/client/boardWindow";
 import { myTournaments, type MyTournament } from "@/lib/client/myTournaments";
 import { no } from "@/lib/locale/no";
+import { Icon } from "@/lib/client/Icon";
 import type { TournamentStatus } from "@/lib/types";
 
 // The organiser's page for one tournament: all three codes + the ways in. It
@@ -87,6 +88,7 @@ export function OrganiserHub({ id }: { id: string }) {
             <OpenBoardButton id={id} />
             {mine ? (
               <Link href={`/kontroll/${id}`} className="btn btn-block">
+                <Icon name="phone" />
                 {no.hub.control}
               </Link>
             ) : (
@@ -104,10 +106,12 @@ export function OrganiserHub({ id }: { id: string }) {
             <CopyLink label={no.hub.follow} value={`${base}/se/${id}`} />
             {mine && (
               <Link href={`/skriv-ut/${id}`} className="btn btn-block">
+                <Icon name="print" />
                 {no.hub.print}
               </Link>
             )}
             <Link href={`/resultat/${id}`} className="btn btn-ghost btn-block">
+              <Icon name="trophy" />
               {no.hub.results}
             </Link>
           </div>
@@ -115,6 +119,7 @@ export function OrganiserHub({ id }: { id: string }) {
 
         {mine && <p className="faint" style={{ fontSize: ".8rem" }}>{no.hub.savedNote}</p>}
         <Link href="/" className="faint" style={{ fontSize: ".9rem" }}>
+          <Icon name="back" size={16} />
           {no.hub.toLanding}
         </Link>
       </div>
@@ -130,6 +135,7 @@ function OpenBoardButton({ id }: { id: string }) {
         className="btn btn-gold btn-lg btn-block"
         onClick={() => setState(openBoardWindow(id) ? "opened" : "blocked")}
       >
+        <Icon name="screen" size={20} />
         {no.hub.openBoard}
       </button>
       {state === "opened" && (
@@ -205,6 +211,7 @@ function CopyLink({ label, value }: { label: string; value: string }) {
         )
       }
     >
+      <Icon name={copied ? "check" : "megaphone"} />
       {copied ? no.hub.followCopied : label}
     </button>
   );

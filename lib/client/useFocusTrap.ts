@@ -18,7 +18,7 @@ export function useFocusTrap<T extends HTMLElement>() {
       Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
         (el) => el.offsetParent !== null || el === document.activeElement,
       );
-    // Prefer a text-ish field (the score input) over the ✕ close button.
+    // Prefer a text-ish field (the score input) over the close button.
     const first =
       root.querySelector<HTMLElement>("input:not([disabled]),textarea:not([disabled])") ??
       items()[0];

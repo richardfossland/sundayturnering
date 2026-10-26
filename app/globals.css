@@ -2320,7 +2320,7 @@ button.brk-row:focus-visible {
   }
 }
 
-/* compact header chip (follow QR only) — the codes are in CodesOverlay (⚿),
+/* compact header chip (follow QR only) — the codes are in CodesOverlay,
    never on the projector by default. */
 .board-code-chip {
   display: flex;
