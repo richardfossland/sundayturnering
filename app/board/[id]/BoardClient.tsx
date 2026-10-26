@@ -65,6 +65,24 @@ export function BoardClient({ id }: { id: string }) {
     }
   }, [resultsSig, goalsSig]);
   const [showCodes, setShowCodes] = useState(false);
+  // The «Er du dommer?» card in the lobby can be switched off from the dock so
+  // the board works as a calm resting screen. Remembered per tournament on
+  // this device.
+  const refKey = `turnering:board-ref:${id}`;
+  const [showRef, setShowRef] = useState(true);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read stored pref post-mount
+      setShowRef(localStorage.getItem(refKey) !== "off");
+    } catch {}
+  }, [refKey]);
+  function toggleRef() {
+    const next = !showRef;
+    setShowRef(next);
+    try {
+      localStorage.setItem(refKey, next ? "on" : "off");
+    } catch {}
+  }
 
   const baseUrl =
     process.env.NEXT_PUBLIC_BASE_URL ??
@@ -120,7 +138,10 @@ export function BoardClient({ id }: { id: string }) {
         hasBracket ? " board-has-bracket" : ""
       }${tri ? " board-tri" : ""}`}
     >
-      <BoardControls onCodes={() => setShowCodes(true)} />
+      <BoardControls
+        onCodes={() => setShowCodes(true)}
+        refCard={lobby ? { shown: showRef, toggle: toggleRef } : undefined}
+      />
       {wall}
       {showCodes && (
         <CodesOverlay
@@ -165,6 +186,7 @@ export function BoardClient({ id }: { id: string }) {
         <Lobby
           followUrl={followUrl}
           controlUrl={`${baseUrl}/kontroll`}
+          showRef={showRef}
           next={next}
           teams={teams}
           courts={courts}
@@ -196,19 +218,21 @@ export function BoardClient({ id }: { id: string }) {
 function Lobby({
   followUrl,
   controlUrl,
+  showRef,
   next,
   teams,
   courts,
 }: {
   followUrl: string;
   controlUrl: string;
+  showRef: boolean;
   next: Match[];
   teams: Map<string, Team>;
   courts: Court[];
 }) {
   return (
     <div className="board-body board-lobby-body">
-      <section className="lobby-cards">
+      <section className={`lobby-cards${showRef ? "" : " lobby-cards-one"}`}>
         <div className="lobby-card">
           <h2 className="lobby-title">{no.board.lobbyFollowTitle}</h2>
           <div className="lobby-qr">
@@ -216,6 +240,7 @@ function Lobby({
           </div>
           <p className="lobby-hint">{no.board.lobbyFollowHint}</p>
         </div>
+        {showRef && (
         <div className="lobby-card">
           <h2 className="lobby-title">{no.board.lobbyRefTitle}</h2>
           <div className="lobby-qr">
@@ -226,6 +251,7 @@ function Lobby({
             {no.board.lobbyRefHint}
           </p>
         </div>
+        )}
       </section>
       <section className="lobby-first">
         <NextPanel title={no.board.lobbyFirst} next={next} teams={teams} courts={courts} />

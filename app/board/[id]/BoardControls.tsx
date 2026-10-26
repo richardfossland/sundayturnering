@@ -14,8 +14,8 @@ const SOUND_KEY = "turnering:sound";
 const IDLE_MS = 4000;
 
 /**
- * Icon buttons in the bottom corner of the board (home, fullscreen, codes,
- * sound). They fade out after a few seconds without activity and come back on
+ * Icon buttons in the bottom corner of the board (home, fullscreen, referee
+ * card in the lobby, codes, sound). They fade out after a few seconds without activity and come back on
  * any mouse move, touch or key press (F still toggles fullscreen). The global
  * theme switch and the read-aloud toggle hide with them via `data-board-idle`
  * on <html>.
@@ -24,7 +24,14 @@ const IDLE_MS = 4000;
  * the overlay keeps living at the board root). Sound state + the one-time "turn on sound" hint are folded in
  * here so audio is still unlocked on the first interaction with the page.
  */
-export function BoardControls({ onCodes }: { onCodes: () => void }) {
+export function BoardControls({
+  onCodes,
+  refCard,
+}: {
+  onCodes: () => void;
+  /** Only passed while the lobby is up: shows/hides the «Er du dommer?» card. */
+  refCard?: { shown: boolean; toggle: () => void };
+}) {
   const [idle, setIdle] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [unlocked, setUnlocked] = useState(true);
@@ -121,6 +128,17 @@ export function BoardControls({ onCodes }: { onCodes: () => void }) {
           title={`${fsLabel} (F)`}
         >
           <Icon name={fullscreen.active ? "exitFullscreen" : "fullscreen"} size="1.2em" />
+        </button>
+      )}
+      {refCard && (
+        <button
+          className="board-ctl-btn"
+          onClick={refCard.toggle}
+          aria-label={refCard.shown ? no.board.refCardHide : no.board.refCardShow}
+          aria-pressed={refCard.shown}
+          title={refCard.shown ? no.board.refCardHide : no.board.refCardShow}
+        >
+          <Icon name={refCard.shown ? "eye" : "eyeOff"} size="1.2em" />
         </button>
       )}
       <button

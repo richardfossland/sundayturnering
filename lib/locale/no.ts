@@ -457,6 +457,8 @@ export const no = {
     lobbyRefHint: "og tast dommerkoden du har fått av arrangøren.",
     lobbyRefGo: "Gå til",
     lobbyFirst: "Første kamper",
+    refCardHide: "Skjul dommerkortet",
+    refCardShow: "Vis dommerkortet",
     controlsLabel: "Skjermkontroller",
     home: "Hjem",
     soundOnBtn: "Slå på lyd",
