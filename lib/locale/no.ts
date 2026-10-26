@@ -355,6 +355,7 @@ export const no = {
     } as const,
     swissRounds: "Antall runder",
     swissRoundsHint: "Hvor mange runder hvert lag spiller. Neste runde settes opp når den forrige er ferdig.",
+    swissRoundsMany: "Mange runder gir omkamper og gjentatte frirunder.",
     swissRoundsLater: "Du velger antall runder i steget «Lag», når du vet hvor mange lag det blir.",
     tiebreak: "Ved likt i tabellen",
     tiebreakLead: "Hvis to lag har like mange poeng, avgjør dette hvem som står øverst.",
@@ -574,6 +575,8 @@ export const no = {
     overrideIntro:
       "Har noen ført feil resultat? Velg kampen og rett det. Bare arrangøren kan gjøre dette, også etter at dommeren har lagret.",
     overrideNone: "Ingen kamper er spilt ennå.",
+    overrideAfterSeeding:
+      "Sluttspillet er allerede satt opp. Tabellen endres, men sluttspillet blir som det er.",
 
     openCenter: "Åpne Kontrollsenter",
   },
@@ -773,6 +776,9 @@ export const no = {
     notFinished: "Turneringen er ikke ferdig. Vinneren kåres når arrangøren avslutter.",
     leader: "Leder nå",
     ranking: "Sluttplassering",
+    finished: "Turneringen er avsluttet",
+    endedEarly: "Turneringen ble avsluttet før finalen var spilt.",
+    rankingEarly: "Stilling ved avslutning",
   },
 
   // Sunday Account admin layer (logged-in organiser dashboard)
@@ -900,4 +906,6 @@ export const aw = {
   wins: (n: number) => `${n} ${n === 1 ? "seier" : "seire"}`,
   scored: (n: number) => `${n} scoret`,
   conceded: (n: number) => `${n} sluppet inn`,
+  scoredPerMatch: (avg: string) => `${avg} scoret per kamp`,
+  concededPerMatch: (avg: string) => `${avg} sluppet inn per kamp`,
 } as const;

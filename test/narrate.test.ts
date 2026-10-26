@@ -264,6 +264,7 @@ describe("diffSnapshots — phases", () => {
       id: "f",
       phase: "playoff",
       round: 1,
+      bracket_slot: 0,
       home_team_id: "a",
       away_team_id: "b",
       status: "scheduled",
@@ -287,6 +288,7 @@ describe("diffSnapshots — phases", () => {
       id: "f",
       phase: "playoff",
       round: 1,
+      bracket_slot: 0,
       home_team_id: "a",
       away_team_id: "b",
       status: "done",
@@ -362,5 +364,41 @@ describe("rank", () => {
     const snapshot = JSON.stringify(lines);
     rank(lines);
     expect(JSON.stringify(lines)).toBe(snapshot);
+  });
+});
+
+describe("diffSnapshots — finalen er bracket_slot 0 (B5)", () => {
+  const semis = [
+    match({ id: "s1", phase: "playoff", round: 1, bracket_slot: 0, home_team_id: "a", away_team_id: "b", status: "done", winner_team_id: "a", result: { home: 1, away: 0 } }),
+    match({ id: "s2", phase: "playoff", round: 1, bracket_slot: 1, home_team_id: "c", away_team_id: "d", status: "done", winner_team_id: "c", result: { home: 1, away: 0 } }),
+  ];
+  const teams4 = [team("a", "Alfa"), team("b", "Bravo"), team("c", "Charlie"), team("d", "Delta")];
+
+  it("a bronze final going live is never announced as the final, even when listed first", () => {
+    // Samme runde: bronsen (slot 1) står FØR finalen (slot 0) i listen.
+    const bronze = match({ id: "bz", phase: "playoff", round: 2, bracket_slot: 1, home_team_id: "b", away_team_id: "d", status: "scheduled" });
+    const fin = match({ id: "fn", phase: "playoff", round: 2, bracket_slot: 0, home_team_id: "a", away_team_id: "c", status: "scheduled" });
+    const tour = tournament({ status: "playoff" });
+    const before = state({ tournament: tour, teams: teams4, matches: [...semis, bronze, fin] });
+    const bronzeLive = state({ tournament: tour, teams: teams4, matches: [...semis, { ...bronze, status: "live" }, fin] });
+    expect(find(diffSnapshots(before, bronzeLive), "final")).toBeUndefined();
+    const finalLive = state({ tournament: tour, teams: teams4, matches: [...semis, bronze, { ...fin, status: "live" }] });
+    expect(find(diffSnapshots(before, finalLive), "final")).toBeTruthy();
+  });
+
+  it("a finished bronze final never crowns its winner; no champion without a decided final", () => {
+    const bronze = match({ id: "bz", phase: "playoff", round: 2, bracket_slot: 1, home_team_id: "b", away_team_id: "d", status: "done", winner_team_id: "d", result: { home: 0, away: 1 } });
+    const fin = match({ id: "fn", phase: "playoff", round: 2, bracket_slot: 0, home_team_id: "a", away_team_id: "c", status: "scheduled" });
+    const before = state({ tournament: tournament({ status: "playoff" }), teams: teams4, matches: [...semis, bronze, fin] });
+    const after = state({ tournament: tournament({ status: "finished" }), teams: teams4, matches: [...semis, bronze, fin] });
+    expect(find(diffSnapshots(before, after), "champion")).toBeUndefined();
+  });
+
+  it("league + playoff ended early: the table leader is not crowned", () => {
+    const fin = match({ id: "fn", phase: "playoff", round: 1, bracket_slot: 0, home_team_id: "a", away_team_id: "b", status: "scheduled" });
+    const st = [standing({ team_id: "a", played: 3, points: 9, rank: 1 }), standing({ team_id: "b", played: 3, points: 6, rank: 2 })];
+    const before = state({ tournament: tournament({ status: "playoff" }), matches: [fin], standings: st });
+    const after = state({ tournament: tournament({ status: "finished" }), matches: [fin], standings: st });
+    expect(find(diffSnapshots(before, after), "champion")).toBeUndefined();
   });
 });

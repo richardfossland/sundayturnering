@@ -9,7 +9,7 @@
 // THIRD-PARTY-NOTICES.md. Ingen kode er portet; byggingen gjenbruker `buildBracket`.
 
 import { buildBracket, type BuiltBracket } from "@/lib/tournament/bracket";
-import { seedKnockoutFromGroups } from "@/lib/tournament/groups";
+import { seedKnockoutFromGroups, type GroupRecord } from "@/lib/tournament/groups";
 import type { BracketId, Consolation, Format } from "@/lib/types";
 
 export const CONSOLATIONS: readonly Consolation[] = ["none", "b_playoff", "first_round_losers"];
@@ -50,13 +50,21 @@ export interface BracketSet {
 }
 
 /** Lagene som ikke kom til A, i B-seed-rekkefølge. Liga: tabellrekkefølge etter
- * grensen. Grupper: de som falt ut i hver gruppe, krysseedet som A (beste
- * gruppetredje først, osv.). */
+ * grensen. Grupper: de som falt ut i hver gruppe, krysseedet som A (alle som var
+ * nr. 3 i gruppa først, så nr. 4 osv.; innen hvert nivå etter rekord, og lag fra
+ * samme gruppe holdes fra hverandre). */
 export function bSeedsFromLeague(ranked: string[], playoffSize: number): string[] {
   return ranked.slice(playoffSize);
 }
-export function bSeedsFromGroups(perGroupRanked: string[][], advancePerGroup: number): string[] {
-  return seedKnockoutFromGroups(perGroupRanked.map((g) => g.slice(advancePerGroup)));
+export function bSeedsFromGroups(
+  perGroupRanked: string[][],
+  advancePerGroup: number,
+  records?: ReadonlyMap<string, GroupRecord>,
+): string[] {
+  return seedKnockoutFromGroups(
+    perGroupRanked.map((g) => g.slice(advancePerGroup)),
+    records,
+  );
 }
 
 /** A (+ evt. B) fra seedede lag etter liga/gruppespill. B krever minst 2 lag. */

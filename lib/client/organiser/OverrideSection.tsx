@@ -75,6 +75,7 @@ export function OverrideSection({ tournament, matches, teams, code, onChanged }:
           tournament={tournament}
           teams={teams}
           code={code}
+          playoffSeeded={matches.some((m) => m.phase === "playoff")}
           onClose={() => setOverride(null)}
           onDone={() => {
             setOverride(null);
@@ -91,6 +92,7 @@ function OverrideModal({
   tournament,
   teams,
   code,
+  playoffSeeded,
   onClose,
   onDone,
 }: {
@@ -98,6 +100,8 @@ function OverrideModal({
   tournament: TournamentDTO;
   teams: Map<string, Team>;
   code: string;
+  /** Sluttspillet er bygd: da endrer en seriekamp tabellen, men ikke sluttspillet. */
+  playoffSeeded: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -146,6 +150,9 @@ function OverrideModal({
           </button>
         </div>
         {err && <div className="toast-danger org-err" role="alert">{err}</div>}
+        {playoffSeeded && match.phase === "league" && (
+          <p className="org-warn" role="status">{no.tools.overrideAfterSeeding}</p>
+        )}
         <ResultInput
           scoring={tournament.scoring}
           home={h}
