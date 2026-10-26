@@ -196,7 +196,7 @@ export function OrganiserPanel({
       </div>
 
       <div className="divider" />
-      <div className="label">Kamp-timer (vises på tavla)</div>
+      <div className="label">{no.control.matchTimer} (vises på storskjermen)</div>
       <div className="btn-row">
         {[5, 8, 10, 15].map((min) => (
           <button
@@ -447,7 +447,7 @@ function CourtsSection({
   );
 }
 
-/** «Skyv tidsplanen»: velg bane, fra når og hvor mange minutter; forhåndsvisning
+/** «Forsink eller framskynd kamper»: velg bane, fra når og hvor mange minutter; forhåndsvisning
  * (gul) av berørte kamper før «Bekreft». Reglene kommer fra previewShift. */
 function ShiftSection({
   tournament,

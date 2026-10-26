@@ -1,3 +1,4 @@
+import { OrganiserHeader } from "@/lib/client/OrganiserHeader";
 import { ResultClient } from "./ResultClient";
 
 export default async function ResultPage({
@@ -6,5 +7,10 @@ export default async function ResultPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <ResultClient id={id} />;
+  return (
+    <>
+      <OrganiserHeader id={id} />
+      <ResultClient id={id} />
+    </>
+  );
 }

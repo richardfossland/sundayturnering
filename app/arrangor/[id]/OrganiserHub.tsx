@@ -118,10 +118,6 @@ export function OrganiserHub({ id }: { id: string }) {
         )}
 
         {mine && <p className="faint" style={{ fontSize: ".8rem" }}>{no.hub.savedNote}</p>}
-        <Link href="/" className="faint" style={{ fontSize: ".9rem" }}>
-          <Icon name="back" size={16} />
-          {no.hub.toLanding}
-        </Link>
       </div>
     </main>
   );

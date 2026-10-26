@@ -21,7 +21,7 @@ const body = Hanken_Grotesk({
 export const metadata: Metadata = {
   title: "SundayTurnering — turnering på storskjerm",
   description:
-    "Turneringsstyring på storskjerm for skole og arrangement. Tavle på projektor, resultater fra telefonen.",
+    "Turneringsstyring på storskjerm for skole og arrangement. Storskjerm på projektor, resultater fra telefonen.",
 };
 
 export default function RootLayout({

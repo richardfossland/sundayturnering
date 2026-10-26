@@ -373,7 +373,7 @@ export function ControlClient({ id }: { id: string }) {
         </div>
 
         {parallel && courts.length > 0 && (
-          <div className="chips">
+          <div className="chips" role="group" aria-label={no.control.pinCourt}>
             <button className="chip" data-on={!courtId} onClick={() => pin(null)}>
               {no.control.allCourts}
             </button>

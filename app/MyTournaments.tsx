@@ -5,11 +5,14 @@ import Link from "next/link";
 import { myTournaments, type MyTournament } from "@/lib/client/myTournaments";
 import { no } from "@/lib/locale/no";
 
+const COLLAPSED = 3;
+
 // Landing-page list of the tournaments this device created — the way back to
 // the organiser page (and its codes) after closing the tab. Renders nothing
 // until storage has been read, and nothing at all when the list is empty.
 export function MyTournaments() {
   const [list, setList] = useState<MyTournament[]>([]);
+  const [all, setAll] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read device storage post-mount
@@ -18,28 +21,27 @@ export function MyTournaments() {
 
   if (list.length === 0) return null;
 
+  const shown = all ? list : list.slice(0, COLLAPSED);
+
   return (
-    <section className="stack" style={{ gap: 10, marginTop: 28, textAlign: "left" }}>
-      <div className="spread">
-        <h2 style={{ fontSize: "1.15rem" }}>{no.hub.mineTitle}</h2>
-        <span className="faint" style={{ fontSize: ".8rem" }}>{no.hub.mineHint}</span>
+    <section className="role-mine" aria-labelledby="mine-title">
+      <div className="stack" style={{ gap: "var(--sp-1)" }}>
+        <h3 id="mine-title">{no.hub.mineTitle}</h3>
+        <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>{no.hub.mineHint}</span>
       </div>
-      <ul className="stack" style={{ gap: 8, listStyle: "none", padding: 0, margin: 0 }}>
-        {list.map((t) => (
-          <li key={t.id} className="panel spread" style={{ padding: "10px 12px", gap: 10 }}>
-            <Link href={`/arrangor/${t.id}`} className="grow" style={{ minWidth: 0 }}>
-              <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {t.title || no.hub.untitled}
-              </strong>
+      <ul className="mine-list">
+        {shown.map((t) => (
+          <li key={t.id} className="mine-item">
+            <Link href={`/arrangor/${t.id}`} className="mine-link">
+              <strong>{t.title || no.hub.untitled}</strong>
               {t.createdAt && (
-                <span className="faint" style={{ fontSize: ".8rem" }}>
+                <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
                   {formatDate(t.createdAt)}
                 </span>
               )}
             </Link>
             <button
-              className="btn btn-ghost"
-              style={{ padding: "8px 12px", fontSize: "var(--fs-sm)" }}
+              className="btn btn-ghost btn-sm"
               aria-label={`${no.hub.forget}: ${t.title || no.hub.untitled}`}
               onClick={() => {
                 if (!window.confirm(no.hub.forgetConfirm)) return;
@@ -52,6 +54,11 @@ export function MyTournaments() {
           </li>
         ))}
       </ul>
+      {list.length > COLLAPSED && (
+        <button className="btn btn-ghost btn-sm" onClick={() => setAll((v) => !v)}>
+          {all ? no.hub.mineShowLess : no.hub.mineShowAll(list.length)}
+        </button>
+      )}
     </section>
   );
 }

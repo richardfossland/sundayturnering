@@ -6,17 +6,42 @@ export const no = {
   // landing
   landing: {
     createCta: "Lag ny turnering",
-    quickCta: "Hurtigkamp (1v1)",
-    boardCta: "Åpne tavle",
-    controlCta: "Bli med (kontroll)",
+    quickCta: "Enkeltkamp",
+    quickBlurb: "Én kamp mellom to lag, uten oppsett.",
+    boardCta: "Vis på storskjerm",
+    boardBlurb: "Har du en skjermkode? Vis turneringen på en ekstra skjerm.",
+    controlCta: "Jeg er dommer",
     blurb:
-      "Turneringsstyring på storskjerm for skole og arrangement. Én skjerm viser tavla, telefonene registrerer resultater.",
+      "Turneringsstyring på storskjerm for skole og arrangement. Én skjerm viser stillingen, telefonene registrerer resultater.",
+    rolesLabel: "Velg rolle",
+    followNote: "Du trenger ingen kode eller innlogging.",
+    organiserTitle: "Jeg arrangerer",
+    organiserBlurb: "Lag en turnering, vis den på storskjerm og styr den fra mobilen.",
+    refereeTitle: "Jeg er dommer",
+    refereeBlurb: "Tast dommerkoden du har fått av arrangøren, så kan du føre resultater.",
+    refereeCta: "Tast dommerkode",
+    followTitle: "Jeg vil følge med",
+    followBlurb: "Skann QR-koden på storskjermen for å se stilling og kamper på mobilen.",
+    otherLabel: "Andre valg",
+    howTitle: "Slik fungerer det",
+    howSteps: [
+      { title: "Lag turneringen", body: "Velg format, legg inn lag og baner. Det tar noen minutter." },
+      { title: "Vis den på storskjerm", body: "Åpne storskjermen på projektor eller TV. Publikum skanner QR-koden." },
+      { title: "Dommerne fører resultater", body: "Dommerne taster dommerkoden på mobilen og fører inn resultatene." },
+    ],
+  },
+
+  // shared site header
+  header: {
+    home: "Til forsiden",
+    cancel: "Avbryt",
+    cancelConfirm: "Avbryte og gå til forsiden? Det du har fylt inn, blir ikke lagret.",
   },
 
   // quick 1v1 match
   hurtig: {
-    title: "Hurtigkamp",
-    blurb: "Én kamp, to lag, i gang på sekunder. Ingen oppsett.",
+    title: "Enkeltkamp",
+    blurb: "Én kamp mellom to lag, i gang på sekunder. Ingen oppsett.",
     home: "Lag 1",
     away: "Lag 2",
     score: "Med poeng",
@@ -27,50 +52,57 @@ export const no = {
 
   // pairing
   pair: {
-    controlTitle: "Skriv inn kontrollkoden",
-    controlHint: "6-sifret kode fra arrangøren",
+    controlTitle: "Skriv inn dommerkoden",
+    controlHint: "6 siffer",
+    controlExplain:
+      "Du får koden av arrangøren. Den står også på storskjermen under «Koder og lenker» og på kampkortene.",
+    controlCodeLabel: "Dommerkode (6 siffer)",
+    boardExplain:
+      "Skjermkoden står i Kontrollsenteret til arrangøren. Den brukes for å vise turneringen på en ekstra skjerm.",
+    boardCodeLabel: "Skjermkode",
     deviceName: "Navn på enhet (valgfritt)",
     deviceNamePlaceholder: "F.eks. «Bane 1-dommer»",
     join: "Koble til",
     joining: "Kobler til …",
     badCode: "Fant ingen turnering med den koden.",
     codeForOther: "Den koden tilhører en annen turnering.",
-    reenterTitle: "Tast kontrollkoden",
+    reenterTitle: "Tast dommerkoden",
     reenterHint:
-      "Kontrollkoden får du av arrangøren (den vises også på tavla, bak kode-knappen). Den bekrefter at du er dommer før resultater kan registreres.",
-    boardCodeTitle: "Skriv inn tavlekoden",
+      "Dommerkoden får du av arrangøren (den vises også på storskjermen, under «Koder og lenker»). Den bekrefter at du er dommer før resultater kan registreres.",
+    boardCodeTitle: "Skriv inn skjermkoden",
     attached: "tilkoblet",
     devices: "Tilkoblede enheter",
   },
 
   // organiser page (/arrangor/[id]) + "Mine turneringer" on the landing page
   hub: {
-    eyebrow: "Arrangørside",
-    controlCode: "Kontrollkode (dommere)",
-    boardCode: "Tavlekode",
+    eyebrow: "Kontrollsenter",
+    controlCode: "Dommerkode (gi til dommerne)",
+    boardCode: "Skjermkode",
     organiserNote:
-      "Ta vare på arrangørkoden — den kreves for å starte sluttspill, overstyre resultater og avslutte. Del bare kontrollkoden med dommerne.",
+      "Ta vare på arrangørkoden — den kreves for å starte sluttspill, overstyre resultater og avslutte. Del bare dommerkoden med dommerne.",
     savedNote:
       "Kodene er lagret på denne enheten. Du finner siden igjen under «Mine turneringer» på forsiden.",
-    openBoard: "Åpne tavla på storskjerm",
+    openBoard: "Vis på storskjerm",
     boardOpened:
-      "Tavla er åpnet i et eget vindu. Dra det over til projektoren og trykk F (eller fullskjerm-knappen i menyen) for fullskjerm — denne siden blir stående her.",
+      "Storskjermen er åpnet i et eget vindu. Dra det over til projektoren og trykk F (eller fullskjerm-knappen i menyen) for fullskjerm — denne siden blir stående her.",
     boardBlocked: "Nettleseren stoppet det nye vinduet.",
-    boardBlockedLink: "Åpne tavla i ny fane",
-    control: "Registrer resultater og arrangørpanel",
-    follow: "Kopier følge-lenke (publikum)",
+    boardBlockedLink: "Åpne storskjermen i ny fane",
+    control: "Før resultater og arrangørverktøy",
+    follow: "Kopier lenken «Følg turneringen» (publikum)",
     followCopied: "Lenke kopiert!",
     results: "Resultater og diplom",
     print: "Skriv ut kampprogram og kampkort",
-    toLanding: "Til forsiden",
     copy: "trykk for å kopiere",
     copied: "Kopiert!",
     missingTitle: "Kodene finnes ikke på denne enheten",
     missingBody:
-      "Kodene lagres bare på enheten som opprettet turneringen. Tavla kan åpnes med tavlekoden, og dommere kobler seg til med kontrollkoden.",
+      "Kodene lagres bare på enheten som opprettet turneringen. Storskjermen kan åpnes med skjermkoden, og dommere kobler seg til med dommerkoden.",
     gone: "Turneringen finnes ikke lenger (den kan være slettet).",
     mineTitle: "Mine turneringer",
     mineHint: "Lagret på denne enheten",
+    mineShowAll: (n: number) => `Vis alle (${n})`,
+    mineShowLess: "Vis færre",
     untitled: "Uten tittel",
     forget: "Glem",
     forgetConfirm:
@@ -112,12 +144,12 @@ export const no = {
         blurb: "Lagene deles i grupper, så går de beste til sluttspill.",
       },
       swiss: {
-        name: "Swiss",
-        blurb: "Alle spiller N runder mot lag med lik stilling. Ingen ryker ut.",
+        name: "Sveitsisk system",
+        blurb: "Alle spiller like mange runder mot lag som ligger likt på tabellen. Ingen ryker ut.",
       },
       double_elim: {
         name: "Dobbel utslag",
-        blurb: "Du er ikke ute før du har tapt to ganger. Vinnerbrakett og taperbrakett.",
+        blurb: "To liv: du er ikke ute før du har tapt to ganger. Vinnerbrakett og taperbrakett.",
       },
     },
 
@@ -183,13 +215,13 @@ export const no = {
       first_round_losers: "Taperne av første runde møtes i en egen trøsterunde (frirunder tapper ikke).",
     } as const,
     swissRounds: "Antall runder",
-    swissRoundsHint: "Antall runder hvert lag spiller. Neste runde parres når den forrige er ferdig.",
+    swissRoundsHint: "Hvor mange runder hvert lag spiller. Neste runde settes opp når den forrige er ferdig.",
     tiebreak: "Ved likt i tabellen",
-    tiebreakOpts: { standard: "Standard", uefa: "Innbyrdes først (UEFA)", swiss: "Swiss (Buchholz)" } as const,
+    tiebreakOpts: { standard: "Standard", uefa: "Innbyrdes først (UEFA)", swiss: "Sveitsisk (Buchholz)" } as const,
     tiebreakHint: {
       standard: "Poeng, målforskjell, scoret, så innbyrdes oppgjør.",
       uefa: "Poeng, så innbyrdes oppgjør mellom lagene som er like, deretter målforskjell.",
-      swiss: "Poeng, Buchholz (summen av motstandernes poeng), Sonneborn-Berger, innbyrdes, målforskjell.",
+      swiss: "Poeng, så Buchholz (summen av poengene motstanderne har fått), deretter Sonneborn-Berger, innbyrdes oppgjør og målforskjell.",
     } as const,
     scheduleToggle: "Lag tidsplan med klokkeslett",
     scheduleBlurb: "Hver kamp får et klokkeslett. Lagene får hvile mellom kampene.",
@@ -215,8 +247,8 @@ export const no = {
   // board
   board: {
     lobby: "Venter på start",
-    controlCode: "Kontrollkode",
-    follow: "Følg live",
+    controlCode: "Dommerkode",
+    follow: "Følg turneringen",
     scan: "Skann for å registrere resultater",
     nowPlaying: "Nå spiller",
     nextUp: "Neste",
@@ -252,27 +284,27 @@ export const no = {
     groups: "Grupper",
     tbd: "Avventer",
     th: { rank: "#", team: "Lag", p: "K", w: "S", d: "U", l: "T", diff: "±", pts: "P", form: "Form", buchholz: "Bu" },
-    buchholzTitle: "Buchholz: summen av motstandernes poeng",
+    buchholzTitle: "Buchholz: summen av poengene motstanderne har fått",
     swissRound: (r: number, total: number) => `Runde ${r} av ${total}`,
     fullscreen: "Fullskjerm",
     exitFullscreen: "Avslutt fullskjerm",
     codesBtn: "Koder og lenker",
     codesTitle: "Koder og lenker",
-    codesControl: "Dommere · kontroll",
+    codesControl: "Dommere · dommerkode",
     codesControlHint:
-      "Skann QR-koden eller tast kontrollkoden på /kontroll for å registrere resultater.",
-    codesFollow: "Publikum · følg live",
+      "Skann QR-koden eller tast dommerkoden på /kontroll for å føre resultater.",
+    codesFollow: "Publikum · følg turneringen",
     codesFollowHint: "Skrivebeskyttet visning — trygg å dele med alle i salen.",
-    codesBoard: "Tavlekode",
+    codesBoard: "Skjermkode",
     codesBoardHint:
-      "Åpne tavla på en annen skjerm: gå til /tavle og tast tavlekoden.",
+      "Vis turneringen på en annen skjerm: gå til /tavle og tast skjermkoden.",
     codesCopy: "Kopier lenke",
     codesCopied: "Lenke kopiert!",
     codesLocked: "Kodene er ikke lagret på denne skjermen",
     codesLockedHint:
-      "Tast tavlekoden (står på arrangørsiden) for å vise kontrollkoden her. Den lagres på denne enheten.",
+      "Tast skjermkoden (står i Kontrollsenteret) for å vise dommerkoden her. Den lagres på denne enheten.",
     codesUnlock: "Vis koder",
-    codesWrongBoard: "Den tavlekoden hører til en annen turnering.",
+    codesWrongBoard: "Den skjermkoden hører til en annen turnering.",
   },
 
   // utskrift (A4): kampprogram, kampkort, banekort
@@ -280,9 +312,8 @@ export const no = {
     title: "Skriv ut",
     noAccessTitle: "Utskrift krever arrangørkoden",
     noAccessBody:
-      "Kampkortene inneholder QR-koder med kontrollkoden, så siden åpner bare på enheten som opprettet turneringen. Gå til arrangørsiden og logg inn der.",
-    toOrganiser: "Til arrangørsiden",
-    back: "Tilbake",
+      "Kampkortene inneholder QR-koder med dommerkoden, så siden åpner bare på enheten som opprettet turneringen. Gå til Kontrollsenteret og logg inn der.",
+    toOrganiser: "Til Kontrollsenteret",
     action: "Skriv ut / lagre som PDF",
     choose: "Hva skal skrives ut?",
     programmeCourt: "Kampprogram per bane",
@@ -291,7 +322,7 @@ export const no = {
     courtCards: "Banekort (med QR)",
     onlyKnown: "Bare kamper med kjente lag",
     noControlCode:
-      "Kontrollkoden finnes ikke på denne enheten, så kortene skrives ut uten QR.",
+      "Dommerkoden finnes ikke på denne enheten, så kortene skrives ut uten QR.",
     nothing: "Ingenting å skrive ut med disse valgene.",
     time: "Tid",
     court: "Bane",
@@ -312,7 +343,7 @@ export const no = {
     courtCardHow: "Slik gjør du som dommer",
     courtCardSteps: [
       "Skann QR-koden med mobilen.",
-      "Banen festes, og neste kamp står øverst.",
+      "Du dømmer nå på den banen, og neste kamp står øverst.",
       "Trykk på kampen, før inn resultatet og lagre.",
     ],
     courtCardWarn: "Del ikke dette arket med publikum — QR-koden gir tilgang til å føre resultater.",
@@ -326,15 +357,15 @@ export const no = {
       `${n} ${n === 1 ? "kamp er" : "kamper er"} ikke spilt ennå. Sluttspillet seedes fra tabellen slik den er nå, og de uspilte kampene kan ikke lenger registreres. Starte likevel?`,
     cascadeConfirm: "Fortsette?",
     reopen: "Gjenåpne turneringen",
-    reopenConfirm: "Gjenåpne turneringen? Tavla går tilbake fra vinnerskjermen, og resultater kan rettes.",
+    reopenConfirm: "Gjenåpne turneringen? Storskjermen går tilbake fra vinnerskjermen, og resultater kan rettes.",
     reopened: "Turneringen er gjenåpnet.",
     matches: "Kamper",
     scheduled: "Planlagt",
     live: "Spilles",
     done: "Ferdig",
     allCourts: "Alle baner",
-    pinCourt: "Fest til bane",
-    unpin: "Løsne",
+    pinCourt: "Jeg dømmer på …",
+    unpin: "Alle baner",
     enterResult: "Registrer resultat",
     save: "Lagre",
     saving: "Lagrer …",
@@ -353,7 +384,7 @@ export const no = {
     matchPoint: "Avgjørende sett",
 
     // special results (walkover / abandoned / disqualification)
-    special: "Spesialresultat",
+    special: "Walkover, avbrutt eller diskvalifisert",
     specialWalkover: "Walkover (W.O.)",
     specialDq: "Diskvalifisert",
     specialAbandoned: "Avbrutt / annullert",
@@ -364,7 +395,7 @@ export const no = {
 
     // referee match controls
     startMatch: "Start kamp",
-    matchTimer: "Kamp-timer",
+    matchTimer: "Nedtelling",
     timerStop: "Stopp",
     nextMatch: "Din neste kamp",
     connected: "Tilkoblet",
@@ -381,11 +412,11 @@ export const no = {
     unsentDismiss: "Fjern",
     unsentSent: "Resultatet er sendt.",
     unsentRejected: "Et lagret resultat kunne ikke sendes, fordi kampen er endret av en annen enhet. Sjekk kampen på nytt.",
-    codeRejected: "Kontrollkoden ble avvist — tast den på nytt.",
+    codeRejected: "Dommerkoden ble avvist — tast den på nytt.",
     targetDone: "Den kampen er allerede ferdig.",
     targetNotReady: "Lagene i den kampen er ikke avgjort ennå.",
     targetMissing: "Fant ikke kampen eller banen fra kortet.",
-    liveOnBoard: "Stillingen vises live på tavla mens du taster",
+    liveOnBoard: "Stillingen vises live på storskjermen mens du taster",
 
     organiser: "Arrangør",
     organiserCode: "Arrangørkode",
@@ -402,7 +433,7 @@ export const no = {
     wrongOrganiserCode: "Feil arrangørkode.",
     needOrganiser: "Denne handlingen krever arrangørkoden.",
 
-    shiftTitle: "Skyv tidsplanen",
+    shiftTitle: "Forsink eller framskynd kamper",
     shiftCourt: "Bane",
     shiftAllCourts: "Alle baner",
     shiftFrom: "Fra",
@@ -410,7 +441,7 @@ export const no = {
     shiftMinutes: "Minutter (− tidligere, + senere)",
     shiftPreview: (n: number) => `${n} ${n === 1 ? "kamp" : "kamper"} flyttes`,
     shiftConfirm: "Bekreft",
-    shiftDone: (n: number) => `Tidsplanen er skjøvet (${n} ${n === 1 ? "kamp" : "kamper"}).`,
+    shiftDone: (n: number) => `Tidsplanen er flyttet (${n} ${n === 1 ? "kamp" : "kamper"}).`,
 
     courtsTitle: "Baner",
     courtLive: "Spiller nå",
@@ -440,7 +471,7 @@ export const no = {
 
   // spectator phone view (/se/[id])
   spectator: {
-    title: "Heiagjeng",
+    title: "Følg turneringen",
     intro: "Trykk for å heie – det dukker opp på storskjermen!",
     cheer: "Hei!",
     reactClap: "Applaus",
@@ -456,6 +487,7 @@ export const no = {
   // Sunday Account admin layer (logged-in organiser dashboard)
   admin: {
     // login
+    loginTitle: "Logg inn",
     loginLede: "Logg inn med Sunday-kontoen for å styre turneringene dine.",
     loginSend: "Send innloggingslenke",
     loginSending: "Sender …",
@@ -476,8 +508,8 @@ export const no = {
     signOut: "Logg ut",
 
     // per-row actions
-    openBoard: "Tavle",
-    openControl: "Kontroll",
+    openBoard: "Storskjerm",
+    openControl: "Før resultater",
     edit: "Endre",
     save: "Lagre",
     saving: "Lagrer …",
@@ -494,9 +526,9 @@ export const no = {
 
     // status labels
     status: {
-      setup: "Oppsett",
-      league: "Serie",
-      playoff: "Sluttspill",
+      setup: "Ikke startet",
+      league: "Seriespill pågår",
+      playoff: "Sluttspill pågår",
       finished: "Ferdig",
     },
   },

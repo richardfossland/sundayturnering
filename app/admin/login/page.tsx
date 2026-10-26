@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { createAuthBrowserClient } from "@/lib/supabase/auth-browser";
 import { no } from "@/lib/locale/no";
+import { SiteHeader, backToHome } from "@/lib/client/SiteHeader";
 
 // Sunday Account login for the turnering admin layer. Magic link + Google,
 // against the ISSUER project (auth-browser client). On success the callback
@@ -47,58 +48,58 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="center-screen">
-      <div className="stack" style={{ maxWidth: 440, width: "100%" }}>
-        <div className="stack" style={{ gap: 6 }}>
-          <h1 className="brand" style={{ fontSize: "2rem" }}>
-            {no.brand}
-          </h1>
-          <p className="faint">{no.admin.loginLede}</p>
-        </div>
+    <>
+      <SiteHeader back={backToHome} />
+        <main className="center-screen">
+          <div className="stack" style={{ maxWidth: 440, width: "100%" }}>
+            <div className="stack" style={{ gap: 6 }}>
+              <h1 style={{ fontSize: "var(--fs-xl)" }}>{no.admin.loginTitle}</h1>
+              <p className="faint">{no.admin.loginLede}</p>
+            </div>
 
-        <div className="card card-pad stack">
-          {sent ? (
-            <p>
-              {no.admin.loginSentTo} <b>{email}</b> {no.admin.loginSentTail}
-            </p>
-          ) : (
-            <form onSubmit={sendMagicLink} className="stack">
-              <div className="field">
-                <label className="label" htmlFor="email">
-                  {no.admin.email}
-                </label>
-                <input
-                  id="email"
-                  className="input"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="deg@menigheten.no"
-                  autoComplete="email"
-                />
-              </div>
-              {error && (
-                <p className="faint" style={{ color: "#f0a6a0" }}>
-                  {error}
+            <div className="card card-pad stack">
+              {sent ? (
+                <p>
+                  {no.admin.loginSentTo} <b>{email}</b> {no.admin.loginSentTail}
                 </p>
+              ) : (
+                <form onSubmit={sendMagicLink} className="stack">
+                  <div className="field">
+                    <label className="label" htmlFor="email">
+                      {no.admin.email}
+                    </label>
+                    <input
+                      id="email"
+                      className="input"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="deg@menigheten.no"
+                      autoComplete="email"
+                    />
+                  </div>
+                  {error && (
+                    <p className="faint" style={{ color: "#f0a6a0" }}>
+                      {error}
+                    </p>
+                  )}
+                  <button className="btn btn-gold btn-block" disabled={busy}>
+                    {busy ? <span className="spin" /> : null}
+                    {busy ? no.admin.loginSending : no.admin.loginSend}
+                  </button>
+                </form>
               )}
-              <button className="btn btn-gold btn-block" disabled={busy}>
-                {busy ? <span className="spin" /> : null}
-                {busy ? no.admin.loginSending : no.admin.loginSend}
-              </button>
-            </form>
-          )}
-        </div>
+            </div>
 
-        <button
-          className="btn btn-ghost btn-block"
-          onClick={signInWithGoogle}
-          type="button"
-        >
-          {no.admin.loginGoogle}
-        </button>
-      </div>
-    </main>
-  );
+            <button
+              className="btn btn-ghost btn-block"
+              onClick={signInWithGoogle}
+              type="button"
+            >
+              {no.admin.loginGoogle}
+            </button>
+          </div>
+        </main>
+    </>  );
 }

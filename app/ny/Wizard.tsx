@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/client/api";
 import { no } from "@/lib/locale/no";
 import { Icon } from "@/lib/client/Icon";
+import { SiteHeader } from "@/lib/client/SiteHeader";
 import { NumberField } from "@/lib/client/NumberField";
 import { paletteColour } from "@/lib/palette";
 import { nextOsloHourLocal, osloLocalToIso } from "@/lib/tournament/osloTime";
@@ -285,6 +286,13 @@ export function Wizard() {
     setStep(Math.max(n, 1));
   }
 
+  // Leave the wizard for forsiden; ask first once anything has been entered.
+  function cancel() {
+    const dirty = step > 1 || title.trim() !== "" || sport.trim() !== "" || teams.length > 0;
+    if (dirty && !window.confirm(no.header.cancelConfirm)) return;
+    router.push("/");
+  }
+
   async function create() {
     setCreating(true);
     setCreateErr(null);
@@ -339,475 +347,478 @@ export function Wizard() {
   const canNext = stepValid(step, { title, validTeams, courtNames, courtCount, parallelism, minTeams });
 
   return (
-    <main className="center-screen">
-      <div className="card card-pad stack" style={{ maxWidth: 560, width: "100%" }}>
-        <div className="spread">
-          <span className="brand" style={{ fontSize: ".95rem" }}>
-            <span className="brand-mark" style={{ width: 26, height: 26, fontSize: ".8rem" }}>T</span>
-            {no.wizard.title}
-          </span>
-          <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
-            {no.wizard.step(stepNumberLabel(step, showStep6), showStep6 ? 7 : 6)}
-          </span>
-        </div>
+    <>
+      <SiteHeader>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={cancel}>
+          {no.header.cancel}
+        </button>
+      </SiteHeader>
+        <main className="center-screen">
+          <div className="card card-pad stack" style={{ maxWidth: 560, width: "100%" }}>
+            <div className="spread">
+              <h1 style={{ fontSize: "var(--fs-md)" }}>{no.wizard.title}</h1>
+              <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
+                {no.wizard.step(stepNumberLabel(step, showStep6), showStep6 ? 7 : 6)}
+              </span>
+            </div>
 
-        <Progress step={step} showPlayoff={showStep6} />
+            <Progress step={step} showPlayoff={showStep6} />
 
-        <div className="stack" style={{ minHeight: 260 }}>
-          {step === 1 && (
-            <Step title={no.wizard.s1Title}>
-              {tmpls.length > 0 && (
-                <div className="panel stack" style={{ gap: 8 }}>
-                  <span className="label label-icon">
-                    <Icon name="templates" size={16} />
-                    Maler
-                  </span>
-                  <div className="chips">
-                    {tmpls.map((t) => (
-                      <span key={t.id} className="chip" style={{ padding: 0, display: "inline-flex" }}>
-                        <button
-                          type="button"
-                          className="chip-btn"
-                          onClick={() => loadTemplate(t)}
-                        >
-                          {t.name}
-                        </button>
-                        <button
-                          type="button"
-                          className="chip-btn"
-                          aria-label={`Slett mal ${t.name}`}
-                          onClick={() => setTmpls(templates.remove(t.id))}
-                          style={{ opacity: 0.6, paddingLeft: 0 }}
-                        >
-                          <Icon name="close" size={14} />
-                        </button>
+            <div className="stack" style={{ minHeight: 260 }}>
+              {step === 1 && (
+                <Step title={no.wizard.s1Title}>
+                  {tmpls.length > 0 && (
+                    <div className="panel stack" style={{ gap: 8 }}>
+                      <span className="label label-icon">
+                        <Icon name="templates" size={16} />
+                        Maler
                       </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="field">
-                <label className="label" htmlFor="w-title">{no.wizard.s1Name}</label>
-                <input id="w-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={no.wizard.s1NamePlaceholder} autoFocus />
-              </div>
-              <div className="field">
-                <label className="label" htmlFor="w-sport">{no.wizard.s1Sport}</label>
-                <input id="w-sport" className="input" value={sport} onChange={(e) => setSport(e.target.value)} placeholder={no.wizard.s1SportPlaceholder} />
-              </div>
-              <div className="chips">
-                {no.wizard.chips.map((c) => (
-                  <button key={c} className="chip" data-on={sport === c || (c === "Annet" && !no.wizard.chips.includes(sport as never))} onClick={() => pickSport(c)}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </Step>
-          )}
-
-          {step === 2 && (
-            <Step title={no.wizard.s2Title}>
-              <div className="opt-grid">
-                {(["league", "league_playoff", "group_playoff", "cup", "double_elim", "swiss"] as Format[]).map((f) => (
-                  <button
-                    key={f}
-                    className="opt"
-                    data-on={format === f}
-                    onClick={() => {
-                      setFormat(f);
-                      // Swiss har egen tiebreak-forvalg; bort fra Swiss tilbake til standard.
-                      if (f === "swiss") setTiebreak("swiss");
-                      else if (tiebreak === "swiss") setTiebreak("standard");
-                    }}
-                  >
-                    <h3>{no.wizard.formats[f].name}</h3>
-                    <p>{no.wizard.formats[f].blurb}</p>
-                  </button>
-                ))}
-              </div>
-              {isSwiss && (
-                <div className="field">
-                  <label className="label" htmlFor="swiss-rounds">{no.wizard.swissRounds}</label>
-                  <select
-                    id="swiss-rounds"
-                    className="input"
-                    value={effectiveSwissRounds}
-                    onChange={(e) => setSwissRounds(Number(e.target.value))}
-                  >
-                    {Array.from({ length: swissMax }, (_, i) => i + 1).map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                  <span className="faint">{no.wizard.swissRoundsHint}</span>
-                </div>
-              )}
-            </Step>
-          )}
-
-          {step === 3 && (
-            <Step title={no.wizard.s3Title}>
-              <div className="opt-grid">
-                {(["simple", "sets", "winner"] as ScoringProfileKey[]).map((p) => (
-                  <button key={p} className="opt" data-on={scoring.profile === p} onClick={() => setProfile(p)}>
-                    <h3>{no.wizard.profiles[p].name}</h3>
-                    <p>{no.wizard.profiles[p].blurb}</p>
-                  </button>
-                ))}
-              </div>
-              {scoring.profile === "sets" && (
-                <div className="field">
-                  <label className="label" htmlFor="w-bestof">{no.wizard.setsBestOf}</label>
-                  <select id="w-bestof" className="select" value={scoring.setsBestOf} onChange={(e) => setScoring({ ...scoring, setsBestOf: Number(e.target.value) })}>
-                    {[3, 5, 7].map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </div>
-              )}
-              {scoring.profile === "simple" && (
-                <label className="row" style={{ cursor: "pointer" }}>
-                  <input type="checkbox" checked={scoring.allowDraw} onChange={(e) => setScoring({ ...scoring, allowDraw: e.target.checked })} />
-                  <span>{no.wizard.allowDraw}</span>
-                </label>
-              )}
-              <div className="field">
-                <label className="label">{no.wizard.points}</label>
-                <div className="row">
-                  {(["pointsWin", "pointsDraw", "pointsLoss"] as const).map((k) => (
-                    <NumberField key={k} min={0} max={100} compact
-                      aria-label={no.wizard.pointsLabel[k]}
-                      value={scoring[k]} onChange={(n) => setScoring({ ...scoring, [k]: n })}
-                      disabled={k === "pointsDraw" && !(scoring.profile === "simple" && scoring.allowDraw)} />
-                  ))}
-                </div>
-              </div>
-              {!isCup && !isDouble && (
-                <div className="field">
-                  <label className="label">{no.wizard.tiebreak}</label>
-                  <div className="chips">
-                    {((isSwiss ? ["swiss", "standard"] : ["standard", "uefa"]) as TiebreakPreset[]).map((p) => (
-                      <button key={p} className="chip" data-on={tiebreak === p} onClick={() => setTiebreak(p)}>
-                        {no.wizard.tiebreakOpts[p]}
-                      </button>
-                    ))}
-                  </div>
-                  <span className="faint">{no.wizard.tiebreakHint[tiebreak]}</span>
-                </div>
-              )}
-            </Step>
-          )}
-
-          {step === 4 && (
-            <Step title={no.wizard.s4Title}>
-              <div className="panel stack" style={{ gap: 10 }}>
-                <label className="label" htmlFor="w-count">{no.wizard.s4HowMany}</label>
-                <div className="row">
-                  <NumberField
-                    id="w-count"
-                    aria-label={no.wizard.s4HowMany}
-                    min={2}
-                    max={32}
-                    value={count}
-                    onChange={setCount}
-                    onEnter={setTeamCount}
-                  />
-                  <button className="btn btn-gold" onClick={() => setTeamCount(count)}>
-                    {no.wizard.s4Generate}
-                  </button>
-                </div>
-                <div className="chips">
-                  {[4, 6, 8, 10, 12, 16].map((n) => (
-                    <button key={n} className="chip" onClick={() => setTeamCount(n)}>
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
-                  {no.wizard.s4GenerateHint}
-                </span>
-              </div>
-              <div className="stack" style={{ gap: 8, maxHeight: 320, overflow: "auto" }}>
-                {teams.map((t, i) => (
-                  <div className="panel" key={i} style={{ padding: 10 }}>
-                    <div className="row">
-                      <input type="color" value={t.colour} onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, colour: e.target.value } : x))}
-                        aria-label={`Farge, lag ${i + 1}`} />
-                      <input className="input grow" value={t.name} placeholder={no.wizard.s4Name}
-                        aria-label={`${no.wizard.s4Name} ${i + 1}`}
-                        onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
-                      <LogoUpload
-                        url={t.logo_url}
-                        onUrl={(u) => setTeams(teams.map((x, j) => j === i ? { ...x, logo_url: u } : x))}
-                      />
-                      <button className="btn btn-ghost" aria-label={`Fjern lag ${t.name || i + 1}`}
-                        onClick={() => setTeams(teams.filter((_, j) => j !== i))}>
-                        <Icon name="close" size={16} />
-                      </button>
-                    </div>
-                    {t.members.length > 0 && (
-                      <div className="chips" style={{ marginTop: 8 }}>
-                        {t.members.map((m, mi) => (
-                          <span className="chip" key={mi} style={{ fontSize: "var(--fs-sm)", cursor: "default" }}>
-                            {m}
+                      <div className="chips">
+                        {tmpls.map((t) => (
+                          <span key={t.id} className="chip" style={{ padding: 0, display: "inline-flex" }}>
+                            <button
+                              type="button"
+                              className="chip-btn"
+                              onClick={() => loadTemplate(t)}
+                            >
+                              {t.name}
+                            </button>
+                            <button
+                              type="button"
+                              className="chip-btn"
+                              aria-label={`Slett mal ${t.name}`}
+                              onClick={() => setTmpls(templates.remove(t.id))}
+                              style={{ opacity: 0.6, paddingLeft: 0 }}
+                            >
+                              <Icon name="close" size={14} />
+                            </button>
                           </span>
                         ))}
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <button className="btn btn-ghost btn-block" onClick={addTeam}>+ {no.wizard.s4Add}</button>
-              <details>
-                <summary className="muted" style={{ cursor: "pointer", fontSize: ".9rem" }}>{no.wizard.s4Draw}</summary>
-                <div className="stack" style={{ marginTop: 8 }}>
-                  <textarea className="textarea" value={draw} onChange={(e) => setDraw(e.target.value)} placeholder={"Ola\nKari\nPer\nNora\n…"} />
-                  <div className="row">
-                    <span className="label">{no.wizard.s4DrawTeams}</span>
-                    <NumberField min={2} max={24} compact
-                      aria-label={no.wizard.s4DrawTeams}
-                      value={Math.min(count, 24)}
-                      onChange={setCount} />
-                    <button className="btn btn-gold grow" onClick={() => drawTeams(count)}
-                      disabled={parseNames(draw).length < 2}>
-                      <Icon name="random" />
-                      {no.wizard.s4DrawDo}
-                    </button>
-                  </div>
-                  <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
-                    {parseNames(draw).length > 0
-                      ? `${parseNames(draw).length} deltakere → ${Math.min(count, parseNames(draw).length)} lag. `
-                      : ""}
-                    {no.wizard.s4DrawHint}
-                  </span>
-                </div>
-              </details>
-              <details>
-                <summary className="muted" style={{ cursor: "pointer", fontSize: ".9rem" }}>{no.wizard.s4Bulk}</summary>
-                <div className="stack" style={{ marginTop: 8 }}>
-                  <textarea className="textarea" value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder={"Løvene\nØrnene\nUlvene"} />
-                  <button className="btn" onClick={applyBulk} disabled={!bulk.trim()}>{no.wizard.s4BulkApply}</button>
-                </div>
-              </details>
-              <div className="faint">{no.wizard.s4Count(validTeams.length)}{validTeams.length < minTeams ? ` — ${isDouble ? no.wizard.s4MinDouble : no.wizard.s4Min}` : ""}</div>
-            </Step>
-          )}
-
-          {step === 5 && (
-            <Step title={no.wizard.s5Title}>
-              <div className="opt-grid">
-                <button className="opt" data-on={parallelism === "sequential"} onClick={() => setParallelism("sequential")}>
-                  <h3>{no.wizard.sequential}</h3><p>{no.wizard.sequentialBlurb}</p>
-                </button>
-                <button className="opt" data-on={parallelism === "parallel"} onClick={() => setParallelism("parallel")}>
-                  <h3>{no.wizard.parallel}</h3><p>{no.wizard.parallelBlurb}</p>
-                </button>
-              </div>
-              {parallelism === "parallel" && (
-                <>
-                  <div className="field">
-                    <label className="label" htmlFor="w-courts">{no.wizard.courtCount}</label>
-                    <NumberField id="w-courts" aria-label={no.wizard.courtCount} min={1} max={12} value={courtCount}
-                      onChange={(n) => {
-                        // Only committed (in-range) values reach here, so the
-                        // name list is never resized by a half-typed number.
-                        setCourtCount(n);
-                        setCourtNames((prev) => Array.from({ length: n }, (_, i) => prev[i] ?? `Bane ${i + 1}`));
-                      }} />
-                  </div>
-                  <div className="stack" style={{ gap: 8 }}>
-                    {Array.from({ length: courtCount }, (_, i) => (
-                      <input key={i} className="input" value={courtNames[i] ?? `Bane ${i + 1}`}
-                        aria-label={`${no.wizard.courtName} ${i + 1}`}
-                        onChange={(e) => setCourtNames(courtNames.map((c, j) => j === i ? e.target.value : c))} />
-                    ))}
-                  </div>
-                </>
-              )}
-              <div className="divider" />
-              <label className="row" style={{ gap: 10, cursor: "pointer" }}>
-                <input type="checkbox" checked={scheduleOn} onChange={(e) => setScheduleOn(e.target.checked)} />
-                <span>{no.wizard.scheduleToggle}</span>
-              </label>
-              {scheduleOn && (
-                <div className="stack" style={{ gap: 10 }}>
-                  <p className="muted">{no.wizard.scheduleBlurb}</p>
-                  <div className="field">
-                    <label className="label" htmlFor="w-start">{no.wizard.scheduleStart}</label>
-                    <input id="w-start" className="input" type="datetime-local" value={startLocal}
-                      onChange={(e) => setStartLocal(e.target.value)} />
-                  </div>
-                  <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-                    <MinuteField id="w-dur" label={no.wizard.scheduleMatch} value={matchMinutes} min={1} max={240} onChange={setMatchMinutes} />
-                    <MinuteField id="w-brk" label={no.wizard.scheduleBreak} value={breakMinutes} min={0} max={120} onChange={setBreakMinutes} />
-                    <MinuteField id="w-rest" label={no.wizard.scheduleRest} value={minRestMinutes} min={0} max={480} onChange={setMinRestMinutes} />
-                  </div>
-                </div>
-              )}
-            </Step>
-          )}
-
-          {step === 6 && showStep6 && (
-            <Step title={no.wizard.s6Title}>
-              {isCup || isDouble ? null : isGroup ? (
-                <>
-                  <div className="field">
-                    <label className="label">{no.wizard.groupCount}</label>
-                    <div className="chips">
-                      {[2, 3, 4].map((n) => (
-                        <button
-                          key={n}
-                          className="chip"
-                          data-on={effectiveGroups === n}
-                          disabled={n * 2 > validTeams.length}
-                          onClick={() => setGroupCount(n)}
-                        >
-                          {n}
-                        </button>
-                      ))}
                     </div>
+                  )}
+                  <div className="field">
+                    <label className="label" htmlFor="w-title">{no.wizard.s1Name}</label>
+                    <input id="w-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={no.wizard.s1NamePlaceholder} autoFocus />
                   </div>
                   <div className="field">
-                    <label className="label">{no.wizard.advancePerGroup}</label>
-                    <div className="chips">
-                      {[1, 2].map((n) => (
-                        <button
-                          key={n}
-                          className="chip"
-                          data-on={advancePerGroup === n}
-                          onClick={() => setAdvancePerGroup(n)}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                    <span className="faint">
-                      {groupsPossible
-                        ? no.wizard.groupPreview(effectiveGroups, advancePerGroup)
-                        : no.wizard.groupNeedsFour}
-                    </span>
+                    <label className="label" htmlFor="w-sport">{no.wizard.s1Sport}</label>
+                    <input id="w-sport" className="input" value={sport} onChange={(e) => setSport(e.target.value)} placeholder={no.wizard.s1SportPlaceholder} />
                   </div>
-                </>
-              ) : (
-                <div className="field">
-                  <label className="label">{no.wizard.playoffSize}</label>
                   <div className="chips">
-                    {[2, 4, 8].map((n) => (
-                      <button key={n} className="chip" data-on={effectivePlayoff === n} disabled={n > validTeams.length}
-                        onClick={() => setPlayoffSize(n as 2 | 4 | 8)}>{n}</button>
-                    ))}
-                  </div>
-                  <span className="faint">{no.wizard.playoffCapped(validTeams.length)} · {effectivePlayoff} går videre</span>
-                </div>
-              )}
-              {isDouble ? (
-                <div className="field">
-                  <label className="row" style={{ gap: 10, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={grandFinalReset}
-                      onChange={(e) => setGrandFinalReset(e.target.checked)}
-                    />
-                    <span>{no.wizard.grandFinalReset}</span>
-                  </label>
-                  <span className="faint">{no.wizard.grandFinalResetHint}</span>
-                </div>
-              ) : (
-                <label className="row" style={{ gap: 10, cursor: "pointer", marginTop: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={thirdPlace}
-                    onChange={(e) => setThirdPlace(e.target.checked)}
-                  />
-                  <span>{no.wizard.thirdPlace}</span>
-                </label>
-              )}
-              {consolationChoices.length > 1 && (
-                <div className="field" style={{ marginTop: 8 }}>
-                  <label className="label">{no.wizard.consolation}</label>
-                  <div className="chips">
-                    {consolationChoices.map((c) => (
-                      <button
-                        key={c}
-                        className="chip"
-                        data-on={effectiveConsolation === c}
-                        onClick={() => setConsolation(c)}
-                      >
-                        {no.wizard.consolationOpts[c]}
+                    {no.wizard.chips.map((c) => (
+                      <button key={c} className="chip" data-on={sport === c || (c === "Annet" && !no.wizard.chips.includes(sport as never))} onClick={() => pickSport(c)}>
+                        {c}
                       </button>
                     ))}
                   </div>
-                  <span className="faint">{no.wizard.consolationHint[effectiveConsolation]}</span>
-                </div>
+                </Step>
               )}
-            </Step>
-          )}
 
-          {step === 7 && (
-            <Step title={no.wizard.s7Title}>
-              <Summary
-                title={title} sport={sport} format={format} scoring={scoring} swissRounds={effectiveSwissRounds}
-                parallelism={parallelism} courtCount={courtCount}
-                teamCount={validTeams.length} playoff={showPlayoff && !isGroup ? effectivePlayoff : 0}
-                groupCount={effectiveGroups} advancePerGroup={advancePerGroup} thirdPlace={thirdPlace}
-                grandFinalReset={isDouble ? grandFinalReset : undefined}
-                consolation={effectiveConsolation}
-              />
-              {tmplName === null ? (
-                <button
-                  className="btn btn-block"
-                  onClick={() => setTmplName(title || sport || "Mal")}
-                  disabled={validTeams.length < minTeams}
-                >
-                  <Icon name="save" />
-                  {no.wizard.saveTemplate}
-                </button>
-              ) : (
-                <div className="row">
-                  <label className="sr-only" htmlFor="tmpl-name">{no.wizard.templateName}</label>
-                  <input
-                    id="tmpl-name"
-                    className="input grow"
-                    value={tmplName}
-                    onChange={(e) => setTmplName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && saveTemplate()}
-                    placeholder={no.wizard.templateName}
-                    autoFocus
+              {step === 2 && (
+                <Step title={no.wizard.s2Title}>
+                  <div className="opt-grid">
+                    {(["league", "league_playoff", "group_playoff", "cup", "double_elim", "swiss"] as Format[]).map((f) => (
+                      <button
+                        key={f}
+                        className="opt"
+                        data-on={format === f}
+                        onClick={() => {
+                          setFormat(f);
+                          // Swiss har egen tiebreak-forvalg; bort fra Swiss tilbake til standard.
+                          if (f === "swiss") setTiebreak("swiss");
+                          else if (tiebreak === "swiss") setTiebreak("standard");
+                        }}
+                      >
+                        <h3>{no.wizard.formats[f].name}</h3>
+                        <p>{no.wizard.formats[f].blurb}</p>
+                      </button>
+                    ))}
+                  </div>
+                  {isSwiss && (
+                    <div className="field">
+                      <label className="label" htmlFor="swiss-rounds">{no.wizard.swissRounds}</label>
+                      <select
+                        id="swiss-rounds"
+                        className="input"
+                        value={effectiveSwissRounds}
+                        onChange={(e) => setSwissRounds(Number(e.target.value))}
+                      >
+                        {Array.from({ length: swissMax }, (_, i) => i + 1).map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                      <span className="faint">{no.wizard.swissRoundsHint}</span>
+                    </div>
+                  )}
+                </Step>
+              )}
+
+              {step === 3 && (
+                <Step title={no.wizard.s3Title}>
+                  <div className="opt-grid">
+                    {(["simple", "sets", "winner"] as ScoringProfileKey[]).map((p) => (
+                      <button key={p} className="opt" data-on={scoring.profile === p} onClick={() => setProfile(p)}>
+                        <h3>{no.wizard.profiles[p].name}</h3>
+                        <p>{no.wizard.profiles[p].blurb}</p>
+                      </button>
+                    ))}
+                  </div>
+                  {scoring.profile === "sets" && (
+                    <div className="field">
+                      <label className="label" htmlFor="w-bestof">{no.wizard.setsBestOf}</label>
+                      <select id="w-bestof" className="select" value={scoring.setsBestOf} onChange={(e) => setScoring({ ...scoring, setsBestOf: Number(e.target.value) })}>
+                        {[3, 5, 7].map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {scoring.profile === "simple" && (
+                    <label className="row" style={{ cursor: "pointer" }}>
+                      <input type="checkbox" checked={scoring.allowDraw} onChange={(e) => setScoring({ ...scoring, allowDraw: e.target.checked })} />
+                      <span>{no.wizard.allowDraw}</span>
+                    </label>
+                  )}
+                  <div className="field">
+                    <label className="label">{no.wizard.points}</label>
+                    <div className="row">
+                      {(["pointsWin", "pointsDraw", "pointsLoss"] as const).map((k) => (
+                        <NumberField key={k} min={0} max={100} compact
+                          aria-label={no.wizard.pointsLabel[k]}
+                          value={scoring[k]} onChange={(n) => setScoring({ ...scoring, [k]: n })}
+                          disabled={k === "pointsDraw" && !(scoring.profile === "simple" && scoring.allowDraw)} />
+                      ))}
+                    </div>
+                  </div>
+                  {!isCup && !isDouble && (
+                    <div className="field">
+                      <label className="label">{no.wizard.tiebreak}</label>
+                      <div className="chips">
+                        {((isSwiss ? ["swiss", "standard"] : ["standard", "uefa"]) as TiebreakPreset[]).map((p) => (
+                          <button key={p} className="chip" data-on={tiebreak === p} onClick={() => setTiebreak(p)}>
+                            {no.wizard.tiebreakOpts[p]}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="faint">{no.wizard.tiebreakHint[tiebreak]}</span>
+                    </div>
+                  )}
+                </Step>
+              )}
+
+              {step === 4 && (
+                <Step title={no.wizard.s4Title}>
+                  <div className="panel stack" style={{ gap: 10 }}>
+                    <label className="label" htmlFor="w-count">{no.wizard.s4HowMany}</label>
+                    <div className="row">
+                      <NumberField
+                        id="w-count"
+                        aria-label={no.wizard.s4HowMany}
+                        min={2}
+                        max={32}
+                        value={count}
+                        onChange={setCount}
+                        onEnter={setTeamCount}
+                      />
+                      <button className="btn btn-gold" onClick={() => setTeamCount(count)}>
+                        {no.wizard.s4Generate}
+                      </button>
+                    </div>
+                    <div className="chips">
+                      {[4, 6, 8, 10, 12, 16].map((n) => (
+                        <button key={n} className="chip" onClick={() => setTeamCount(n)}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
+                      {no.wizard.s4GenerateHint}
+                    </span>
+                  </div>
+                  <div className="stack" style={{ gap: 8, maxHeight: 320, overflow: "auto" }}>
+                    {teams.map((t, i) => (
+                      <div className="panel" key={i} style={{ padding: 10 }}>
+                        <div className="row">
+                          <input type="color" value={t.colour} onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, colour: e.target.value } : x))}
+                            aria-label={`Farge, lag ${i + 1}`} />
+                          <input className="input grow" value={t.name} placeholder={no.wizard.s4Name}
+                            aria-label={`${no.wizard.s4Name} ${i + 1}`}
+                            onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                          <LogoUpload
+                            url={t.logo_url}
+                            onUrl={(u) => setTeams(teams.map((x, j) => j === i ? { ...x, logo_url: u } : x))}
+                          />
+                          <button className="btn btn-ghost" aria-label={`Fjern lag ${t.name || i + 1}`}
+                            onClick={() => setTeams(teams.filter((_, j) => j !== i))}>
+                            <Icon name="close" size={16} />
+                          </button>
+                        </div>
+                        {t.members.length > 0 && (
+                          <div className="chips" style={{ marginTop: 8 }}>
+                            {t.members.map((m, mi) => (
+                              <span className="chip" key={mi} style={{ fontSize: "var(--fs-sm)", cursor: "default" }}>
+                                {m}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button className="btn btn-ghost btn-block" onClick={addTeam}>+ {no.wizard.s4Add}</button>
+                  <details>
+                    <summary className="muted" style={{ cursor: "pointer", fontSize: ".9rem" }}>{no.wizard.s4Draw}</summary>
+                    <div className="stack" style={{ marginTop: 8 }}>
+                      <textarea className="textarea" value={draw} onChange={(e) => setDraw(e.target.value)} placeholder={"Ola\nKari\nPer\nNora\n…"} />
+                      <div className="row">
+                        <span className="label">{no.wizard.s4DrawTeams}</span>
+                        <NumberField min={2} max={24} compact
+                          aria-label={no.wizard.s4DrawTeams}
+                          value={Math.min(count, 24)}
+                          onChange={setCount} />
+                        <button className="btn btn-gold grow" onClick={() => drawTeams(count)}
+                          disabled={parseNames(draw).length < 2}>
+                          <Icon name="random" />
+                          {no.wizard.s4DrawDo}
+                        </button>
+                      </div>
+                      <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
+                        {parseNames(draw).length > 0
+                          ? `${parseNames(draw).length} deltakere → ${Math.min(count, parseNames(draw).length)} lag. `
+                          : ""}
+                        {no.wizard.s4DrawHint}
+                      </span>
+                    </div>
+                  </details>
+                  <details>
+                    <summary className="muted" style={{ cursor: "pointer", fontSize: ".9rem" }}>{no.wizard.s4Bulk}</summary>
+                    <div className="stack" style={{ marginTop: 8 }}>
+                      <textarea className="textarea" value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder={"Løvene\nØrnene\nUlvene"} />
+                      <button className="btn" onClick={applyBulk} disabled={!bulk.trim()}>{no.wizard.s4BulkApply}</button>
+                    </div>
+                  </details>
+                  <div className="faint">{no.wizard.s4Count(validTeams.length)}{validTeams.length < minTeams ? ` — ${isDouble ? no.wizard.s4MinDouble : no.wizard.s4Min}` : ""}</div>
+                </Step>
+              )}
+
+              {step === 5 && (
+                <Step title={no.wizard.s5Title}>
+                  <div className="opt-grid">
+                    <button className="opt" data-on={parallelism === "sequential"} onClick={() => setParallelism("sequential")}>
+                      <h3>{no.wizard.sequential}</h3><p>{no.wizard.sequentialBlurb}</p>
+                    </button>
+                    <button className="opt" data-on={parallelism === "parallel"} onClick={() => setParallelism("parallel")}>
+                      <h3>{no.wizard.parallel}</h3><p>{no.wizard.parallelBlurb}</p>
+                    </button>
+                  </div>
+                  {parallelism === "parallel" && (
+                    <>
+                      <div className="field">
+                        <label className="label" htmlFor="w-courts">{no.wizard.courtCount}</label>
+                        <NumberField id="w-courts" aria-label={no.wizard.courtCount} min={1} max={12} value={courtCount}
+                          onChange={(n) => {
+                            // Only committed (in-range) values reach here, so the
+                            // name list is never resized by a half-typed number.
+                            setCourtCount(n);
+                            setCourtNames((prev) => Array.from({ length: n }, (_, i) => prev[i] ?? `Bane ${i + 1}`));
+                          }} />
+                      </div>
+                      <div className="stack" style={{ gap: 8 }}>
+                        {Array.from({ length: courtCount }, (_, i) => (
+                          <input key={i} className="input" value={courtNames[i] ?? `Bane ${i + 1}`}
+                            aria-label={`${no.wizard.courtName} ${i + 1}`}
+                            onChange={(e) => setCourtNames(courtNames.map((c, j) => j === i ? e.target.value : c))} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <div className="divider" />
+                  <label className="row" style={{ gap: 10, cursor: "pointer" }}>
+                    <input type="checkbox" checked={scheduleOn} onChange={(e) => setScheduleOn(e.target.checked)} />
+                    <span>{no.wizard.scheduleToggle}</span>
+                  </label>
+                  {scheduleOn && (
+                    <div className="stack" style={{ gap: 10 }}>
+                      <p className="muted">{no.wizard.scheduleBlurb}</p>
+                      <div className="field">
+                        <label className="label" htmlFor="w-start">{no.wizard.scheduleStart}</label>
+                        <input id="w-start" className="input" type="datetime-local" value={startLocal}
+                          onChange={(e) => setStartLocal(e.target.value)} />
+                      </div>
+                      <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                        <MinuteField id="w-dur" label={no.wizard.scheduleMatch} value={matchMinutes} min={1} max={240} onChange={setMatchMinutes} />
+                        <MinuteField id="w-brk" label={no.wizard.scheduleBreak} value={breakMinutes} min={0} max={120} onChange={setBreakMinutes} />
+                        <MinuteField id="w-rest" label={no.wizard.scheduleRest} value={minRestMinutes} min={0} max={480} onChange={setMinRestMinutes} />
+                      </div>
+                    </div>
+                  )}
+                </Step>
+              )}
+
+              {step === 6 && showStep6 && (
+                <Step title={no.wizard.s6Title}>
+                  {isCup || isDouble ? null : isGroup ? (
+                    <>
+                      <div className="field">
+                        <label className="label">{no.wizard.groupCount}</label>
+                        <div className="chips">
+                          {[2, 3, 4].map((n) => (
+                            <button
+                              key={n}
+                              className="chip"
+                              data-on={effectiveGroups === n}
+                              disabled={n * 2 > validTeams.length}
+                              onClick={() => setGroupCount(n)}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="field">
+                        <label className="label">{no.wizard.advancePerGroup}</label>
+                        <div className="chips">
+                          {[1, 2].map((n) => (
+                            <button
+                              key={n}
+                              className="chip"
+                              data-on={advancePerGroup === n}
+                              onClick={() => setAdvancePerGroup(n)}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                        <span className="faint">
+                          {groupsPossible
+                            ? no.wizard.groupPreview(effectiveGroups, advancePerGroup)
+                            : no.wizard.groupNeedsFour}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="field">
+                      <label className="label">{no.wizard.playoffSize}</label>
+                      <div className="chips">
+                        {[2, 4, 8].map((n) => (
+                          <button key={n} className="chip" data-on={effectivePlayoff === n} disabled={n > validTeams.length}
+                            onClick={() => setPlayoffSize(n as 2 | 4 | 8)}>{n}</button>
+                        ))}
+                      </div>
+                      <span className="faint">{no.wizard.playoffCapped(validTeams.length)} · {effectivePlayoff} går videre</span>
+                    </div>
+                  )}
+                  {isDouble ? (
+                    <div className="field">
+                      <label className="row" style={{ gap: 10, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={grandFinalReset}
+                          onChange={(e) => setGrandFinalReset(e.target.checked)}
+                        />
+                        <span>{no.wizard.grandFinalReset}</span>
+                      </label>
+                      <span className="faint">{no.wizard.grandFinalResetHint}</span>
+                    </div>
+                  ) : (
+                    <label className="row" style={{ gap: 10, cursor: "pointer", marginTop: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={thirdPlace}
+                        onChange={(e) => setThirdPlace(e.target.checked)}
+                      />
+                      <span>{no.wizard.thirdPlace}</span>
+                    </label>
+                  )}
+                  {consolationChoices.length > 1 && (
+                    <div className="field" style={{ marginTop: 8 }}>
+                      <label className="label">{no.wizard.consolation}</label>
+                      <div className="chips">
+                        {consolationChoices.map((c) => (
+                          <button
+                            key={c}
+                            className="chip"
+                            data-on={effectiveConsolation === c}
+                            onClick={() => setConsolation(c)}
+                          >
+                            {no.wizard.consolationOpts[c]}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="faint">{no.wizard.consolationHint[effectiveConsolation]}</span>
+                    </div>
+                  )}
+                </Step>
+              )}
+
+              {step === 7 && (
+                <Step title={no.wizard.s7Title}>
+                  <Summary
+                    title={title} sport={sport} format={format} scoring={scoring} swissRounds={effectiveSwissRounds}
+                    parallelism={parallelism} courtCount={courtCount}
+                    teamCount={validTeams.length} playoff={showPlayoff && !isGroup ? effectivePlayoff : 0}
+                    groupCount={effectiveGroups} advancePerGroup={advancePerGroup} thirdPlace={thirdPlace}
+                    grandFinalReset={isDouble ? grandFinalReset : undefined}
+                    consolation={effectiveConsolation}
                   />
-                  <button className="btn btn-gold" onClick={saveTemplate} disabled={!tmplName.trim()}>
-                    {no.wizard.saveTemplateDo}
-                  </button>
-                  <button className="btn btn-ghost" onClick={() => setTmplName(null)}>
-                    {no.common.cancel}
-                  </button>
-                </div>
+                  {tmplName === null ? (
+                    <button
+                      className="btn btn-block"
+                      onClick={() => setTmplName(title || sport || "Mal")}
+                      disabled={validTeams.length < minTeams}
+                    >
+                      <Icon name="save" />
+                      {no.wizard.saveTemplate}
+                    </button>
+                  ) : (
+                    <div className="row">
+                      <label className="sr-only" htmlFor="tmpl-name">{no.wizard.templateName}</label>
+                      <input
+                        id="tmpl-name"
+                        className="input grow"
+                        value={tmplName}
+                        onChange={(e) => setTmplName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && saveTemplate()}
+                        placeholder={no.wizard.templateName}
+                        autoFocus
+                      />
+                      <button className="btn btn-gold" onClick={saveTemplate} disabled={!tmplName.trim()}>
+                        {no.wizard.saveTemplateDo}
+                      </button>
+                      <button className="btn btn-ghost" onClick={() => setTmplName(null)}>
+                        {no.common.cancel}
+                      </button>
+                    </div>
+                  )}
+                  {isGroup && !groupsPossible && (
+                    <div className="toast-danger" role="alert">{no.wizard.groupNeedsFour}</div>
+                  )}
+                </Step>
               )}
-              {isGroup && !groupsPossible && (
-                <div className="toast-danger" role="alert">{no.wizard.groupNeedsFour}</div>
-              )}
-            </Step>
-          )}
-        </div>
+            </div>
 
-        {createErr && (
-          <div className="toast-danger" role="alert" style={{ fontSize: ".9rem" }}>
-            {createErr}
+            {createErr && (
+              <div className="toast-danger" role="alert" style={{ fontSize: ".9rem" }}>
+                {createErr}
+              </div>
+            )}
+            <div className="spread">
+              <button className="btn btn-ghost" onClick={back} disabled={step === 1}>{no.wizard.back}</button>
+              {step < TOTAL ? (
+                <button className="btn btn-gold" onClick={next} disabled={!canNext}>{no.wizard.next}</button>
+              ) : (
+                <button
+                  className="btn btn-gold btn-lg"
+                  onClick={create}
+                  disabled={creating || validTeams.length < minTeams || (isGroup && !groupsPossible)}
+                >
+                  {creating ? <span className="spin" /> : null}
+                  {creating ? no.wizard.creating : no.wizard.create}
+                </button>
+              )}
+            </div>
           </div>
-        )}
-        <div className="spread">
-          <button className="btn btn-ghost" onClick={back} disabled={step === 1}>{no.wizard.back}</button>
-          {step < TOTAL ? (
-            <button className="btn btn-gold" onClick={next} disabled={!canNext}>{no.wizard.next}</button>
-          ) : (
-            <button
-              className="btn btn-gold btn-lg"
-              onClick={create}
-              disabled={creating || validTeams.length < minTeams || (isGroup && !groupsPossible)}
-            >
-              {creating ? <span className="spin" /> : null}
-              {creating ? no.wizard.creating : no.wizard.create}
-            </button>
-          )}
-        </div>
-      </div>
-    </main>
-  );
+        </main>
+    </>  );
 }
 
 /** Clean a pasted multi-line list into names: strips "- [ ]" / "- [x]" task
