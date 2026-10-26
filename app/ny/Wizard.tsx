@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/client/api";
 import { no } from "@/lib/locale/no";
 import { paletteColour } from "@/lib/palette";
+import { nextOsloHourLocal, osloLocalToIso } from "@/lib/tournament/osloTime";
 import {
   allEmblemsShuffled,
   emblemDataUri,
@@ -301,10 +302,10 @@ export function Wizard() {
           ...(isSwiss ? { swiss: { rounds: effectiveSwissRounds }, tiebreak: tiebreak === "standard" ? "standard" : "swiss" } : {}),
           ...(!isCup && !isDouble && !isSwiss && tiebreak !== "standard" ? { tiebreak } : {}),
           ...(isGroup ? { groupCount: effectiveGroups, advancePerGroup } : {}),
-          ...(scheduleOn && startLocal && !Number.isNaN(new Date(startLocal).getTime())
+          ...(scheduleOn && startLocal && osloLocalToIso(startLocal) !== ""
             ? {
                 schedule: {
-                  startAt: new Date(startLocal).toISOString(),
+                  startAt: osloLocalToIso(startLocal),
                   matchMinutes,
                   breakMinutes,
                   minRestMinutes,
@@ -918,12 +919,9 @@ function LogoUpload({ url, onUrl }: { url: string | null; onUrl: (u: string | nu
   );
 }
 
-/** Neste hele time i lokal tid, som "YYYY-MM-DDTHH:mm" (datetime-local). */
+/** Neste hele time i Oslo-tid, som "YYYY-MM-DDTHH:mm" (datetime-local). */
 function defaultStartLocal(): string {
-  const d = new Date();
-  d.setHours(d.getHours() + 1, 0, 0, 0);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  return nextOsloHourLocal();
 }
 
 function MinuteField({
