@@ -40,6 +40,7 @@ const MESSAGES: Record<string, string> = {
   laast_av_annen: "En annen enhet registrerer denne kampen.",
   turnering_avsluttet: "Turneringen er avsluttet. Arrangøren kan gjenåpne den.",
   serien_avsluttet: "Seriespillet er over, og sluttspillet er i gang. Kampen kan ikke føres lenger.",
+  runde_spilt: "En senere runde er allerede satt opp. Be arrangøren endre resultatet.",
   neste_kamp_spilt: "Neste sluttspillkamp har allerede startet.",
   for_sent: "Det er for sent å rette selv. Be arrangøren endre resultatet.",
   ikke_din_kamp: "Bare enheten som lagret resultatet kan rette det.",

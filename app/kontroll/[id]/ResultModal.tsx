@@ -6,6 +6,7 @@ import { submitResultOrQueue } from "@/lib/client/outbox";
 import { ResultInput } from "@/lib/client/ResultInput";
 import { no } from "@/lib/locale/no";
 import { Icon } from "@/lib/client/Icon";
+import { identity } from "@/lib/client/identity";
 import { errorMessage } from "@/lib/locale/errors";
 import { useEscape } from "@/lib/client/useEscape";
 import { useFocusTrap } from "@/lib/client/useFocusTrap";
@@ -38,8 +39,10 @@ export function ResultModal({
   controlCode: string;
   mode?: "new" | "correct";
   onClose: () => void;
-  /** Saved on the server (not queued): the parent confirms with a toast. */
-  onDone: (result: MatchResult) => void;
+  /** Saved on the server (not queued): the parent confirms with a toast.
+   * `propagated:false` = the result is saved but the next bracket match was not
+   * updated — the parent warns the referee. */
+  onDone: (result: MatchResult, info: { propagated: boolean }) => void;
   /** The result could not be sent (no network) and sits in the phone's outbox. */
   onQueued?: () => void;
   onConflict: () => void;
@@ -166,9 +169,15 @@ export function ResultModal({
     }
     setErr(null);
     try {
-      const device = { deviceId, deviceName };
-      if (correcting) await api.correct(match.id, version, result, device, controlCode);
-      else {
+      // deviceSecret: the private half of this phone's identity — what lets it
+      // (and only it) use «Endre» on this result afterwards.
+      const device = { deviceId, deviceName, deviceSecret: identity.deviceSecret() };
+      let propagated = true;
+      if (correcting) {
+        const r = await api.correct(match.id, version, result, device, controlCode);
+        propagated = r.propagated !== false;
+        identity.markOwned(match.id, r.match.result_version);
+      } else {
         const r = await submitResultOrQueue({
           tournamentId: tournament.id,
           matchId: match.id,
@@ -182,8 +191,12 @@ export function ResultModal({
           onClose();
           return;
         }
+        propagated = r.propagated;
+        identity.markOwned(match.id, r.match.result_version);
       }
-      onDone(result);
+      if (!propagated)
+        console.warn("[result] saved, but the bracket was not updated for match", match.id);
+      onDone(result, { propagated });
     } catch (e) {
       if (onAuthError?.(e)) return;
       // Someone else changed/finished it → the parent refetches and warns.

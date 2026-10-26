@@ -62,6 +62,25 @@ export function toAttachedTournamentDTO(
   };
 }
 
+/** A match as served to ANY viewer. The row holds `locked_by` / `result_by` as
+ * `<device identity>|<name>`; the identity half must never leave the server —
+ * result_by's tag is what authorises a referee self-correct, and a raw
+ * locked_by deviceId let a bystander impersonate the lock holder. Only the
+ * display name survives («Bane 1»), or null when there is nothing to show. */
+export function toMatchDTO<T extends Match>(m: T): T {
+  const name = (tag: string | null): string | null => {
+    if (tag == null) return null;
+    const i = tag.indexOf("|");
+    return (i >= 0 ? tag.slice(i + 1) : "").trim() || null;
+  };
+  return {
+    ...m,
+    // A lock with no name still needs a label in «Redigeres av …».
+    locked_by: m.locked_by == null ? null : (name(m.locked_by) ?? "Enhet"),
+    result_by: name(m.result_by),
+  };
+}
+
 /** The full state a board or control device renders. One fetch, everything. */
 export interface StateDTO {
   tournament: TournamentDTO;

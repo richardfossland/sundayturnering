@@ -2,7 +2,7 @@ import "server-only";
 
 import { createServiceClient } from "@/lib/supabase/service";
 import { computeStandings, computeGroupStandings } from "@/lib/tournament/standings";
-import { toTournamentDTO, type StateDTO } from "@/lib/dto";
+import { toMatchDTO, toTournamentDTO, type StateDTO } from "@/lib/dto";
 import type { Court, Match, Team, Tournament } from "@/lib/types";
 
 // Thin service-role data access. Every API route reads/writes through here so
@@ -124,7 +124,7 @@ export async function getState(t: Tournament): Promise<StateDTO> {
     tournament: toTournamentDTO(t),
     teams,
     courts,
-    matches,
+    matches: matches.map(toMatchDTO),
     standings,
     groupStandings,
     links,

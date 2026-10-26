@@ -1,3 +1,4 @@
+import { toMatchDTO } from "@/lib/dto";
 import { ok, fail, readJson, organiserLimit, must, withApi } from "@/lib/server/http";
 import { authOrganiserOrAdmin } from "@/lib/server/auth";
 import { db, getMatch } from "@/lib/server/store";
@@ -89,7 +90,7 @@ async function handlePOST(req: Request) {
   defer(() => broadcast(channels.tournament(t.id), events.matchUpdated, {
     matchId: m.id,
   }), "override");
-  return ok({ match: saved });
+  return ok({ match: toMatchDTO(saved) });
 }
 
 export const POST = withApi(handlePOST);

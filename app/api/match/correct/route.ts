@@ -1,6 +1,9 @@
 import { ok, fail, readJson, rateLimit, ipKey, withApi } from "@/lib/server/http";
-import { db, getMatch, getTournament } from "@/lib/server/store";
-import { propagateResult, resetDownstream } from "@/lib/server/playoff";
+import { db, getMatch, getMatches, getTournament } from "@/lib/server/store";
+import { resetDownstream } from "@/lib/server/playoff";
+import { propagateAfterCommit } from "@/lib/server/propagate";
+import { ownsResult, resultByFor } from "@/lib/server/pair";
+import { toMatchDTO } from "@/lib/dto";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
@@ -10,13 +13,17 @@ import {
   resolve,
   isVoid,
 } from "@/lib/tournament/scoring";
-import { canSelfCorrect } from "@/lib/tournament/correct";
+import { correctBlock, inSelfCorrectWindow } from "@/lib/tournament/correct";
 import { checkControlCode, prefetchBlocked } from "@/lib/server/auth";
 
 // POST /api/match/correct — a referee fixes THEIR OWN just-saved result within a
 // short grace window, WITHOUT the organiser code. Self-authorising: the server
-// checks the saving device (result_by) + the time window (updated_at). The
-// optimistic version guard is preserved via the same RPC the result route uses.
+// checks the saving device (result_by = HMAC of the phone's private deviceSecret,
+// never the public device id) + the time window (updated_at). The same guards
+// as the plain result route apply (serie over, tournament finished — except the
+// deciding final, whose save is what finished it — and Swiss rounds already
+// followed by a later round). The optimistic version guard is preserved via the
+// same RPC the result route uses.
 async function handlePOST(req: Request) {
   if (!rateLimit(`match-correct:${ipKey(req)}`, 600, 60_000))
     return fail(429, "for_mange_forsok");
@@ -24,24 +31,22 @@ async function handlePOST(req: Request) {
     matchId?: string;
     expectedVersion?: number;
     result?: Record<string, unknown>;
-    deviceId?: string;
     deviceName?: string;
+    /** The saving phone's private secret (see lib/server/pair.ts). */
+    deviceSecret?: string;
     controlCode?: string;
   }>(req);
-  if (
-    !body?.matchId ||
-    typeof body.expectedVersion !== "number" ||
-    !body.result ||
-    !body.deviceId
-  )
+  if (!body?.matchId || typeof body.expectedVersion !== "number" || !body.result)
     return fail(400, "mangler_felt");
 
   const m = await getMatch(body.matchId);
   if (!m) return fail(404, "finnes_ikke");
   if (m.status !== "done") return fail(409, "ikke_ferdig");
-  if (!m.result_by || m.result_by.split("|")[0] !== body.deviceId)
-    return fail(403, "ikke_din_kamp");
-  if (!canSelfCorrect(m, body.deviceId, Date.now())) return fail(409, "for_sent");
+  // Ownership: only the phone that knows the secret behind result_by. Results
+  // saved before this scheme (raw device id) or by a client without a secret
+  // can only be changed by the organiser.
+  if (!(await ownsResult(m.result_by, body.deviceSecret))) return fail(403, "ikke_din_kamp");
+  if (!inSelfCorrectWindow(m, Date.now())) return fail(409, "for_sent");
   if (!m.home_team_id || !m.away_team_id) return fail(409, "kamp_ikke_klar");
 
   const blocked = prefetchBlocked(req, m.tournament_id);
@@ -51,7 +56,18 @@ async function handlePOST(req: Request) {
   });
   if (!t) return fail(404, "finnes_ikke");
   if (!(await checkControlCode(req, t, body.controlCode, blocked))) return fail(403, "feil_kontrollkode");
-  if (t.status === "finished") return fail(409, "turnering_avsluttet");
+  // Same sperrer as «Lagre», so a corrected result cannot quietly change what a
+  // later phase was built from. The deciding final is the exception: saving it
+  // finished the tournament, and its referee still has the grace window.
+  // (propagate_playoff_result re-flows the winner and keeps the status right.)
+  // (The sibling matches are only needed to recognise the final / the Swiss round.)
+  const siblings = t.status === "finished" || t.format === "swiss" ? await getMatches(t.id) : [];
+  const block = correctBlock(t, m, siblings);
+  if (block === "runde_spilt")
+    return fail(409, "runde_spilt", {
+      detail: "En senere runde er allerede satt opp. Be arrangøren endre resultatet.",
+    });
+  if (block) return fail(409, block);
 
   const knockout = m.phase === "playoff";
   const err = validateResult(t.scoring.profile, body.result, t.scoring, { knockout });
@@ -75,9 +91,8 @@ async function handlePOST(req: Request) {
       detail: "Neste sluttspillkamp har allerede startet. Be arrangøren endre resultatet.",
     });
 
-  const resultBy = body.deviceName
-    ? `${body.deviceId}|${body.deviceName}`
-    : body.deviceId;
+  // Same owner tag as before (the secret is unchanged), the name may be updated.
+  const resultBy = await resultByFor(body.deviceSecret, body.deviceName);
 
   const { data, error } = await db().rpc("submit_match_result", {
     p_match_id: m.id,
@@ -97,20 +112,13 @@ async function handlePOST(req: Request) {
   const saved = (Array.isArray(data) ? data[0] : data) ?? (await getMatch(m.id));
   // Playoff: re-flow the (possibly changed) winner into the next bracket slot.
   // Already committed: a propagate failure must not read as a failed save.
-  let propagated = true;
-  if (saved?.phase === "playoff") {
-    try {
-      await propagateResult(saved);
-    } catch (e) {
-      propagated = false;
-      console.error("[correct] propagate failed after commit", e);
-    }
-  }
+  const propagated = await propagateAfterCommit(saved, "correct");
 
   defer(() => broadcast(channels.tournament(m.tournament_id), events.matchUpdated, {
     matchId: m.id,
   }), "correct");
-  return ok(propagated ? { match: saved } : { match: saved, propagated: false });
+  const out = saved ? toMatchDTO(saved) : saved;
+  return ok(propagated ? { match: out } : { match: out, propagated: false });
 }
 
 export const POST = withApi(handlePOST);

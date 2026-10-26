@@ -608,6 +608,7 @@ export const no = {
     reset: "Nullstill",
     setsTally: (h: number, a: number) => `Sett: ${h}–${a}`,
     bestOf: (n: number) => `Best av ${n}`,
+    setsLevel: "Fyll inn stillingen i alle settene. Et sett kan ikke ende uavgjort.",
 
     // special results (walkover / abandoned / disqualification)
     special: "Walkover, avbrutt eller diskvalifisert",
@@ -657,6 +658,7 @@ export const no = {
     unsentFailed: "Kunne ikke lagres. Registrer på nytt, eller si fra til arrangøren.",
     unsentDismiss: "Fjern",
     unsentSent: "Resultatet er sendt.",
+    notPropagated: "Resultatet er lagret, men neste kamp ble ikke oppdatert. Si fra til arrangøren.",
     unsentRejected: "Et lagret resultat kunne ikke sendes, fordi kampen er endret av en annen enhet. Sjekk kampen på nytt.",
     codeRejected: "Dommerkoden ble avvist. Tast den på nytt.",
     targetDone: "Den kampen er allerede ferdig.",
