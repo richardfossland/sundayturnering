@@ -77,27 +77,76 @@ export const no = {
   // organiser page (/arrangor/[id]) + "Mine turneringer" on the landing page
   hub: {
     eyebrow: "Kontrollsenter",
-    controlCode: "Dommerkode (gi til dommerne)",
-    boardCode: "Skjermkode",
-    organiserNote:
-      "Ta vare på arrangørkoden — den kreves for å starte sluttspill, overstyre resultater og avslutte. Del bare dommerkoden med dommerne.",
-    savedNote:
-      "Kodene er lagret på denne enheten. Du finner siden igjen under «Mine turneringer» på forsiden.",
+    progress: (done: number, total: number) =>
+      `${done} av ${total} ${total === 1 ? "kamp" : "kamper"} spilt`,
     openBoard: "Vis på storskjerm",
     boardOpened:
       "Storskjermen er åpnet i et eget vindu. Dra det over til projektoren og trykk F (eller fullskjerm-knappen i menyen) for fullskjerm — denne siden blir stående her.",
     boardBlocked: "Nettleseren stoppet det nye vinduet.",
     boardBlockedLink: "Åpne storskjermen i ny fane",
-    control: "Før resultater og arrangørverktøy",
-    follow: "Kopier lenken «Følg turneringen» (publikum)",
+    loadFailed: "Kunne ikke hente turneringen. Sjekk nettet og prøv igjen.",
+
+    // «Kom i gang»
+    startTitle: "Kom i gang",
+    startIntro: "Tre steg, så er turneringen i gang.",
+    startHide: "Skjul",
+    startShow: "Vis «Kom i gang»",
+    stepDone: "Gjort",
+    step1Title: "Vis turneringen på storskjerm",
+    step1Body: "Åpne storskjermen på projektoren eller en stor skjerm. Den viser kamper, stilling og nedtelling.",
+    step2Title: "Gi dommerne dommerkoden",
+    step2Body:
+      "Dommerne velger «Jeg er dommer» på forsiden og taster koden. Koden og en QR-kode finner du også under «Koder og lenker» på storskjermen, og QR-koden står på utskrevne kampkort.",
+    step2Missing: "Dommerkoden finnes ikke på denne enheten.",
+    step3Title: "Start første kamp",
+    step3Body: "Åpne dommersiden, trykk på en kamp og før inn resultatet når den er spilt.",
+    step3Cta: "Før resultater",
+    step4Title: "Skriv ut kampkort (valgfritt)",
+    step4Body: "Ett kort per kamp med QR-kode, så dommeren kommer rett til riktig kamp.",
+    step4Cta: "Skriv ut kampkort",
+
+    // koder, forklart per rolle
+    codesTitle: "Koder",
+    codesIntro: "Tre koder, tre roller. Gi bare ut koden hver enkelt trenger.",
+    controlCode: "Dommerkode",
+    controlRole: "Til dommerne",
+    controlBody: "Gi denne til dommerne. Med den kan de føre resultater.",
+    boardCode: "Skjermkode",
+    boardRole: "Til storskjermen",
+    boardBody: "Brukes for å åpne storskjermen på en annen datamaskin.",
+    organiserRole: "Privat",
+    organiserBody: "Bare for deg. Trengs for å starte sluttspill, rette resultater og avslutte.",
+    reveal: "Vis",
+    hide: "Skjul",
+    codeNotHere: "Finnes ikke på denne enheten.",
+    savedNote:
+      "Kodene er lagret på denne enheten. Du finner siden igjen under «Mine turneringer» på forsiden.",
+
+    // verktøy låst
+    unlockTitle: "Lås opp arrangørverktøyene",
+    unlockBody:
+      "Har du arrangørkoden, taster du den her for å bruke verktøyene på denne enheten.",
+    unlockPlaceholder: "Arrangørkode",
+    unlockSave: "Bruk koden",
+    unlockClear: "Fjern koden fra denne enheten",
+    toolsLocked: "Tast arrangørkoden over for å bruke knappene her.",
+    missingTitle: "Kodene finnes ikke på denne enheten",
+    missingBody:
+      "Dommerkode og skjermkode vises bare på enheten som opprettet turneringen. Dommere kobler seg til med dommerkoden, og storskjermen åpnes med skjermkoden.",
+    toolsTitle: "Arrangørverktøy",
+
+    // lenker
+    linksTitle: "Lenker",
+    linksIntro: "Resultater, utskrifter og lenken du deler med publikum.",
+    control: "Før resultater",
+    controlLink: "Åpne dommersiden",
+    follow: "Kopier lenke for publikum",
+    followHint: "«Følg turneringen» — publikum ser stilling og kamper live på mobilen.",
     followCopied: "Lenke kopiert!",
     results: "Resultater og diplom",
     print: "Skriv ut kampprogram og kampkort",
-    copy: "trykk for å kopiere",
+    copy: "Kopier",
     copied: "Kopiert!",
-    missingTitle: "Kodene finnes ikke på denne enheten",
-    missingBody:
-      "Kodene lagres bare på enheten som opprettet turneringen. Storskjermen kan åpnes med skjermkoden, og dommere kobler seg til med dommerkoden.",
     gone: "Turneringen finnes ikke lenger (den kan være slettet).",
     mineTitle: "Mine turneringer",
     mineHint: "Lagret på denne enheten",
@@ -449,6 +498,50 @@ export const no = {
     courtCardWarn: "Del ikke dette arket med publikum — QR-koden gir tilgang til å føre resultater.",
   },
 
+  // organiser tools (Kontrollsenter + the referee page's organiser panel)
+  tools: {
+    needCode: "Krever arrangørkoden.",
+    showAll: (n: number) => `Vis alle (${n})`,
+    showLess: "Vis færre",
+    more: (n: number) => `og ${n} til`,
+
+    courtsTitle: "Baner nå",
+    courtsIntro: "Se hva som spilles på hver bane, og kall opp neste kamp.",
+    courtNext: "Neste kamper",
+    courtNone: "Ingen kamper venter på denne banen.",
+
+    scheduleTitle: "Tidsplan",
+    scheduleIntro: "Henger dere etter, eller er dere foran? Flytt kampene i ett grep.",
+    scheduleQuick: "Raske valg",
+    scheduleAffected: "Dette flyttes",
+
+    timerTitle: "Nedtelling",
+    timerIntro: "Start en nedtelling som vises på storskjermen.",
+    timerLabel: "Nedtelling (vises på storskjermen)",
+    timerRunning: (until: string) => `Nedtelling pågår — slutter kl. ${until}.`,
+    timerIdle: "Ingen nedtelling går nå.",
+    timerStarted: (min: number) => `Nedtelling på ${min} min er startet.`,
+    timerAdded: "Ett minutt lagt til.",
+    timerStopped: "Nedtellingen er stoppet.",
+
+    tournamentTitle: "Turneringen",
+    tournamentIntro: "Gå videre til neste fase, eller avslutt når alt er spilt.",
+    hintLeague: "Når seriespillet er ferdig, bygger «Start sluttspill» sluttspillet fra tabellen.",
+    hintSwiss: "Hver runde parres når forrige runde er ferdig spilt.",
+    hintPlay: "Avslutt når alle kamper er spilt. Storskjermen viser da vinnerskjermen.",
+    hintFinished: "Turneringen er avsluttet. Gjenåpne den hvis noe må rettes.",
+    dangerTitle: "Avslutt eller gjenåpne",
+    finished: "Turneringen er avsluttet.",
+
+    overrideTitle: "Rett et resultat",
+    overrideIntro:
+      "Har noen ført feil resultat? Velg kampen og rett det. Bare arrangøren kan gjøre dette, også etter at dommeren har lagret.",
+    overrideNone: "Ingen kamper er spilt ennå.",
+
+    codeLabel: "Arrangørkode",
+    openCenter: "Åpne Kontrollsenter",
+  },
+
   // control
   control: {
     deciderTitle: "Hvem gikk videre?",
@@ -526,7 +619,7 @@ export const no = {
     nextRoundConfirm: "Parre neste runde nå?",
     nextRoundDone: (r: number) => `Runde ${r} er lagt.`,
     advanceConfirm: "Bygg sluttspillet fra tabellen nå?",
-    override: "Overstyr resultat",
+    override: "Rett et resultat",
     finish: "Avslutt turnering",
     finishBOpen: (n: number) =>
       `B-sluttspillet er ikke ferdig (${n} ${n === 1 ? "kamp" : "kamper"} igjen). Avslutte turneringen likevel?`,

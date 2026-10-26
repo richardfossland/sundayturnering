@@ -1,214 +1,201 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/client/api";
-import { boardPath, openBoardWindow } from "@/lib/client/boardWindow";
+import { identity } from "@/lib/client/identity";
 import { myTournaments, type MyTournament } from "@/lib/client/myTournaments";
-import { no } from "@/lib/locale/no";
+import { useTournament } from "@/lib/client/useTournament";
+import { useToast } from "@/lib/client/useToast";
+import { teamMap } from "@/lib/client/view";
+import { CopyButton } from "@/lib/client/CopyButton";
 import { Icon } from "@/lib/client/Icon";
-import type { TournamentStatus } from "@/lib/types";
+import { CourtsSection } from "@/lib/client/organiser/CourtsSection";
+import { OverrideSection } from "@/lib/client/organiser/OverrideSection";
+import { ShiftSection } from "@/lib/client/organiser/ShiftSection";
+import { TimerSection } from "@/lib/client/organiser/TimerSection";
+import { TournamentSection } from "@/lib/client/organiser/TournamentSection";
+import { useGuard, useOrganiserCode, type ToolsCtx } from "@/lib/client/organiser/shared";
+import { no } from "@/lib/locale/no";
+import { CodesSection } from "./CodesSection";
+import { GetStarted } from "./GetStarted";
+import { OpenBoardButton } from "./OpenBoardButton";
 
-// The organiser's page for one tournament: all three codes + the ways in. It
-// reads the codes from this device's "Mine turneringer" store (written at
-// creation), so Back, reload and opening the board never lose them — the
-// organiser code is shown only here and gates advance/override/finish.
+// Kontrollsenter: the organiser's home for one tournament. Top: what it is and
+// the one big action (storskjerm). Then «Kom i gang» until the first result,
+// the three codes explained by role, and every organiser tool in titled
+// sections. The codes come from this device's "Mine turneringer" store (written
+// at creation) so Back, reload and opening the board never lose them; the
+// organiser code is the credential every tool below sends, exactly as the
+// referee page's panel does. State stays live through useTournament.
 export function OrganiserHub({ id }: { id: string }) {
   // undefined = not read yet (SSR + first paint), null = not on this device
   const [mine, setMine] = useState<MyTournament | null | undefined>(undefined);
-  const [live, setLive] = useState<{ title: string; status: TournamentStatus } | null>(null);
+  const [heldControl, setHeldControl] = useState<string | null>(null);
+  const [heldBoard, setHeldBoard] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
+  const [boardOpened, setBoardOpened] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+
+  const { state, error, refetch } = useTournament(id);
+  const { flash, region } = useToast();
+  const { code, setCode } = useOrganiserCode(id, mine?.organiser_code ?? "");
+  const { busy, guard } = useGuard(refetch, flash);
+  const teams = useMemo(() => teamMap(state?.teams ?? []), [state?.teams]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- read device storage post-mount
-    setMine(myTournaments.get(id));
+    /* eslint-disable react-hooks/set-state-in-effect -- read device storage post-mount */
+    const m = myTournaments.get(id);
+    setMine(m);
+    setHeldControl(m?.control_code ?? identity.controlCode(id));
+    setHeldBoard(m?.board_code ?? identity.boardCode(id));
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [id]);
+
+  // useTournament only says "failed"; ask once more whether it is gone for good.
+  const failedWithoutState = error && !state;
+  useEffect(() => {
+    if (!failedWithoutState) return;
     let cancelled = false;
-    api.fetchState(id).then(
-      (s) => {
-        if (!cancelled) setLive({ title: s.tournament.title, status: s.tournament.status });
-      },
-      (e) => {
-        if (!cancelled && e instanceof ApiError && e.status === 404) setGone(true);
-      },
-    );
+    api.fetchState(id).catch((e) => {
+      if (!cancelled && e instanceof ApiError && e.status === 404) setGone(true);
+    });
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, failedWithoutState]);
 
-  if (mine === undefined)
+  if (gone)
+    return (
+      <main className="org-hub">
+        <div className="org-hub-in">
+          <div className="panel" role="alert">{no.hub.gone}</div>
+        </div>
+      </main>
+    );
+  if (failedWithoutState)
+    return (
+      <main className="org-hub">
+        <div className="org-hub-in stack">
+          <div className="panel" role="alert">{no.hub.loadFailed}</div>
+          <div><button type="button" className="btn" onClick={refetch}>{no.common.retry}</button></div>
+        </div>
+      </main>
+    );
+  if (mine === undefined || !state)
     return (
       <main className="center-screen">
         <span className="spin" />
       </main>
     );
 
-  const title = live?.title || mine?.title || "";
+  const { tournament, matches, courts } = state;
+  const played = matches.filter((m) => m.status !== "bye");
+  const doneCount = played.filter((m) => m.status === "done").length;
+  const title = tournament.title || mine?.title || "";
   const base =
     process.env.NEXT_PUBLIC_BASE_URL ??
     (typeof window !== "undefined" ? window.location.origin : "");
+  const ctx: ToolsCtx = {
+    tournament,
+    matches,
+    teams,
+    courts,
+    code,
+    busy,
+    guard,
+    flash,
+    onChanged: refetch,
+  };
 
   return (
-    <main className="center-screen">
-      <div className="card card-pad stack center" style={{ maxWidth: 480, width: "100%" }}>
-        <div className="champion-eyebrow">{no.hub.eyebrow}</div>
-        {title && <h1 style={{ fontSize: "1.5rem" }}>{title}</h1>}
-        {live && (
-          <div className="faint" style={{ fontSize: "var(--fs-sm)", marginTop: -8 }}>
-            {no.admin.status[live.status]}
-          </div>
-        )}
-
-        {gone && (
-          <div className="panel" role="alert">
-            {no.hub.gone}
-          </div>
-        )}
-
-        {mine ? (
-          <>
-            <CodeBlock label={no.hub.controlCode} value={mine.control_code} big />
-            <div className="row" style={{ gap: 12 }}>
-              <CodeBlock label={no.hub.boardCode} value={mine.board_code} />
-              <CodeBlock label={no.control.organiserCode} value={mine.organiser_code} warn />
+    <main className="org-hub">
+      <div className="org-hub-in">
+        <header className="hub-head">
+          <div className="hub-head-text">
+            <div className="hub-eyebrow">{no.hub.eyebrow}</div>
+            {title && <h1 className="hub-title">{title}</h1>}
+            <div className="hub-meta">
+              <span className="pill pill-gold">{no.admin.status[tournament.status]}</span>
+              {played.length > 0 && (
+                <span className="faint">{no.hub.progress(doneCount, played.length)}</span>
+              )}
             </div>
-            <p className="faint" style={{ fontSize: "var(--fs-sm)" }}>
-              {no.hub.organiserNote}
-            </p>
-          </>
-        ) : (
-          <div className="panel stack" style={{ gap: 8, textAlign: "left" }}>
+          </div>
+          <OpenBoardButton id={id} primary onOpened={() => setBoardOpened(true)} />
+        </header>
+
+        {doneCount === 0 && tournament.status !== "finished" && (
+          <GetStarted
+            id={id}
+            controlCode={heldControl}
+            boardOpened={boardOpened}
+            codeCopied={codeCopied}
+            onBoardOpened={() => setBoardOpened(true)}
+            onCodeCopied={() => setCodeCopied(true)}
+          />
+        )}
+
+        <CodesSection
+          controlCode={heldControl}
+          boardCode={heldBoard}
+          organiserCode={code}
+          organiserRemovable={!mine}
+          onOrganiserCode={setCode}
+          onCopiedControl={() => setCodeCopied(true)}
+        />
+        {!mine && !code && (
+          <div className="panel stack stack-tight" role="note">
             <strong>{no.hub.missingTitle}</strong>
-            <span className="faint" style={{ fontSize: ".9rem" }}>{no.hub.missingBody}</span>
+            <span className="hint">{no.hub.missingBody}</span>
           </div>
         )}
 
-        {!gone && (
-          <div className="stack" style={{ gap: 10, marginTop: 6 }}>
-            <OpenBoardButton id={id} />
-            {mine ? (
-              <Link href={`/kontroll/${id}`} className="btn btn-block">
-                <Icon name="phone" />
-                {no.hub.control}
-              </Link>
-            ) : (
-              <>
-                <Link href="/tavle" className="btn btn-block">
-                  {no.landing.boardCta}
-                </Link>
-                <Link href="/kontroll" className="btn btn-block">
-                  {no.landing.controlCta}
-                </Link>
-              </>
-            )}
-            {/* Same link the board's QR points at: the phone view with
-                tap-to-cheer (/se), not the projector layout (/live). */}
-            <CopyLink label={no.hub.follow} value={`${base}/se/${id}`} />
-            {mine && (
-              <Link href={`/skriv-ut/${id}`} className="btn btn-block">
-                <Icon name="print" />
-                {no.hub.print}
-              </Link>
-            )}
-            <Link href={`/resultat/${id}`} className="btn btn-ghost btn-block">
+        <h2 className="hub-tools-title">{no.hub.toolsTitle}</h2>
+        {!code && <p className="hint">{no.hub.toolsLocked}</p>}
+        <div className="hub-grid">
+          {courts.length > 0 && <CourtsSection {...ctx} />}
+          {tournament.config?.schedule && <ShiftSection {...ctx} />}
+          <TimerSection {...ctx} />
+          <TournamentSection {...ctx} />
+          <div className="hub-wide">
+            <OverrideSection {...ctx} />
+          </div>
+        </div>
+
+        <section className="org-card" aria-labelledby="links-title">
+          <header className="org-section-head">
+            <h2 id="links-title" className="org-card-title">{no.hub.linksTitle}</h2>
+            <p className="org-section-intro">{no.hub.linksIntro}</p>
+          </header>
+          <div className="link-grid">
+            <Link href={`/kontroll/${id}`} className="btn">
+              <Icon name="phone" />
+              {no.hub.controlLink}
+            </Link>
+            <Link href={`/resultat/${id}`} className="btn">
               <Icon name="trophy" />
               {no.hub.results}
             </Link>
+            <Link href={`/skriv-ut/${id}`} className="btn">
+              <Icon name="print" />
+              {no.hub.print}
+            </Link>
+            {/* Same link the board's QR points at: the phone view with
+                tap-to-cheer (/se), not the projector layout (/live). */}
+            <CopyButton
+              className="btn"
+              value={`${base}/se/${id}`}
+              label={no.hub.follow}
+              copiedLabel={no.hub.followCopied}
+            />
           </div>
-        )}
+          <p className="hint">{no.hub.followHint}</p>
+        </section>
 
-        {mine && <p className="faint" style={{ fontSize: ".8rem" }}>{no.hub.savedNote}</p>}
+        {mine && <p className="hint">{no.hub.savedNote}</p>}
       </div>
+      {region}
     </main>
-  );
-}
-
-function OpenBoardButton({ id }: { id: string }) {
-  const [state, setState] = useState<"idle" | "opened" | "blocked">("idle");
-  return (
-    <div className="stack" style={{ gap: 8 }}>
-      <button
-        className="btn btn-gold btn-lg btn-block"
-        onClick={() => setState(openBoardWindow(id) ? "opened" : "blocked")}
-      >
-        <Icon name="screen" size={20} />
-        {no.hub.openBoard}
-      </button>
-      {state === "opened" && (
-        <span className="faint" style={{ fontSize: "var(--fs-sm)" }} role="status">
-          {no.hub.boardOpened}
-        </span>
-      )}
-      {state === "blocked" && (
-        <div className="panel stack" style={{ gap: 8 }} role="alert">
-          <span>{no.hub.boardBlocked}</span>
-          <a className="btn btn-block" href={boardPath(id)} target="_blank" rel="noopener">
-            {no.hub.boardBlockedLink}
-          </a>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CodeBlock({
-  label,
-  value,
-  big,
-  warn,
-}: {
-  label: string;
-  value: string;
-  big?: boolean;
-  warn?: boolean;
-}) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      className="board-code-card grow"
-      style={{ cursor: "pointer", borderColor: warn ? "rgba(224,137,74,.45)" : undefined }}
-      onClick={() => {
-        navigator.clipboard?.writeText(value).then(
-          () => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          },
-          () => {},
-        );
-      }}
-      title="Kopier"
-    >
-      <div className="board-code-label">{label}</div>
-      <div
-        className="board-code"
-        style={{ fontSize: big ? "2.6rem" : "1.6rem", color: warn ? "var(--warn)" : undefined }}
-      >
-        {value}
-      </div>
-      <div className="faint" style={{ fontSize: "var(--fs-sm)" }}>
-        {copied ? no.hub.copied : no.hub.copy}
-      </div>
-    </button>
-  );
-}
-
-function CopyLink({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      className="btn btn-block"
-      onClick={() =>
-        navigator.clipboard?.writeText(value).then(
-          () => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1600);
-          },
-          () => {},
-        )
-      }
-    >
-      <Icon name={copied ? "check" : "megaphone"} />
-      {copied ? no.hub.followCopied : label}
-    </button>
   );
 }
