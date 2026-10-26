@@ -19,13 +19,16 @@ import {
 // of jumping.
 
 interface Props {
-  value: number;
+  /** `null` = blank (nothing chosen yet): the box is empty and shows `placeholder`. */
+  value: number | null;
   onChange: (n: number) => void;
   min: number;
   max: number;
   id?: string;
   /** Names the field for assistive tech (and the − / + buttons). */
   "aria-label"?: string;
+  /** Shown in an empty box (only meaningful with `value={null}`). */
+  placeholder?: string;
   /** Unit shown after the box, e.g. "min". */
   suffix?: string;
   /** No − / + buttons, smaller box (score inputs, dense rows). */
@@ -43,6 +46,7 @@ export function NumberField({
   max,
   id,
   "aria-label": ariaLabel,
+  placeholder,
   suffix,
   compact = false,
   disabled = false,
@@ -54,22 +58,25 @@ export function NumberField({
   // from outside (a − / + tap, a template load, a parent clamp) always shows.
   const [draft, setDraft] = useState<string | null>(null);
   const justFocused = useRef(false);
-  const shown = draft ?? String(value);
+  const text0 = value === null ? "" : String(value);
+  const shown = draft ?? text0;
 
   const hint = draft === null ? null : draftHint(draft, min, max, no.field);
 
-  function commit(): number {
-    const text = draft ?? String(value);
+  function commit(): number | null {
+    const text = draft ?? text0;
+    setDraft(null);
+    // A blank field left blank stays blank: leaving it must not invent a value.
+    if (value === null && text === "") return null;
     const n = commitDraft(text, min, max);
     if (n !== value) onChange(n);
-    setDraft(null);
     return n;
   }
 
   function step(delta: number) {
     // A tap on − / + blurs the box first (which commits), so `value` is current.
     const base = draft !== null ? (parseDraft(draft) ?? value) : value;
-    const n = Math.min(max, Math.max(min, base + delta));
+    const n = Math.min(max, Math.max(min, (base ?? min - delta) + delta));
     setDraft(null);
     if (n !== value) onChange(n);
   }
@@ -85,7 +92,7 @@ export function NumberField({
             type="button"
             className="numfield-step"
             aria-label={`${no.field.less}${label}`}
-            disabled={disabled || value <= min}
+            disabled={disabled || (value !== null && value <= min)}
             onClick={() => step(-1)}
           >
             <Icon name="less" size={18} />
@@ -100,12 +107,13 @@ export function NumberField({
           autoComplete="off"
           enterKeyHint="done"
           aria-label={ariaLabel}
+          placeholder={placeholder}
           aria-invalid={hint ? true : undefined}
           disabled={disabled}
           value={shown}
           onFocus={(e) => {
             justFocused.current = true;
-            setDraft(String(value));
+            setDraft(text0);
             e.currentTarget.select();
           }}
           // Browsers collapse the selection on the mouseup that follows the
@@ -128,7 +136,7 @@ export function NumberField({
             if (e.key === "Enter") {
               e.preventDefault();
               const n = commit();
-              onEnter?.(n);
+              if (n !== null) onEnter?.(n);
             } else if (e.key === "ArrowUp" && stepper) {
               e.preventDefault();
               step(1);
@@ -143,7 +151,7 @@ export function NumberField({
             type="button"
             className="numfield-step"
             aria-label={`${no.field.more}${label}`}
-            disabled={disabled || value >= max}
+            disabled={disabled || (value !== null && value >= max)}
             onClick={() => step(1)}
           >
             <Icon name="more" size={18} />
