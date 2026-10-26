@@ -74,6 +74,9 @@ describe("bronsefinale før finale i køen", () => {
     await buildCupMatches("t", ids(4), ["c1", "c2"], { thirdPlace: true });
     const q = byQueue().map((r) => `${r.round}:${r.bracket_slot}`);
     expect(q).toEqual(["1:0", "1:1", "2:1", "2:0"]);
+    // Koblingene følger radene (ikke køen): to vinner- og to taper-koblinger.
+    expect(links.filter((l) => l.feed === "loser")).toHaveLength(2);
+    expect(links.filter((l) => l.feed === "winner")).toHaveLength(2);
   });
 
   it("buildCupMatches (med tidsplan, én bane): bronse spilles før finalen", async () => {
