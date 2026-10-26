@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { no } from "@/lib/locale/no";
-import { Standings, GroupStandings } from "./Standings";
+import { BoardStandings, planStandings } from "./BoardStandings";
 import { Bracket, bracketLabels } from "./Bracket";
 import { swissProgress } from "@/lib/tournament/swiss";
 import { byBracketOrder } from "@/lib/tournament/bracketLayout";
@@ -29,8 +29,12 @@ export function BoardStandingsPanel({
 
   // League-only → standings own the whole right column (no row cap). With a
   // bracket sharing the column, cap rows so the panel never needs to scroll;
-  // the cut line is always kept (see capRows in Standings.tsx).
+  // the cut line is always kept (see capRows in BoardStandings.tsx).
   const standingsLimit = hasBracket ? 8 : undefined;
+  const plan = useMemo(
+    () => planStandings(standings, groupStandings, standingsLimit),
+    [standings, groupStandings, standingsLimit],
+  );
 
   const swiss =
     tournament.format === "swiss"
@@ -41,33 +45,18 @@ export function BoardStandingsPanel({
   const noTable = tournament.format === "double_elim";
 
   return (
-    <section className="board-right" style={{ minHeight: 0 }}>
+    <section
+      className={`board-right${hasBracket && !noTable ? " has-bracket" : ""}`}
+      style={{ minHeight: 0, ["--lines" as string]: plan.lines }}
+    >
       {!noTable && (
-      <div className="card card-pad board-standings-region">
-        <div className="section-title" style={{ marginBottom: 8 }}>
-          {no.board.standings}
-          {swiss && ` · ${no.board.swissRound(swiss.round, swiss.total)}`}
+        <div className="card board-standings-region">
+          <div className="board-region-title">
+            {no.board.standings}
+            {swiss && <span className="board-region-sub">{no.board.swissRound(swiss.round, swiss.total)}</span>}
+          </div>
+          <BoardStandings plan={plan} teams={teams} showDraw={showDraw} />
         </div>
-        <div className="board-standings-scroll">
-          {groupStandings && groupStandings.length > 0 ? (
-            <GroupStandings
-              groups={groupStandings}
-              teams={teams}
-              showDraw={showDraw}
-              limit={standingsLimit}
-              compact
-            />
-          ) : (
-            <Standings
-              standings={standings}
-              teams={teams}
-              showDraw={showDraw}
-              limit={standingsLimit}
-              compact
-            />
-          )}
-        </div>
-      </div>
       )}
 
       {hasBracket && <BracketRegion state={state} teams={teams} />}
@@ -133,20 +122,18 @@ function BracketRegion({
   }, [paused, roundCount]);
 
   return (
-    <div className="card card-pad board-bracket-region">
-      <div className="spread" style={{ marginBottom: 8 }}>
-        <div className="section-title" style={{ marginBottom: 0 }}>
-          {no.board.bracket}
-        </div>
+    <div className="card board-bracket-region">
+      <div className="board-region-title">
+        {no.board.bracket}
         {ids.length > 1 && (
-          <div className="btn-row" role="tablist">
+          <div className="board-seg" role="tablist">
             {ids.map((id) => (
               <button
                 key={id}
                 type="button"
                 role="tab"
                 aria-selected={id === active}
-                className={`btn${id === active ? " btn-gold" : ""}`}
+                data-on={id === active}
                 onClick={() => {
                   setPaused(true);
                   setPicked(id);
@@ -170,6 +157,7 @@ function BracketRegion({
           consolation={tournament.config?.consolation}
           only={ids.length > 1 ? active : undefined}
           scrollRef={scrollRef}
+          fit
         />
       </div>
     </div>

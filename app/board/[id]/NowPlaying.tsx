@@ -32,7 +32,7 @@ export function NowPlaying({
           <span className="dot" />
           {no.board.calledUp}
           {called[0].court_id && courtName(courts, called[0].court_id) && (
-            <span className="next-court" style={{ marginLeft: 12 }}>
+            <span className="next-court now-court">
               {courtName(courts, called[0].court_id)}
             </span>
           )}
@@ -48,20 +48,25 @@ export function NowPlaying({
           <span className="dot" />
           {no.board.nowPlaying}
         </div>
-        <div className="empty" style={{ padding: "28px 10px" }}>
+        <div className="empty now-empty">
           {no.board.lobby}
         </div>
       </div>
     );
 
   if (parallel && courts.length > 0) {
+    // Two columns from three courts up, so the grid stays inside the card.
+    const cols = courts.length <= 2 ? 1 : 2;
     return (
-      <div className="now-card">
+      <div className="now-card now-card-grid">
         <div className="now-label">
           <span className="dot" />
           {no.board.nowPlaying}
         </div>
-        <div className="court-grid">
+        <div
+          className="court-grid"
+          style={{ ["--cols" as string]: cols, ["--rows" as string]: Math.ceil(courts.length / cols) }}
+        >
           {courts.map((c) => {
             const m = live.find((lm) => lm.court_id === c.id);
             const cm = m ? undefined : called.find((x) => x.court_id === c.id);
@@ -74,7 +79,7 @@ export function NowPlaying({
                 {m ? (
                   <Versus m={m} teams={teams} scoring={scoring} compact />
                 ) : cm ? (
-                  <div className="stack" style={{ gap: 6, alignItems: "center" }}>
+                  <div className="stack court-called">
                     <span className="pill pill-gold">{no.board.calledUp}</span>
                     <Versus m={cm} teams={teams} scoring={scoring} compact />
                   </div>
@@ -127,7 +132,7 @@ function Versus({
       ? m.result.sets.map(([hs, as]) => `${hs}–${as}`).join("  ·  ")
       : null;
   return (
-    <div className="stack" style={{ gap: 6, alignItems: "center" }}>
+    <div className="stack versus-wrap">
       <div className="versus">
         <Side team={h} score={r?.homeScore} compact={compact} />
         <span className="versus-mid">{no.common.vs}</span>
@@ -137,7 +142,7 @@ function Versus({
         <div className="match-time">{no.board.plannedAt(matchTime(m.scheduled_at)!)}</div>
       )}
       {setLine && (
-        <div className="versus-sets" style={{ fontSize: compact ? ".85rem" : "1.1rem" }}>
+        <div className={`versus-sets${compact ? " versus-sets-sm" : ""}`}>
           {setLine}
         </div>
       )}
@@ -157,11 +162,9 @@ function Side({
 }) {
   if (compact)
     return (
-      <div className="team" style={{ flexDirection: "column", gap: 6 }}>
-        <span className="versus-name" style={{ fontSize: "1rem" }}>
-          {team?.name ?? no.board.tbd}
-        </span>
-        {score != null && <span className="versus-score" style={{ fontSize: "1.6rem" }}>{score}</span>}
+      <div className="team versus-compact">
+        <span className="versus-name">{team?.name ?? no.board.tbd}</span>
+        {score != null && <span className="versus-score">{score}</span>}
       </div>
     );
   return (

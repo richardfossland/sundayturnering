@@ -99,11 +99,20 @@ export function BoardClient({
   const finished = tournament.status === "finished";
 
   const live = liveMatches(matches);
-  const next = upcoming(matches, 6);
+  // The projector shows as many as fit (CSS hides the rest), so fetch plenty;
+  // a phone (spectator) keeps the short list.
+  const next = upcoming(matches, spectator ? 6 : 10);
   // The on-screen QR is the READ-ONLY spectator link — anyone in the room can
   // scan it safely. Points at /se/ (phone view + tap-to-cheer); referees get
   // the control code from the organiser or the codes overlay.
   const followUrl = `${baseUrl}/se/${tournament.id}`;
+  // Before the first match: calm instructions instead of an empty scoreboard.
+  // Not on the public spectator view (its phone layout has no use for it, and
+  // the referee instructions belong on the room's screen only).
+  const lobby =
+    !spectator &&
+    !matches.some((m) => m.status === "live" || m.status === "called" || m.status === "done");
+  const hasBracket = matches.some((m) => m.phase === "playoff");
 
   // Commentator stays mounted in a stable tree position across the league →
   // finished transition, so its previous-snapshot ref survives and the
@@ -115,7 +124,11 @@ export function BoardClient({
       {finished ? (
         <Champion state={state} />
       ) : (
-    <main className={`board${flash ? " board-flash" : ""}`}>
+    <main
+      className={`board board-fit${flash ? " board-flash" : ""}${lobby ? " board-lobby" : ""}${
+        hasBracket ? " board-has-bracket" : ""
+      }`}
+    >
       <BoardControls spectator={spectator} onCodes={() => setShowCodes(true)} />
       {wall}
       {showCodes && !spectator && (
@@ -126,38 +139,53 @@ export function BoardClient({
         />
       )}
       <header className="board-head">
-        <div>
+        <div className="board-head-main">
           <h1 className="board-title">{tournament.title || no.brand}</h1>
-          {tournament.sport_label && (
-            <div className="board-sport">{tournament.sport_label}</div>
-          )}
+          <div className="board-head-meta">
+            {tournament.sport_label && <div className="board-sport">{tournament.sport_label}</div>}
+            {lobby && (
+              <div className="board-status">
+                <span className="dot" />
+                {no.board.lobby}
+              </div>
+            )}
+          </div>
           <BoardTimer timer={tournament.timer} />
         </div>
-        {spectator ? (
-          <div className="board-qr">
-            <QRCode value={followUrl} size={104} />
-            <div className="board-qr-label">{no.board.follow}</div>
-          </div>
-        ) : (
-          // The control code is NOT on the projector by default — anyone in the
-          // room could read it and enter results. The header keeps just the
-          // read-only follow QR; the codes live behind the codes button (CodesOverlay).
-          <button
-            className="board-code-chip"
-            onClick={() => setShowCodes(true)}
-            title={no.board.codesBtn}
-            aria-label={no.board.codesBtn}
-          >
+        {!lobby &&
+          (spectator ? (
             <div className="board-qr">
-              <QRCode value={followUrl} size={88} />
+              <QRCode value={followUrl} size={240} />
               <div className="board-qr-label">{no.board.follow}</div>
             </div>
-          </button>
-        )}
+          ) : (
+            // The control code is NOT on the projector by default — anyone in the
+            // room could read it and enter results. The header keeps just the
+            // read-only follow QR; the codes live behind the codes button (CodesOverlay).
+            <button
+              className="board-code-chip"
+              onClick={() => setShowCodes(true)}
+              title={no.board.codesBtn}
+              aria-label={no.board.codesBtn}
+            >
+              <div className="board-qr">
+                <QRCode value={followUrl} size={240} />
+                <div className="board-qr-label">{no.board.follow}</div>
+              </div>
+            </button>
+          ))}
       </header>
 
-      <div className="board-body">
-        <section className="stack" style={{ minHeight: 0 }}>
+      {lobby ? (
+        <Lobby
+          followUrl={followUrl}
+          controlUrl={`${baseUrl}/kontroll`}
+          next={next}
+          teams={teams}
+          courts={courts}
+        />
+      ) : (
+        <div className="board-body">
           <BoardLeft
             matches={matches}
             live={live}
@@ -167,20 +195,63 @@ export function BoardClient({
             scoring={tournament.scoring}
             parallel={tournament.parallelism === "parallel"}
           />
-        </section>
 
-        <BoardStandingsPanel state={state} teams={teams} />
-      </div>
+          <BoardStandingsPanel state={state} teams={teams} />
+        </div>
+      )}
     </main>
       )}
     </>
   );
 }
 
+/** Before the first match: how to follow on a phone, how to become a referee
+ * (NO code on screen — see CodesOverlay), and what is coming up. */
+function Lobby({
+  followUrl,
+  controlUrl,
+  next,
+  teams,
+  courts,
+}: {
+  followUrl: string;
+  controlUrl: string;
+  next: Match[];
+  teams: Map<string, Team>;
+  courts: Court[];
+}) {
+  return (
+    <div className="board-body board-lobby-body">
+      <section className="lobby-cards">
+        <div className="lobby-card">
+          <h2 className="lobby-title">{no.board.lobbyFollowTitle}</h2>
+          <div className="lobby-qr">
+            <QRCode value={followUrl} size={480} alt="QR-kode til turneringssiden" />
+          </div>
+          <p className="lobby-hint">{no.board.lobbyFollowHint}</p>
+        </div>
+        <div className="lobby-card">
+          <h2 className="lobby-title">{no.board.lobbyRefTitle}</h2>
+          <div className="lobby-qr">
+            <QRCode value={controlUrl} size={480} alt="QR-kode til dommersiden" />
+          </div>
+          <p className="lobby-hint">
+            {no.board.lobbyRefGo} <strong className="lobby-url">{no.board.lobbyRefUrl}</strong>{" "}
+            {no.board.lobbyRefHint}
+          </p>
+        </div>
+      </section>
+      <section className="lobby-first">
+        <NextPanel title={no.board.lobbyFirst} next={next} teams={teams} courts={courts} />
+      </section>
+    </div>
+  );
+}
+
 const COURT_VIEW_MS = 20_000;
 
 /** Left column. With ≥2 courts it alternates "Nå spiller + Neste" with the
- * per-court «Baner» view every 20 s; a tap on a tab pins the choice. */
+ * per-court «Baner» view every 20 s; a tap on a progress bar pins the choice. */
 function BoardLeft({
   matches,
   live,
@@ -209,32 +280,39 @@ function BoardLeft({
 
   const called = matches.filter((m) => m.status === "called");
   const showCourts = hasCourts && view === "courts";
+  const views = [
+    { id: "now" as const, name: no.board.nowPlaying },
+    { id: "courts" as const, name: no.board.courts },
+  ];
   return (
-    <>
+    <section className="board-left">
       {hasCourts && (
-        <div className="btn-row" role="tablist">
-          {(["now", "courts"] as const).map((v) => (
+        // Not a second heading: two thin bars that fill while the current view
+        // is showing, then flip. A tap pins a view (the fill stops).
+        <div className="board-views" role="group" aria-label={no.board.viewsLabel}>
+          {views.map((v) => (
             <button
-              key={v}
-              role="tab"
-              aria-selected={view === v}
-              className="pill"
-              data-on={view === v}
+              key={v.id}
+              type="button"
+              className="board-view-bar"
+              aria-pressed={view === v.id}
+              aria-label={no.board.showView(v.name)}
+              title={no.board.showView(v.name)}
+              data-on={view === v.id}
+              data-pinned={pinned || undefined}
               onClick={() => {
                 setPinned(true);
-                setView(v);
+                setView(v.id);
               }}
             >
-              {v === "now" ? no.board.nowPlaying : no.board.courts}
+              <i key={view === v.id ? "on" : "off"} />
             </button>
           ))}
         </div>
       )}
       {showCourts ? (
-        <div className="panel">
-          <div className="section-title" style={{ fontSize: "1.1rem" }}>
-            {no.board.courts}
-          </div>
+        <div className="panel board-courts">
+          <div className="board-region-title">{no.board.courts}</div>
           <CourtStrip matches={matches} courts={courts} teams={teams} scoring={scoring} />
         </div>
       ) : (
@@ -248,20 +326,38 @@ function BoardLeft({
             parallel={parallel}
           />
           {next.length > 0 && (
-            <div className="panel">
-              <div className="section-title" style={{ fontSize: "1.1rem" }}>
-                {no.board.nextUp}
-              </div>
-              <div className="next-list">
-                {next.map((m) => (
-                  <NextRow key={m.id} m={m} teams={teams} courts={courts} />
-                ))}
-              </div>
-            </div>
+            <NextPanel title={no.board.nextUp} next={next} teams={teams} courts={courts} />
           )}
         </>
       )}
-    </>
+    </section>
+  );
+}
+
+/** «Neste»: as many rows as fit the box — the list wraps into a column that is
+ * clipped away, so a row is never cut in half (see .next-list in globals.css). */
+function NextPanel({
+  title,
+  next,
+  teams,
+  courts,
+}: {
+  title: string;
+  next: Match[];
+  teams: Map<string, Team>;
+  courts: Court[];
+}) {
+  return (
+    <div className="board-next">
+      <div className="panel board-next-inner">
+        <div className="board-region-title">{title}</div>
+        <div className="next-list">
+          {next.map((m) => (
+            <NextRow key={m.id} m={m} teams={teams} courts={courts} />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

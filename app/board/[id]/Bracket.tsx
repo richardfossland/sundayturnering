@@ -39,6 +39,7 @@ export function Bracket({
   consolation,
   only,
   scrollRef,
+  fit,
 }: {
   matches: Match[];
   teams: Map<string, Team>;
@@ -53,6 +54,8 @@ export function Bracket({
   only?: BracketId;
   /** Gir forelderen (tavlas auto-panorering) tilgang til den horisontale scrolleren. */
   scrollRef?: RefObject<HTMLDivElement | null>;
+  /** Storskjerm: brakettens størrelse skaleres (CSS) til boksen den står i i stedet for å scrolle. */
+  fit?: boolean;
 }) {
   // En utgått omkamp (W-laget vant storfinalen) vises ikke.
   const playoff = useMemo(
@@ -96,10 +99,23 @@ export function Bracket({
   if (playoff.length === 0)
     return <div className="empty">{no.board.noMatches}</div>;
 
+  // Mål i «kamprad-enheter» som CSS bruker til å regne ut størrelsen: høyde =
+  // alle brakettene + bronsefinalen, bredde = flest runder i en brakett.
+  const fitRows = layouts.reduce(
+    (s, l) => s + l.height + (l.extras.length ? 1.5 : 0) + (layouts.length > 1 ? 0.8 : 0),
+    0,
+  );
+  const fitCols = Math.max(1, ...layouts.map((l) => l.rounds.length));
+
   return (
     <div
       ref={scroller}
-      className={`brk${focus ? " has-focus" : ""}`}
+      className={`brk${fit ? " brk-fit" : ""}${focus ? " has-focus" : ""}`}
+      style={
+        fit
+          ? ({ "--brk-rows": fitRows, "--brk-cols": fitCols } as React.CSSProperties)
+          : undefined
+      }
       onPointerLeave={() => setHover(null)}
     >
       {layouts.map((layout) => (

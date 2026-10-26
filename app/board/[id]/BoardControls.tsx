@@ -9,14 +9,20 @@ import { Icon } from "@/lib/client/Icon";
 
 const SOUND_KEY = "turnering:sound";
 
+/** The dock fades out after this long without mouse/touch/keyboard activity —
+ * on a projector nobody should stare at buttons. */
+const IDLE_MS = 4000;
+
 /**
- * One small collapsible cluster in the corner of the board, replacing the
- * separate floating buttons (home, fullscreen, codes, sound) that used
- * to compete for attention. Collapsed it's a single menu disc; expanded it reveals the actions.
+ * Icon buttons in the bottom corner of the board (home, fullscreen, codes,
+ * sound). They fade out after a few seconds without activity and come back on
+ * any mouse move, touch or key press (F still toggles fullscreen). The global
+ * theme switch and the read-aloud toggle hide with them via `data-board-idle`
+ * on <html>.
  *
  * `onCodes` opens the existing CodesOverlay (codes are managed by the parent so
  * the overlay keeps living at the board root). Spectator boards hide the codes
- * action entirely. Sound state + the one-time "tap for sound" hint are folded in
+ * action entirely. Sound state + the one-time "turn on sound" hint are folded in
  * here so audio is still unlocked on the first interaction with the page.
  */
 export function BoardControls({
@@ -26,10 +32,35 @@ export function BoardControls({
   spectator: boolean;
   onCodes: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [idle, setIdle] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [unlocked, setUnlocked] = useState(true);
   const fullscreen = useFullscreen();
+
+  // Auto-hide: any activity shows the dock and restarts the countdown. Focus
+  // inside the dock (keyboard) keeps it up.
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const root = document.documentElement;
+    const show = () => {
+      setIdle(false);
+      delete root.dataset.boardIdle;
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        if (document.activeElement?.closest(".board-dock")) return show();
+        setIdle(true);
+        root.dataset.boardIdle = "1";
+      }, IDLE_MS);
+    };
+    show();
+    const events = ["pointermove", "pointerdown", "keydown", "focusin"] as const;
+    for (const e of events) window.addEventListener(e, show, { passive: true });
+    return () => {
+      for (const e of events) window.removeEventListener(e, show);
+      if (t) clearTimeout(t);
+      delete root.dataset.boardIdle;
+    };
+  }, []);
 
   // F toggles fullscreen on the projector (ignored while typing, e.g. the
   // board-code field in the codes overlay).
@@ -76,66 +107,48 @@ export function BoardControls({
     } catch {}
   }
 
+  const fsLabel = fullscreen.active ? no.board.exitFullscreen : no.board.fullscreen;
   return (
-    <>
+    <div className="board-dock" data-idle={idle || undefined} role="toolbar" aria-label={no.board.controlsLabel}>
       {soundOn && !unlocked && (
-        <button className="sound-hint" onClick={() => setUnlocked(true)}>
-          <Icon name="soundOn" size={18} />
-          Trykk for lyd
+        <button className="board-sound-hint" onClick={() => setUnlocked(true)}>
+          <Icon name="soundOn" size="1.2em" />
+          {no.board.soundOnBtn}
         </button>
       )}
-      <div className="board-controls" data-open={open || undefined}>
-        {open && (
-          <div className="board-controls-items">
-            <Link
-              className="board-ctl-btn"
-              href="/"
-              aria-label="Hjem"
-              title="Hjem"
-            >
-              <Icon name="home" size={20} />
-            </Link>
-            {fullscreen.supported && (
-              <button
-                className="board-ctl-btn"
-                onClick={fullscreen.toggle}
-                aria-label={fullscreen.active ? no.board.exitFullscreen : no.board.fullscreen}
-                aria-pressed={fullscreen.active}
-                title={`${fullscreen.active ? no.board.exitFullscreen : no.board.fullscreen} (F)`}
-              >
-                <Icon name={fullscreen.active ? "exitFullscreen" : "fullscreen"} size={20} />
-              </button>
-            )}
-            {!spectator && (
-              <button
-                className="board-ctl-btn"
-                onClick={onCodes}
-                aria-label={no.board.codesBtn}
-                title={no.board.codesBtn}
-              >
-                <Icon name="code" size={20} />
-              </button>
-            )}
-            <button
-              className="board-ctl-btn"
-              onClick={toggleSound}
-              aria-label={soundOn ? "Slå av lyd" : "Slå på lyd"}
-              title={soundOn ? "Lyd på" : "Lyd av"}
-            >
-              <Icon name={soundOn ? "soundOn" : "soundOff"} size={20} />
-            </button>
-          </div>
-        )}
+      <Link className="board-ctl-btn" href="/" aria-label={no.board.home} title={no.board.home}>
+        <Icon name="home" size="1.2em" />
+      </Link>
+      {fullscreen.supported && (
         <button
-          className="board-ctl-toggle"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? "Lukk meny" : "Meny"}
-          aria-expanded={open}
-          title="Meny"
+          className="board-ctl-btn"
+          onClick={fullscreen.toggle}
+          aria-label={fsLabel}
+          aria-pressed={fullscreen.active}
+          title={`${fsLabel} (F)`}
         >
-          {open ? <Icon name="close" size={20} /> : "⋯"}
+          <Icon name={fullscreen.active ? "exitFullscreen" : "fullscreen"} size="1.2em" />
         </button>
-      </div>
-    </>
+      )}
+      {!spectator && (
+        <button
+          className="board-ctl-btn"
+          onClick={onCodes}
+          aria-label={no.board.codesBtn}
+          title={no.board.codesBtn}
+        >
+          <Icon name="code" size="1.2em" />
+        </button>
+      )}
+      <button
+        className="board-ctl-btn"
+        onClick={toggleSound}
+        aria-label={soundOn ? no.board.soundOffBtn : no.board.soundOnBtn}
+        aria-pressed={soundOn}
+        title={soundOn ? no.board.soundOnTip : no.board.soundOffTip}
+      >
+        <Icon name={soundOn ? "soundOn" : "soundOff"} size="1.2em" />
+      </button>
+    </div>
   );
 }
