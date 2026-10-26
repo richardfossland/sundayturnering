@@ -178,6 +178,25 @@ describe("phaseCarryOver (A3)", () => {
     expect(r.teamEnds.get("a")).toBe(T0 + 10 * MIN); // faktisk 09:07 → 09:10, ikke planlagt 10:10
   });
 
+  it("overstyring lenge etter kampen flytter ikke hvilen: sluttid kappes ved planlagt slutt", () => {
+    // Planlagt 09:00–09:10 (cfg: 10 min), spilt i tide, men overstyrt 09:52 rett før «Start sluttspill».
+    const r = phaseCarryOver(
+      [row({ status: "done", scheduled_at: at(0), updated_at: at(52) })],
+      cfg(),
+      "playoff",
+      T0 + 53 * MIN,
+    );
+    expect(r.teamEnds.get("a")).toBe(T0 + 10 * MIN);
+    expect(r.teamEnds.get("b")).toBe(T0 + 10 * MIN);
+  });
+
+  it("innenfor én kamplengde etter planlagt slutt gjelder faktisk slutt; uten klokkeslett uendret", () => {
+    const late = phaseCarryOver([row({ status: "done", scheduled_at: at(0), updated_at: at(17) })], cfg(), "playoff", T0 + 20 * MIN);
+    expect(late.teamEnds.get("a")).toBe(T0 + 20 * MIN); // 09:17 → 09:20 (≤ 09:10 + 10 min)
+    const noTime = phaseCarryOver([row({ status: "done", scheduled_at: null, updated_at: at(52) })], cfg(), "playoff", T0 + 53 * MIN);
+    expect(noTime.teamEnds.get("a")).toBe(T0 + 55 * MIN);
+  });
+
   it("uspilte seriekamper som ikke kan spilles, venter vi ikke på", () => {
     const r = phaseCarryOver([row({ scheduled_at: at(300) })], cfg(), "playoff", now);
     expect(r.notBefore).toBe(T0 + 15 * MIN);

@@ -174,7 +174,9 @@ const FIVE_MIN = 5 * MIN;
  * som allerede er spilt/planlagt. Bare kamper som fortsatt kan spilles teller
  * (`isPlayable`, f.eks. ikke seriekamper som ble igjen da sluttspillet startet
  * tidlig). Ferdige kamper regnes med FAKTISK slutt (`updated_at`, rundet opp til
- * 5 min), ikke planlagt slutt; kamper som ikke er ferdige med planlagt slutt (en
+ * 5 min), ikke planlagt slutt (men aldri senere enn planlagt slutt hvis `updated_at` er
+ * mer enn én kamplengde etter den: da er det en overstyring, ikke selve spillet);
+ * kamper som ikke er ferdige med planlagt slutt (en
  * pågående kamp ikke tidligere enn nå).
  *  - `notBefore`: tidligst start for hele fasen = nå rundet opp til 5 min, eller
  *    senere hvis noen kamp fortsatt er i gang/planlagt.
@@ -195,7 +197,16 @@ export function phaseCarryOver(
     if (m.status !== "done" && !isPlayable(m, tournamentStatus)) continue;
     let end: number | null;
     if (m.status === "done") {
-      const t = Date.parse(m.updated_at);
+      let t = Date.parse(m.updated_at);
+      // `updated_at` is the LAST write, not the first save: an organiser override
+      // just before «Start sluttspill» would make the teams look like they had
+      // just finished (and push their first playoff match by the rest time).
+      // No column records the first save, so a result that is stamped more than
+      // one match duration after the planned end is treated as finished at the
+      // planned end (a match that really ran that late has been shifted with
+      // «Forsink», which moves scheduled_at too).
+      const planned = matchEnd(m.scheduled_at, cfg);
+      if (Number.isFinite(t) && planned !== null && t > planned + cfg.matchMinutes * MIN) t = planned;
       end = Number.isFinite(t) ? Math.ceil(t / FIVE_MIN) * FIVE_MIN : null;
     } else {
       const planned = matchEnd(m.scheduled_at, cfg);
