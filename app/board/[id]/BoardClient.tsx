@@ -19,7 +19,7 @@ import { BoardTimer } from "./BoardTimer";
 import { CodesOverlay } from "./CodesOverlay";
 import { Commentator } from "./Commentator";
 import { BoardControls } from "./BoardControls";
-import { BoardStandingsPanel } from "./BoardStandingsPanel";
+import { BoardStandingsPanel, hasStandingsTable } from "./BoardStandingsPanel";
 import { useReactionWall } from "./ReactionWall";
 import { channels, events } from "@/lib/realtime";
 import { useChannel } from "@/lib/client/useChannel";
@@ -113,9 +113,9 @@ export function BoardClient({
     !spectator &&
     !matches.some((m) => m.status === "live" || m.status === "called" || m.status === "done");
   const hasBracket = matches.some((m) => m.phase === "playoff");
-  // League table AND bracket (not double elimination): on a wide screen they
+  // League table AND bracket (not cup / double elimination): on a wide screen they
   // become two full-height columns beside "Nå spiller" so neither is squeezed.
-  const tri = hasBracket && tournament.format !== "double_elim";
+  const tri = hasBracket && hasStandingsTable(tournament.format);
 
   // Commentator stays mounted in a stable tree position across the league →
   // finished transition, so its previous-snapshot ref survives and the

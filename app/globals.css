@@ -5415,6 +5415,9 @@ html[data-board-idle] .speaker-toggle {
 .lobby-title {
   font-size: var(--fs-xl);
   line-height: 1.1;
+  min-height: 2.2em; /* both cards: equal title height, equal QR size */
+  display: grid;
+  place-items: center;
 }
 .lobby-qr {
   flex: 1 1 0;
@@ -5431,13 +5434,17 @@ html[data-board-idle] .speaker-toggle {
 }
 .lobby-hint {
   margin: 0;
+  min-height: 4.2em;
   color: var(--txt-dim);
   font-size: var(--fs-md);
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 .lobby-url {
+  display: block;
   font-family: var(--mono);
+  font-size: 0.7em;
+  letter-spacing: -0.01em;
   color: var(--gold-ink);
   font-weight: 800;
 }
@@ -5530,7 +5537,7 @@ html[data-board-idle] .speaker-toggle {
     grid-template-rows: minmax(0, 1fr);
   }
   .board-fit.board-has-bracket .board-body {
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
   }
   .board-fit.board-lobby .board-lobby-body {
     grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
@@ -5860,6 +5867,9 @@ html[data-board-idle] .speaker-toggle {
       100%
     );
     align-content: start;
+  }
+  .board-fit .board-right.no-table {
+    grid-template-rows: minmax(0, 1fr);
   }
   .board-fit .board-right.has-bracket {
     grid-template-rows:

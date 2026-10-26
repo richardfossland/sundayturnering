@@ -9,6 +9,11 @@ import { byBracketOrder } from "@/lib/tournament/bracketLayout";
 import type { StateDTO } from "@/lib/dto";
 import type { BracketId, Team } from "@/lib/types";
 
+/** Dobbel utslag og cup har ingen tabell (ingen serie å rangere): braketten får hele kolonnen. */
+export function hasStandingsTable(format: string): boolean {
+  return format !== "double_elim" && format !== "cup";
+}
+
 /**
  * The board's right column. Standings are ALWAYS visible (top region) — they no
  * longer rotate away every 9s. When a playoff bracket exists it lives below in
@@ -41,12 +46,11 @@ export function BoardStandingsPanel({
       ? swissProgress(matches, tournament.config?.swiss?.rounds ?? 0)
       : null;
 
-  // Dobbel utslag har ingen tabell: braketten får hele kolonnen.
-  const noTable = tournament.format === "double_elim";
+  const noTable = !hasStandingsTable(tournament.format);
 
   return (
     <section
-      className={`board-right${hasBracket && !noTable ? " has-bracket" : ""}`}
+      className={`board-right${hasBracket && !noTable ? " has-bracket" : ""}${noTable ? " no-table" : ""}`}
       style={{ minHeight: 0, ["--lines" as string]: plan.lines }}
     >
       {!noTable && (
