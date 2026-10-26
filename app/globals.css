@@ -3304,7 +3304,6 @@ button.brk-row:focus-visible {
     padding: 0;
     gap: 8mm;
   }
-  .result-sec,
   .result-champ,
   .result-provisional {
     break-inside: avoid;
@@ -3991,32 +3990,94 @@ button.brk-row:focus-visible {
 /* ============ utskrift (/skriv-ut): kampprogram, kampkort, banekort ============ */
 .print-page {
   min-height: 100dvh;
-  padding: 20px 16px 60px;
+  padding: var(--sp-5) var(--sp-4) var(--sp-8);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: var(--sp-5);
+}
+.print-noaccess {
+  max-width: 440px;
+  width: 100%;
 }
 .print-toolbar {
   width: 100%;
-  max-width: 820px;
+  max-width: var(--w-page);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
 }
-.print-options {
+.print-panel-head {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 18px;
-}
-.print-check {
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  cursor: pointer;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+.print-panel-title {
+  margin: 0 0 var(--sp-1);
+  font-size: var(--fs-xl);
+}
+.print-panel-head .hint {
+  margin: 0;
+}
+.print-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.print-group-title {
+  padding: 0;
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--txt-dim);
+}
+.print-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+}
+@media (min-width: 640px) {
+  .print-options {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+/* each option is a tile; the checked ones get the gold edge */
+label.print-option:has(> input[type="checkbox"]) {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--ink-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--s-025);
+  transition:
+    border-color 0.14s var(--ease),
+    background 0.14s var(--ease);
+}
+label.print-option:has(> input[type="checkbox"]):hover {
+  background: var(--s-hover);
+}
+label.print-option:has(> input[type="checkbox"]:checked) {
+  border-color: var(--gold-deep);
+  background: rgba(235, 184, 75, 0.08);
+}
+label.print-option:has(> input[type="checkbox"]:focus-visible) {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.print-option > span {
+  padding-top: 0;
+}
+label.print-option > input[type="checkbox"] {
+  margin-top: 2px;
 }
 /* Arket er alltid hvitt med svart tekst, uansett tema. */
 .print-sheet {
   page: print-sheet;
   width: 100%;
-  max-width: 820px;
+  max-width: var(--w-page);
   background: #fff;
   color: #000;
   padding: 12mm;
@@ -4033,9 +4094,12 @@ button.brk-row:focus-visible {
 .ps-block + .ps-block {
   break-before: page;
 }
+/* air around the section heading («Bane 2»): below it ~6 mm before the table */
 .ps-block h2 {
   font-size: 15pt;
-  margin: 0 0 8px;
+  margin: 0 0 6mm;
+  padding-bottom: 2mm;
+  border-bottom: 1.5pt solid #000;
 }
 .ps-table {
   width: 100%;
@@ -4044,15 +4108,18 @@ button.brk-row:focus-visible {
 .ps-table th,
 .ps-table td {
   text-align: left;
-  padding: 4px 8px;
+  padding: 2.2mm 2.5mm;
   border-bottom: 1px solid #bbb;
+}
+.ps-table th {
+  border-bottom-color: #000;
 }
 .ps-team {
   break-inside: avoid;
-  margin-bottom: 12px;
+  margin-bottom: 7mm;
 }
 .ps-team h3 {
-  margin: 0 0 4px;
+  margin: 0 0 2mm;
   font-size: 12pt;
 }
 .ps-swatch {
