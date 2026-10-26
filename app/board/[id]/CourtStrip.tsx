@@ -21,8 +21,18 @@ export function CourtStrip({
   scoring: ScoringConfig;
 }) {
   const lanes = courtStrip(matches, courts);
+  // One row of columns up to three courts, then two or more rows, so every
+  // column stays wide enough for readable names and the strip fits the box.
+  const cols = lanes.length <= 3 ? lanes.length : Math.min(4, Math.ceil(lanes.length / 2));
   return (
-    <div className="court-strip" style={{ gridTemplateColumns: `repeat(${lanes.length}, minmax(0, 1fr))` }}>
+    <div
+      className="court-strip"
+      style={{
+        ["--lanes" as string]: lanes.length,
+        ["--cols" as string]: cols,
+        ["--rows" as string]: Math.ceil(lanes.length / cols),
+      }}
+    >
       {lanes.map(({ court, live, called, next }) => (
         <div className="court-col" key={court.id}>
           <div className="court-col-name">{court.name}</div>
@@ -42,12 +52,12 @@ export function CourtStrip({
             </div>
           )}
 
-          <div className="court-slot">
+          <div className="court-slot court-slot-next">
             <div className="court-slot-label">{no.board.nextUp}</div>
             {next.length === 0 ? (
               <div className="faint">—</div>
             ) : (
-              <div className="stack" style={{ gap: 8 }}>
+              <div className="court-next-list">
                 {next.map((m) => (
                   <div className="court-next" key={m.id}>
                     {matchTime(m.scheduled_at) && <span className="match-time">{matchTime(m.scheduled_at)}</span>}

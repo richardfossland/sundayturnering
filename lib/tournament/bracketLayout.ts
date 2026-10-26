@@ -309,3 +309,46 @@ export function bracketInputs(
     };
   });
 }
+
+/** Storskjerm: en stor brakett (4+ runder) blir uleselig når alt skal stå på
+ * én skjerm, så runder som er helt avgjort skjules og resten får plassen. Minst
+ * to runder blir stående. Radene regnes om slik at første synlige runde igjen
+ * har en kamprad-enhet mellom kampene. Uendret layout når det ikke er noe å skjule. */
+export function focusLayout(
+  layout: BracketLayout,
+  isOpen: (matchId: string) => boolean,
+): BracketLayout {
+  const { rounds } = layout;
+  const firstOpen = rounds.findIndex((r) => r.nodes.some((n) => isOpen(n.id)));
+  if (rounds.length < 4 || firstOpen < 1 || rounds.length - firstOpen < 2) return layout;
+
+  const kept = rounds.slice(firstOpen);
+  const ys = kept[0].nodes.map((n) => n.y).sort((a, b) => a - b);
+  let gap = Infinity;
+  for (let i = 1; i < ys.length; i++) gap = Math.min(gap, ys[i] - ys[i - 1]);
+  if (!Number.isFinite(gap) || gap <= 0) gap = 1;
+  const y0 = ys[0];
+  const mapY = (y: number) => (y - y0) / gap + 0.5;
+
+  const ids = new Set(kept.flatMap((r) => r.nodes.map((n) => n.id)));
+  const newRounds = kept.map((r) => ({
+    ...r,
+    col: r.col - kept[0].col,
+    nodes: r.nodes.map((n) => ({ ...n, col: n.col - kept[0].col, y: mapY(n.y) })),
+  }));
+  const maxY = Math.max(...newRounds.flatMap((r) => r.nodes.map((n) => n.y)));
+  return {
+    ...layout,
+    rounds: newRounds,
+    connectors: layout.connectors
+      .filter((c) => ids.has(c.fromId) && ids.has(c.toId))
+      .map((c) => ({
+        ...c,
+        fromCol: c.fromCol - kept[0].col,
+        toCol: c.toCol - kept[0].col,
+        fromY: mapY(c.fromY),
+        toY: mapY(c.toY),
+      })),
+    height: Math.max(1, maxY + 0.5),
+  };
+}
