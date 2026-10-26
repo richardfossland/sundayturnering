@@ -10,6 +10,7 @@ const ID = "11111111-1111-1111-1111-111111111111";
 
 let tournamentRow: Tournament | null;
 let matchesRows: Match[];
+let linkRows: Record<string, unknown>[] = [];
 let dbError: { message: string } | null;
 let getMatchesThrows = false;
 let reopenThrows = false;
@@ -34,6 +35,7 @@ vi.mock("@/lib/server/store", () => ({
   },
   db: () => ({
     from: () => ({
+      select: () => ({ eq: async () => ({ data: linkRows, error: null }) }),
       update: (patch: Record<string, unknown>) => ({
         eq: async () => {
           updates.push(patch);
@@ -97,6 +99,7 @@ beforeEach(() => {
   __resetRateLimiter();
   tournamentRow = tournament();
   matchesRows = [];
+  linkRows = [];
   dbError = null;
   getMatchesThrows = false;
   reopenThrows = false;
@@ -230,6 +233,37 @@ describe("POST /api/organiser/finish", () => {
     const forced = await post(finish, { ...auth, force: true });
     expect(forced.status).toBe(200);
     expect(updates).toEqual([{ status: "finished" }]);
+  });
+
+  it("409 also while a playable A bronze final is unplayed (L4); a bronze without both teams, or done, does not count", async () => {
+    const bronze = { id: "bz", phase: "playoff", bracket: "A", round: 2, bracket_slot: 1, status: "scheduled", home_team_id: "c", away_team_id: "d" };
+    linkRows = [
+      { from_match_id: "s1", to_match_id: "bz", feed: "loser" },
+      { from_match_id: "s2", to_match_id: "bz", feed: "loser" },
+    ];
+    matchesRows = [{ id: "f", phase: "playoff", bracket: "A", round: 2, bracket_slot: 0, status: "done" }, bronze] as Match[];
+    const res = await post(finish, auth);
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({ error: "b_sluttspill_pagar", count: 1 });
+    expect(updates).toHaveLength(0);
+    expect((await post(finish, { ...auth, force: true })).status).toBe(200);
+
+    updates.length = 0;
+    matchesRows = [{ ...bronze, home_team_id: null }] as Match[]; // semifinaler ikke ferdige: ikke spillbar ennå
+    expect((await post(finish, auth)).status).toBe(200);
+    updates.length = 0;
+    matchesRows = [{ ...bronze, status: "done" }] as Match[];
+    expect((await post(finish, auth)).status).toBe(200);
+  });
+
+  it("bronsefinale + åpen B-kamp telles sammen", async () => {
+    linkRows = [{ from_match_id: "s1", to_match_id: "bz", feed: "loser" }];
+    matchesRows = [
+      { id: "bz", phase: "playoff", bracket: "A", round: 2, bracket_slot: 1, status: "live", home_team_id: "c", away_team_id: "d" },
+      { id: "b1", phase: "playoff", bracket: "B", round: 1, bracket_slot: 0, status: "scheduled" },
+    ] as Match[];
+    const res = await post(finish, auth);
+    await expect(res.json()).resolves.toEqual({ error: "b_sluttspill_pagar", count: 2 });
   });
 
   it("503 when the DB write fails, and the version is not bumped", async () => {

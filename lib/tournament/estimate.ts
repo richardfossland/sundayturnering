@@ -14,6 +14,7 @@ import {
   bSeedsFromGroups,
   bSeedsFromLeague,
   buildCupConsolationSet,
+  bracketPlayOrder,
   buildPlayoffSet,
   type BracketSet,
 } from "@/lib/tournament/consolation";
@@ -52,11 +53,7 @@ function bracketRows(
   set: BracketSet,
   order?: (bracket: string, round: number) => number,
 ): { rows: SlotMatch[]; links: SlotLink[] } {
-  const flat = set.brackets.flatMap(({ id, bracket }, bi) =>
-    bracket.matches.map((m) => ({ id, bi, m })),
-  );
-  const at = (id: string, round: number) => order?.(id, round) ?? round;
-  flat.sort((x, y) => at(x.id, x.m.round) - at(y.id, y.m.round) || x.bi - y.bi || x.m.slot - y.m.slot);
+  const flat = bracketPlayOrder(set, order);
   const key = (b: string, r: number, s: number) => `${b}:${r}:${s}`;
   const rows: SlotMatch[] = flat.map(({ id, m }, i) => ({
     id: key(id, m.round, m.slot),

@@ -71,10 +71,21 @@ const pm = (round: number, slot: number, status = "done", bracket?: "A" | "B" | 
 const cup = [pm(1, 0), pm(1, 1), pm(2, 0), pm(2, 1)];
 
 describe("isDecidingFinal (C5)", () => {
-  it("is the last round's slot 0 only", () => {
+  it("is the last round's slot 0, or the A bronze final (L4: it can finish the tournament)", () => {
     expect(isDecidingFinal(cup[2], cup)).toBe(true);
-    expect(isDecidingFinal(cup[3], cup)).toBe(false); // bronze
+    expect(isDecidingFinal(cup[3], cup)).toBe(true); // bronze
     expect(isDecidingFinal(cup[0], cup)).toBe(false); // a semifinal
+    expect(isDecidingFinal(cup[1], cup)).toBe(false); // the other semifinal (slot 1, not last round)
+  });
+  it("bronze referee may correct after the tournament finished (correctBlock)", () => {
+    const fin = { status: "finished" as const, format: "cup" as const };
+    expect(correctBlock(fin, cup[3], cup)).toBeNull();
+    expect(correctBlock(fin, cup[2], cup)).toBeNull();
+    expect(correctBlock(fin, cup[1], cup)).toBe("turnering_avsluttet");
+  });
+  it("a slot-1 match in bracket B is never a bronze", () => {
+    const all = [pm(1, 0, "done", "B"), pm(1, 1, "done", "B"), pm(2, 0, "done", "B")];
+    expect(isDecidingFinal(all[1], all)).toBe(false);
   });
   it("is per bracket (the B-final counts in its own bracket)", () => {
     const all = [...cup, pm(1, 0, "done", "B"), pm(2, 0, "done", "B")];
@@ -106,7 +117,7 @@ describe("correctBlock (C2/C5): the same sperrer as «Lagre»", () => {
     const t = { status: "finished" as const, format: "cup" as const };
     expect(correctBlock(t, cup[2], cup)).toBeNull();
     expect(correctBlock(t, cup[0], cup)).toBe("turnering_avsluttet");
-    expect(correctBlock(t, cup[3], cup)).toBe("turnering_avsluttet");
+    expect(correctBlock(t, cup[3], cup)).toBeNull(); // bronze: may be the match that finished it (L4)
     expect(correctBlock({ status: "finished", format: "league" }, league(1), [league(1)])).toBe(
       "turnering_avsluttet",
     );

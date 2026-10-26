@@ -153,7 +153,7 @@ describe("ferdig først når alle brakettfinaler er ferdige", () => {
   it("B-finale uspilt → venter", () => {
     expect(pendingFinals(matches, links)).toEqual(["bf"]);
   });
-  it("alle ferdige → ingen igjen; bronsefinale (slot 1) blokkerer ikke", () => {
+  it("alle ferdige → ingen igjen; bronsefinale (slot 1) uten taper-kobling i lenkene blokkerer ikke", () => {
     const done = matches.map((m) => (m.id === "bf" ? { ...m, status: "done" as const } : m));
     expect(pendingFinals(done, links)).toEqual([]);
   });

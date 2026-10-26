@@ -7,11 +7,13 @@ import {
 } from "@/lib/codes";
 import { planRoundRobins } from "@/lib/tournament/roundRobin";
 import {
+  bracketPlayOrder,
   buildCupConsolationSet,
   buildPlayoffSet,
   cupConsolationFeasible,
   type BracketSet,
 } from "@/lib/tournament/consolation";
+import { BRONZE_SLOT } from "@/lib/tournament/bracket";
 import { buildDoubleElim, doubleElimOrder } from "@/lib/tournament/doubleElim";
 import { splitIntoGroups } from "@/lib/tournament/groups";
 import { defaultScoringConfig } from "@/lib/tournament/scoring";
@@ -423,6 +425,26 @@ export async function buildDoubleElimMatches(
   });
 }
 
+/** Bronsefinalen står før finalen i køen, så planleggeren legger den på første
+ * ledige bane (den laveste ved lik tid). Går de samtidig, bytter vi bane slik at
+ * FINALEN får den første banen (hovedbanen). Starttidene er like, så tidsplanen
+ * påvirkes ikke. */
+function finalFirstCourt(
+  rows: { bracket?: string; round: number; bracket_slot: number; court_id: string | null; scheduled_at: string | null }[],
+  courtIds: string[],
+): void {
+  if (courtIds.length < 2) return;
+  const a = rows.filter((r) => (r.bracket ?? "A") === "A");
+  const lastRound = Math.max(0, ...a.map((r) => r.round));
+  const fin = a.find((r) => r.round === lastRound && r.bracket_slot === 0);
+  const bronze = a.find((r) => r.round === lastRound && r.bracket_slot === BRONZE_SLOT);
+  if (!fin || !bronze || !fin.scheduled_at || fin.scheduled_at !== bronze.scheduled_at) return;
+  const fi = courtIds.indexOf(fin.court_id ?? "");
+  const bi = courtIds.indexOf(bronze.court_id ?? "");
+  if (fi < 0 || bi < 0 || bi > fi) return;
+  [fin.court_id, bronze.court_id] = [bronze.court_id, fin.court_id];
+}
+
 /** Lagre et brakettsett: kamper (med tidsplan), så koblinger med riktige id-er. */
 async function persistBracketSet(
   tournamentId: string,
@@ -439,25 +461,29 @@ async function persistBracketSet(
   const sb = db();
 
   // Spillerekkefølge: runde for runde, A før B, så B-runde 1 kommer rett etter
-  // A-runde 1 (og ikke etter hele A). Med bare A er dette samme rekkefølge som før.
-  const flat = set.brackets.flatMap(({ id, bracket }, bi) =>
-    bracket.matches.map((m) => ({ id, bi, m })),
-  );
+  // A-runde 1 (og ikke etter hele A). Bronsefinalen kommer før finalen (B2).
+  const flat = bracketPlayOrder(set, opts?.order);
   const at = (id: string, round: number) => opts?.order?.(id, round) ?? round;
-  flat.sort((x, y) => at(x.id, x.m.round) - at(y.id, y.m.round) || x.bi - y.bi || x.m.slot - y.m.slot);
 
-  let queue = 0;
-  const perRound = new Map<number, number>();
-  const plain = flat.map(({ id, m }) => {
-    // Bane settes av tidsplanen (tidligste ledige). Uten tidsplan fordeles
-    // kampene jevnt over banene innen hver runde, i spillerekkefølge.
-    let courtId: string | null = null;
-    if (!opts?.schedule && courtIds.length > 0 && m.status !== "bye") {
+  // Uten tidsplan fordeles kampene jevnt over banene innen hver runde. Banene
+  // fordeles i klassisk rekkefølge (finalen før bronsefinalen), så finalen får
+  // første bane selv om bronsefinalen står først i køen.
+  const courtFor = new Map<string, string>();
+  if (!opts?.schedule && courtIds.length > 0) {
+    const perRound = new Map<number, number>();
+    for (const { id, m } of bracketPlayOrder(set, opts?.order, { bronzeFirst: false })) {
+      if (m.status === "bye") continue;
       const o = at(id, m.round);
       const n = perRound.get(o) ?? 0;
       perRound.set(o, n + 1);
-      courtId = courtIds[n % courtIds.length];
+      courtFor.set(`${id}:${m.round}:${m.slot}`, courtIds[n % courtIds.length]);
     }
+  }
+
+  let queue = 0;
+  const plain = flat.map(({ id, m }) => {
+    // Bane settes av tidsplanen (tidligste ledige). Uten tidsplan: se courtFor.
+    const courtId: string | null = courtFor.get(`${id}:${m.round}:${m.slot}`) ?? null;
     return {
       tournament_id: tournamentId,
       phase: "playoff" as const,
@@ -490,6 +516,7 @@ async function persistBracketSet(
     })),
   ];
   const rows = withSchedule(plain, rowKey, courtIds, opts?.schedule, slotLinks, opts?.notBefore, opts?.priorEnds);
+  finalFirstCourt(rows, courtIds);
   must(await sb.from("matches").insert(rows), "insert bracket matches");
 
   // Read back to get ids keyed by (bracket, round, slot).

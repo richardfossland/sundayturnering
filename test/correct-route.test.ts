@@ -238,11 +238,13 @@ describe("C5: the deciding final after the cup finished", () => {
     expect(await code(res)).toBe("turnering_avsluttet");
   });
 
-  it("the bronze final of a finished cup is refused", async () => {
+  it("the bronze final of a finished cup may be corrected (it can be the match that finished it, L4)", async () => {
     t = tournament({ status: "finished" });
     m = await doneMatch({ round: 2, bracket_slot: 1 });
     all = [await doneMatch({ id: "f", round: 2, bracket_slot: 0, result_by: null }), m];
-    expect(await code(await post({}))).toBe("turnering_avsluttet");
+    const res = await post({ result: { home: 0, away: 1 } });
+    expect(res.status).toBe(200);
+    expect(propagateCalls).toBe(1);
   });
 });
 

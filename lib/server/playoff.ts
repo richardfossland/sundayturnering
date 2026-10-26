@@ -5,6 +5,7 @@ import { buildCupMatches } from "@/lib/server/build";
 import { computeStandings, computeGroupStandings } from "@/lib/tournament/standings";
 import { seedKnockoutFromGroups } from "@/lib/tournament/groups";
 import { bSeedsFromGroups, bSeedsFromLeague, pendingFinals } from "@/lib/tournament/consolation";
+import { BRONZE_SLOT } from "@/lib/tournament/bracket";
 import { grandFinalAction } from "@/lib/tournament/doubleElim";
 import { planDownstreamReset } from "@/lib/tournament/downstream";
 import { phaseCarryOver } from "@/lib/tournament/schedule";
@@ -179,8 +180,9 @@ export async function resetDownstream(
 /** After a playoff match resolves, push the winner into the next match's slot
  * (and, for a bronze final, the loser into its loser-link) via bracket_links.
  * The tournament finishes only when EVERY bracket final (bracket_slot 0, no
- * winner-link: A, and B when there is one) has completed — never when a bronze
- * final does. Returns whether it finished.
+ * winner-link: A, and B when there is one) AND the bronze final have completed
+ * (migration 0020; whichever is decided last finishes it). Returns whether it
+ * finished.
  *
  * The whole step runs as ONE atomic, idempotent Postgres RPC
  * (`propagate_playoff_result`, migration 0009) instead of the several
@@ -283,18 +285,27 @@ async function propagateResultLegacy(match: Match): Promise<boolean> {
     }
   }
 
-  // A bracket final (slot 0, nothing onward) finishes the tournament once no
-  // other bracket final is left; a bronze final (slot 1) just records third
-  // place. A voided rematch makes the grand final the deciding match.
+  // A bracket final (slot 0, nothing onward) or the bronze final (slot 1, fed by
+  // losers) finishes the tournament once no other final / bronze final is left
+  // (migration 0020: whichever is decided last finishes it). A voided rematch
+  // makes the grand final the deciding match.
+  const [{ data: allLinks }, current] = await Promise.all([
+    sb
+      .from("bracket_links")
+      .select("from_match_id,to_match_id,feed")
+      .eq("tournament_id", match.tournament_id),
+    all ? Promise.resolve(all) : getMatches(match.tournament_id),
+  ]);
   const isFinal = (winnerLinks.length === 0 && match.bracket_slot === 0) || voided !== null;
-  if (!isFinal) {
+  const isBronze =
+    winnerLinks.length === 0 &&
+    match.bracket_slot === BRONZE_SLOT &&
+    (match.bracket ?? "A") === "A" &&
+    (allLinks ?? []).some((l) => l.feed === "loser" && l.to_match_id === match.id);
+  if (!isFinal && !isBronze) {
     await bumpVersion(match.tournament_id);
     return false;
   }
-  const [{ data: allLinks }, current] = await Promise.all([
-    sb.from("bracket_links").select("from_match_id,feed").eq("tournament_id", match.tournament_id),
-    all ? Promise.resolve(all) : getMatches(match.tournament_id),
-  ]);
   const decided =
     pendingFinals(
       current.map((m) =>

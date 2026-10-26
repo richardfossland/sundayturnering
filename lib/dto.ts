@@ -73,8 +73,11 @@ export function toMatchDTO<T extends Match>(m: T): T {
     const i = tag.indexOf("|");
     return (i >= 0 ? tag.slice(i + 1) : "").trim() || null;
   };
+  // precall_court_id (migration 0019) is internal bookkeeping for «Angre oppkalling».
+  const { precall_court_id: _internal, ...rest } = m as T & { precall_court_id?: unknown };
+  void _internal;
   return {
-    ...m,
+    ...(rest as T),
     // A lock with no name still needs a label in «Redigeres av …».
     locked_by: m.locked_by == null ? null : (name(m.locked_by) ?? "Enhet"),
     result_by: name(m.result_by),

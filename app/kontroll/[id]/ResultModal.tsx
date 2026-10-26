@@ -7,6 +7,7 @@ import { ResultInput } from "@/lib/client/ResultInput";
 import { no } from "@/lib/locale/no";
 import { Icon } from "@/lib/client/Icon";
 import { identity } from "@/lib/client/identity";
+import { pairingOf, teamsChangedSince, versionToSend } from "@/lib/client/resultStale";
 import { errorMessage } from "@/lib/locale/errors";
 import { useEscape } from "@/lib/client/useEscape";
 import { useFocusTrap } from "@/lib/client/useFocusTrap";
@@ -60,6 +61,11 @@ export function ResultModal({
   };
 }) {
   const [version, setVersion] = useState(match.result_version);
+  // The pairing this modal was opened for (C7): a score typed here belongs to
+  // THESE teams. If an override/swap changes them while the modal is open, the
+  // new version is NOT adopted and «Lagre» is refused (see below).
+  const [openedFor] = useState(() => pairingOf(match));
+  const teamsChanged = teamsChangedSince(openedFor, match);
   const [submitting, setSubmitting] = useState(false);
   const [lockedByOther, setLockedByOther] = useState<string | null>(null);
   // Server/network failure shown in the modal (was silently swallowed, so a
@@ -140,13 +146,15 @@ export function ResultModal({
   }, [match.id]);
 
   // Keep the optimistic-concurrency version in step with the freshest match the
-  // parent re-fetches (the modal is always rendered with the latest match). If
-  // it changed under us, a submit will still correctly 409; tracking it here
-  // avoids a stale-version false conflict from an unrelated refetch.
+  // parent re-fetches (the modal is always rendered with the latest match);
+  // this avoids a false conflict from an unrelated refetch. NOT when the teams
+  // changed: adopting that version would make the server accept a score typed
+  // for the old pairing (the migration 0020 trigger bumps the version exactly
+  // then), so the version stays and «Lagre» is refused instead.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mirror prop into guard
-    setVersion(match.result_version);
-  }, [match.result_version]);
+    setVersion((cur) => versionToSend(cur, match.result_version, teamsChanged));
+  }, [match.result_version, teamsChanged]);
 
   async function forceTake() {
     try {
@@ -161,6 +169,10 @@ export function ResultModal({
   }
 
   async function submit(result: MatchResult) {
+    if (teamsChanged) {
+      setErr(no.control.matchTeamsChanged);
+      return;
+    }
     setSubmitting(true);
     submittingRef.current = true;
     if (liveTimer.current) {
@@ -239,9 +251,9 @@ export function ResultModal({
           </button>
         </div>
         <div className="sheet-body stack stack-tight">
-          {err && (
+          {(teamsChanged || err) && (
             <div className="toast-danger" role="alert">
-              {err}
+              {teamsChanged ? no.control.matchTeamsChanged : err}
             </div>
           )}
           {liveEnabled && liveState !== "off" && (

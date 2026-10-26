@@ -191,6 +191,30 @@ describe("finalRanking — avsluttet før finalen (B4)", () => {
   });
 });
 
+describe("avsluttet før finalen, men bronsefinalen er spilt (L4)", () => {
+  const base = () => [
+    ...quarters(),
+    ...semis(),
+    ko("A", 3, 1, "t4", "t7", "t7"), // bronse: t7 slår t4 (t4 har bedre tabellplass)
+    ko("A", 3, 0, "t8", "t3", null), // finalen aldri spilt
+  ];
+  it("bronsevinneren over bronsetaperen, begge under finalistene og over kvartfinaletaperne", () => {
+    const s = state("league_playoff", { teams: teamsOf(8), standings: table(["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"]), matches: base() });
+    expect(ids(s)).toEqual(["t3", "t8", "t7", "t4", "t1", "t2", "t5", "t6"]);
+    expect(championId(s)).toBeNull();
+  });
+  it("uspilt bronse: begge semifinaltapere står likt (tabellplass avgjør)", () => {
+    const m = base().map((x) => (x.round === 3 && x.bracket_slot === 1 ? { ...x, status: "scheduled" as const, winner_team_id: null } : x));
+    const s = state("league_playoff", { teams: teamsOf(8), standings: table(["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"]), matches: m });
+    expect(ids(s).slice(2, 4)).toEqual(["t4", "t7"]);
+  });
+  it("finalen spilt: pallen overstyrer som før", () => {
+    const m = base().map((x) => (x.round === 3 && x.bracket_slot === 0 ? { ...x, status: "done" as const, winner_team_id: "t3" } : x));
+    const s = state("cup", { teams: teamsOf(8), matches: m });
+    expect(ids(s).slice(0, 4)).toEqual(["t3", "t8", "t7", "t4"]);
+  });
+});
+
 describe("championId (B4)", () => {
   const semisOnly = (): Match[] => [
     ko("A", 1, 0, "t1", "t4", "t1"),

@@ -76,7 +76,7 @@ beforeAll(async () => {
     create table storage.buckets (id text primary key, name text, public boolean);
   `);
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
-  expect(files.at(-1)).toBe("0019_review_fixes.sql");
+  expect(files.at(-1)).toBe("0020_bronze_uncall_stale_queue.sql");
   for (const f of files) await db.exec(readFileSync(join(MIGRATIONS, f), "utf8"));
   // Re-applying must be a no-op (idempotent).
   await db.exec(readFileSync(join(MIGRATIONS, "0011_realtime_private.sql"), "utf8"));

@@ -8,7 +8,7 @@
 // tods-competition-factory (`firstRoundLoserConsolation`), begge MIT — se
 // THIRD-PARTY-NOTICES.md. Ingen kode er portet; byggingen gjenbruker `buildBracket`.
 
-import { buildBracket, type BuiltBracket } from "@/lib/tournament/bracket";
+import { BRONZE_SLOT, buildBracket, type BuiltBracket, type BuiltMatch } from "@/lib/tournament/bracket";
 import { seedKnockoutFromGroups, type GroupRecord } from "@/lib/tournament/groups";
 import type { BracketId, Consolation, Format } from "@/lib/types";
 
@@ -47,6 +47,43 @@ export interface CrossLink {
 export interface BracketSet {
   brackets: { id: BracketId; bracket: BuiltBracket }[];
   cross: CrossLink[];
+}
+
+/** Er dette hovedbrakettens bronsefinale? (A, slot 1 i siste runde, mates av
+ * taper-koblinger og har ingen vei videre.) */
+function isBronzeMatch(id: BracketId, bracket: BuiltBracket, m: BuiltMatch): boolean {
+  return (
+    id === "A" &&
+    m.slot === BRONZE_SLOT &&
+    bracket.links.some((l) => l.feed === "loser" && l.toRound === m.round && l.toSlot === m.slot) &&
+    !bracket.links.some((l) => l.feed !== "loser" && l.fromRound === m.round && l.fromSlot === m.slot)
+  );
+}
+
+/** Spillerekkefølgen for alle kampene i et brakettsett (lavest først), brukt som
+ * `queue_order` og i tidsplanen: runde for runde (eller etter `order`), A før B,
+ * så etter plass. Bronsefinalen settes FØR finalen i samme runde: med én bane
+ * spilles finalen sist, og turneringen avsluttes først når begge er avgjort.
+ * (Med flere baner kan de gå samtidig; da skal finalen ha første bane, se
+ * `finalFirstCourt` i build.ts.) `bronzeFirst: false` gir den klassiske rekkefølgen
+ * (finalen først), brukt til å fordele baner. */
+export function bracketPlayOrder(
+  set: BracketSet,
+  order?: (bracket: string, round: number) => number,
+  opts: { bronzeFirst?: boolean } = {},
+): { id: BracketId; bi: number; m: BuiltMatch }[] {
+  const bronzeFirst = opts.bronzeFirst ?? true;
+  const flat = set.brackets.flatMap(({ id, bracket }, bi) =>
+    bracket.matches.map((m) => ({ id, bi, m, bronze: isBronzeMatch(id, bracket, m) })),
+  );
+  const at = (id: string, round: number) => order?.(id, round) ?? round;
+  flat.sort(
+    (x, y) =>
+      at(x.id, x.m.round) - at(y.id, y.m.round) ||
+      x.bi - y.bi ||
+      (x.bronze && bronzeFirst ? -1 : x.m.slot) - (y.bronze && bronzeFirst ? -1 : y.m.slot),
+  );
+  return flat.map(({ id, bi, m }) => ({ id, bi, m }));
 }
 
 /** Lagene som ikke kom til A, i B-seed-rekkefølge. Liga: tabellrekkefølge etter
@@ -154,9 +191,12 @@ export function buildCupConsolationSet(
   return set;
 }
 
-/** Avgjør hvilke brakettfinaler som ikke er spilt (ren motpart til RPC-en
- * `propagate_playoff_result`, brukt av fallback-stien og tester). En finale =
- * bracket_slot 0 uten vinner-kobling videre.
+/** Avgjør hvilke brakettfinaler (og bronsefinalen) som ikke er spilt (ren motpart
+ * til RPC-en `propagate_playoff_result`, brukt av fallback-stien og tester). En
+ * finale = bracket_slot 0 uten vinner-kobling videre. Bronsefinalen (migrasjon
+ * 0020) = hovedbrakettens (A) slot 1 uten vei videre, mates av taper-koblinger
+ * (`to_match_id` må være med i `links` for at den skal gjenkjennes): turneringen
+ * er først avgjort når også den er spilt.
  *
  * Dobbel utslag: storfinalen (GF runde 1) har en vinner-kobling til omkampen, så
  * omkampen (GF runde 2) er «finalen» som må være avgjort. Vant W-laget (hjemme)
@@ -173,9 +213,12 @@ export function pendingFinals(
     home_team_id?: string | null;
     winner_team_id?: string | null;
   }[],
-  links: readonly { from_match_id: string; feed: string }[],
+  links: readonly { from_match_id: string; feed: string; to_match_id?: string }[],
 ): string[] {
   const hasOnward = new Set(links.filter((l) => l.feed !== "loser").map((l) => l.from_match_id));
+  const loserFed = new Set(
+    links.filter((l) => l.feed === "loser" && l.to_match_id).map((l) => l.to_match_id as string),
+  );
   const gf1 = matches.find((m) => m.bracket === "GF" && m.round === 1);
   const rematchVoid =
     !!gf1 && gf1.status === "done" && !!gf1.winner_team_id && gf1.winner_team_id === gf1.home_team_id;
@@ -183,11 +226,12 @@ export function pendingFinals(
     .filter(
       (m) =>
         m.phase === "playoff" &&
-        m.bracket_slot === 0 &&
         !hasOnward.has(m.id) &&
         m.status !== "done" &&
         m.status !== "bye" &&
-        !(rematchVoid && m.bracket === "GF" && m.round === 2),
+        !(rematchVoid && m.bracket === "GF" && m.round === 2) &&
+        (m.bracket_slot === 0 ||
+          (m.bracket_slot === BRONZE_SLOT && (m.bracket ?? "A") === "A" && loserFed.has(m.id))),
     )
     .map((m) => m.id);
 }
