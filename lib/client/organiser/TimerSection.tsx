@@ -8,8 +8,8 @@ import { ToolSection, type ToolsCtx } from "./shared";
 
 const PRESETS = [5, 8, 10, 15];
 
-/** «Nedtelling»: the match countdown shown on the storskjerm. One place for it
- * on this page (the referee page keeps its own quick bar until D4). */
+/** «Nedtelling»: the match countdown shown on the storskjerm (tournament-level
+ * clock). The referee's per-court countdown lives in the result sheet. */
 export function TimerSection({ tournament, code, busy, guard, flash }: ToolsCtx) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {

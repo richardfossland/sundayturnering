@@ -7,8 +7,10 @@ const FOCUSABLE =
 
 /** Modal focus management: focus the first field on mount, keep Tab/Shift+Tab
  * inside the container, and hand focus back to whatever opened it on unmount.
- * Attach the returned ref to the dialog element. */
-export function useFocusTrap<T extends HTMLElement>() {
+ * Attach the returned ref to the dialog element. `initial = "dialog"` focuses
+ * the dialog itself instead (give it tabIndex={-1}) — for sheets on a phone,
+ * where focusing a number field would pop the keyboard over the buttons. */
+export function useFocusTrap<T extends HTMLElement>(initial: "field" | "dialog" = "field") {
   const ref = useRef<T>(null);
   useEffect(() => {
     const root = ref.current;
@@ -20,8 +22,10 @@ export function useFocusTrap<T extends HTMLElement>() {
       );
     // Prefer a text-ish field (the score input) over the close button.
     const first =
-      root.querySelector<HTMLElement>("input:not([disabled]),textarea:not([disabled])") ??
-      items()[0];
+      initial === "dialog"
+        ? null
+        : (root.querySelector<HTMLElement>("input:not([disabled]),textarea:not([disabled])") ??
+          items()[0]);
     (first ?? root).focus();
 
     const onKey = (e: KeyboardEvent) => {
@@ -51,6 +55,7 @@ export function useFocusTrap<T extends HTMLElement>() {
       // Opener may have unmounted (e.g. the card re-rendered away): then no-op.
       if (opener && document.contains(opener)) opener.focus();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
   }, []);
   return ref;
 }

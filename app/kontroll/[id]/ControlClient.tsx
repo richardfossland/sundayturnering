@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OfflineBanner } from "@/lib/client/OfflineBanner";
 import { useTournament } from "@/lib/client/useTournament";
-import { useOutbox, type OutboxEntry, type OutboxEvent } from "@/lib/client/outbox";
+import { useOutbox, type OutboxEvent } from "@/lib/client/outbox";
 import { ApiError } from "@/lib/client/api";
 import { errorMessage, pairErrorMessage } from "@/lib/locale/errors";
 import { usePresence } from "@/lib/client/usePresence";
@@ -12,53 +12,23 @@ import { api, setPairToken } from "@/lib/client/api";
 import { teamMap, matchTime } from "@/lib/client/view";
 import { parseControlTarget, resolveControlTarget, type ControlTarget } from "@/lib/client/controlTarget";
 import { resolve } from "@/lib/tournament/scoring";
-import { canSelfCorrect, selfCorrectMsLeft } from "@/lib/tournament/correct";
+import { canSelfCorrect } from "@/lib/tournament/correct";
 import { no } from "@/lib/locale/no";
 import { Icon } from "@/lib/client/Icon";
-import type { Court, Match, Team, TimerState } from "@/lib/types";
+import { useToast } from "@/lib/client/useToast";
+import type { Match, MatchResult, TimerState } from "@/lib/types";
 import { ResultModal } from "./ResultModal";
 import { OrganiserPanel } from "./OrganiserPanel";
-import { Standings, GroupStandings } from "@/app/board/[id]/Standings";
+import { MatchCard } from "./MatchCard";
+import { StandingsSheet } from "./StandingsSheet";
+import { wallClock } from "./clock";
 
-type Tab = "scheduled" | "live" | "done";
+/** The three match lists, plus the organiser tools as a tab of their own. */
+type Tab = "scheduled" | "live" | "done" | "org";
 
-function fmtClock(ms: number): string {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-}
-
-/** Event-handler clock read (kept out of the component body for react-hooks/purity). */
-function wallClock(): number {
-  return Date.now();
-}
-
-/** 1 s wall clock for LEAF components only. Ticking in ControlClient re-rendered
- * the whole control screen (all cards, organiser panel, modal) every second;
- * here just the tiny component that shows a countdown re-renders.
- * 0 until mounted keeps SSR/hydration identical. */
-function useNow(active = true): number {
-  const [now, setNow] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- first client read after hydration
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [active]);
-  return now;
-}
-
-function TimerLeft({ endsAt }: { endsAt: number }) {
-  const now = useNow();
-  if (!now) return null;
-  const left = endsAt - now;
-  return (
-    <strong className="timer-left" data-low={left < 60_000}>
-      {" "}
-      {fmtClock(left)}
-    </strong>
-  );
-}
+/** How long a just-saved match stays at the top of the list, highlighted, so
+ * the referee SEES it was saved before it settles into «Ferdig». */
+const SAVED_VISIBLE_MS = 6000;
 
 export function ControlClient({ id }: { id: string }) {
   const { state, error, failures, lastOkAt, refetch } = useTournament(id);
@@ -67,14 +37,24 @@ export function ControlClient({ id }: { id: string }) {
   const [open, setOpen] = useState<Match | null>(null);
   const [openMode, setOpenMode] = useState<"new" | "correct">("new");
   const [self, setSelf] = useState<{ deviceId: string; name: string } | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { flash, region: toastRegion } = useToast();
   const [showRoster, setShowRoster] = useState(false);
   const [showStandings, setShowStandings] = useState(false);
   const [busyTimer, setBusyTimer] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Matches whose «Start kamp» is in flight (a second tap must not start twice).
+  const [startingIds, setStartingIds] = useState<ReadonlySet<string>>(new Set());
   // The referee credential. undefined = not read yet (SSR/first paint); null =
   // this device never attached with the code (deep link, cleared storage, or
   // the server rejected the stored one) → the CodeGate below asks for it.
   const [ctl, setCtl] = useState<string | null | undefined>(undefined);
+  useEffect(
+    () => () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     // Read browser-only identity/prefs after mount (hydration-safe).
@@ -111,9 +91,10 @@ export function ControlClient({ id }: { id: string }) {
           : action.kind === "matchNotReady"
             ? no.control.targetNotReady
             : no.control.targetMissing,
+        "error",
       );
     }
-  }, [state, ctl, id]);
+  }, [state, ctl, id, flash]);
 
   // Pairing token: makes this phone immune to the shared-IP wrong-code block.
   // Phones paired before tokens existed (or paired some other way) have a code
@@ -136,24 +117,35 @@ export function ControlClient({ id }: { id: string }) {
       identity.setControlCode(id, null);
       setCtl(null);
       setOpen(null);
-      flash(no.control.codeRejected);
+      flash(no.control.codeRejected, "error");
       return true;
     }
     return false;
   }
 
+  /** Hold a just-saved match on top of the list for a few seconds. */
+  const holdSaved = useCallback((matchId: string) => {
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    setSavedId(matchId);
+    savedTimer.current = setTimeout(() => {
+      savedTimer.current = null;
+      setSavedId(null);
+    }, SAVED_VISIBLE_MS);
+  }, []);
+
   // Results queued on this phone while the net was down (lib/client/outbox.ts).
   const onOutbox = useCallback(
     (e: OutboxEvent) => {
       if (e.type === "sent") {
-        flash(no.control.unsentSent);
+        flash(no.control.unsentSent, "success");
+        holdSaved(e.entry.matchId);
       } else if (!codeRejected(e.error)) {
-        flash(e.error.code === "konflikt" ? no.control.unsentRejected : errorMessage(e.error));
+        flash(e.error.code === "konflikt" ? no.control.unsentRejected : errorMessage(e.error), "error");
       }
       refetch();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [refetch, id],
+    [refetch, id, holdSaved],
   );
   const { entries: unsent, flush: flushOutbox, dismiss: dismissOutbox } = useOutbox(id, onOutbox);
   const unsentPending = useMemo(() => unsent.filter((e) => !e.failed), [unsent]);
@@ -162,25 +154,6 @@ export function ControlClient({ id }: { id: string }) {
 
   const devices = usePresence(id, self);
   const teams = useMemo(() => teamMap(state?.teams ?? []), [state?.teams]);
-
-  // One pending hide-timer: a new toast replaces (and restarts) the previous
-  // one instead of the older timeout hiding the newer message early, and an
-  // unmount never fires setState on a dead component.
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    },
-    [],
-  );
-  function flash(msg: string) {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast(msg);
-    toastTimer.current = setTimeout(() => {
-      toastTimer.current = null;
-      setToast(null);
-    }, 2600);
-  }
 
   if (error && !state)
     return (
@@ -213,26 +186,41 @@ export function ControlClient({ id }: { id: string }) {
     (groupStandings?.some((g) => g.rows.length > 0) ?? false) ||
     standings.length > 0;
 
+  const onCourt = (m: Match) => !courtId || m.court_id === courtId;
+  const isPlanned = (m: Match) => m.status === "scheduled" || m.status === "called";
+  const byOrder = (a: Match, b: Match) => a.queue_order - b.queue_order;
+  const counts = {
+    scheduled: matches.filter((m) => isPlanned(m) && onCourt(m)).length,
+    live: matches.filter((m) => m.status === "live" && onCourt(m)).length,
+    done: matches.filter((m) => m.status === "done" && onCourt(m)).length,
+  };
+
+  // Next match the referee should run (respects the pinned court).
+  const nextMatch = matches
+    .filter((m) => isPlanned(m) && m.home_team_id && m.away_team_id && onCourt(m))
+    .sort(byOrder)[0];
+
+  // A match saved a moment ago stays on top of whichever list is open.
+  const savedMatch = savedId ? matches.find((m) => m.id === savedId && m.status === "done") : undefined;
+
   const filtered = matches
     .filter((m) => {
       if (m.status === "bye") return false;
       if (tab === "live") return m.status === "live";
       if (tab === "done") return m.status === "done";
-      return m.status === "scheduled" || m.status === "called";
+      return isPlanned(m);
     })
-    .filter((m) => !courtId || m.court_id === courtId)
-    .sort((a, b) => a.queue_order - b.queue_order);
-
-  // Next match the referee should run (respects the pinned court).
-  const nextMatch = matches
-    .filter(
-      (m) =>
-        (m.status === "scheduled" || m.status === "called") &&
-        m.home_team_id &&
-        m.away_team_id &&
-        (!courtId || m.court_id === courtId),
-    )
-    .sort((a, b) => a.queue_order - b.queue_order)[0];
+    .filter(onCourt)
+    .sort(byOrder);
+  // «Din neste kamp» is the first card of the planned list, not header text.
+  const highlightNext = tab === "scheduled" && nextMatch ? nextMatch : null;
+  const listed: { m: Match; flag: "next" | "saved" | null }[] = [
+    ...(savedMatch ? [{ m: savedMatch, flag: "saved" as const }] : []),
+    ...(highlightNext ? [{ m: highlightNext, flag: "next" as const }] : []),
+    ...filtered
+      .filter((m) => m.id !== highlightNext?.id && m.id !== savedMatch?.id)
+      .map((m) => ({ m, flag: null })),
+  ];
 
   function pin(cId: string | null) {
     setCourtId(cId);
@@ -247,7 +235,7 @@ export function ControlClient({ id }: { id: string }) {
         setOpenMode("correct");
         setOpen(m);
       } else {
-        flash(no.control.editWindowGone);
+        flash(no.control.editWindowGone, "error");
       }
       return;
     }
@@ -256,7 +244,8 @@ export function ControlClient({ id }: { id: string }) {
   }
 
   async function startMatch(m: Match) {
-    if (!self || !ctl) return;
+    if (!self || !ctl || startingIds.has(m.id)) return;
+    setStartingIds((prev) => new Set(prev).add(m.id));
     try {
       await api.lock(m.id, self.deviceId, self.name, "start", ctl);
       // Kick off a default 10-minute clock on the relevant court / tournament.
@@ -265,36 +254,77 @@ export function ControlClient({ id }: { id: string }) {
         durationSec: 600,
       });
       refetch();
+      // The match now lives under «Spilles»: take the referee there, where the
+      // card offers «Før resultat».
+      setTab("live");
+      flash(no.control.started, "success");
     } catch (e) {
-      if (!codeRejected(e)) flash(errorMessage(e));
+      if (!codeRejected(e)) flash(errorMessage(e), "error");
+    } finally {
+      setStartingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(m.id);
+        return next;
+      });
     }
   }
 
-  // Timer target: pinned court in parallel mode, else the tournament-level clock.
-  const timerCourtId = parallel && courtId ? courtId : undefined;
-  const activeTimer: TimerState | null = timerCourtId
-    ? (courts.find((c) => c.id === timerCourtId)?.timer ?? null)
-    : (tournament.timer ?? null);
-  const timerEndsAt =
-    activeTimer?.running && activeTimer.endsAt ? Date.parse(activeTimer.endsAt) : null;
+  // The countdown that belongs to a match: its court in a parallel tournament,
+  // the tournament-level clock otherwise.
+  function timerFor(m: Match): TimerState | null {
+    return parallel && m.court_id
+      ? (courts.find((c) => c.id === m.court_id)?.timer ?? null)
+      : (tournament.timer ?? null);
+  }
+  function timerEndsAtFor(m: Match): number | null {
+    const t = timerFor(m);
+    return t?.running && t.endsAt ? Date.parse(t.endsAt) : null;
+  }
 
-  async function timerAction(action: "start" | "add" | "stop", durationSec?: number) {
+  async function timerAction(
+    m: Match,
+    action: "start" | "add" | "stop",
+    durationSec?: number,
+  ) {
     if (!ctl) return;
     setBusyTimer(true);
     try {
-      await api.courtTimer(id, action, ctl, { courtId: timerCourtId, durationSec });
+      await api.courtTimer(id, action, ctl, {
+        courtId: parallel ? (m.court_id ?? undefined) : undefined,
+        durationSec,
+      });
       refetch();
     } catch (e) {
-      if (!codeRejected(e)) flash(errorMessage(e));
+      if (!codeRejected(e)) flash(errorMessage(e), "error");
     } finally {
       setBusyTimer(false);
     }
   }
 
+  /** «Lagret: Lag 1 2–1 Lag 8» + the card held on top for a few seconds. */
+  function confirmSaved(m: Match, result: MatchResult) {
+    const h = m.home_team_id ? teams.get(m.home_team_id)?.name : null;
+    const a = m.away_team_id ? teams.get(m.away_team_id)?.name : null;
+    flash(
+      no.control.savedMatch(h ?? no.board.tbd, resolve(tournament.scoring.profile, result).display, a ?? no.board.tbd),
+      "success",
+    );
+    holdSaved(m.id);
+  }
+
+  const openMatchNow = open ? (matches.find((x) => x.id === open.id) ?? open) : null;
+  const openCourt = openMatchNow ? courts.find((c) => c.id === openMatchNow.court_id) : null;
+  const openTime = openMatchNow ? matchTime(openMatchNow.scheduled_at) : null;
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: "scheduled", label: no.control.scheduled, count: counts.scheduled },
+    { key: "live", label: no.control.live, count: counts.live },
+    { key: "done", label: no.control.done, count: counts.done },
+  ];
+
   return (
     <main className="control">
       <OfflineBanner failures={failures} lastOkAt={lastOkAt} />
-      <div className="control-head stack" style={{ gap: 10 }}>
+      <header className="ctl-top">
         {unsentPending.length > 0 && (
           <div className="unsent-bar" role="status" aria-live="polite">
             <span>{no.control.unsentBadge(unsentPending.length)}</span>
@@ -311,25 +341,28 @@ export function ControlClient({ id }: { id: string }) {
             </button>
           </div>
         )}
-        <div className="spread">
-          <span className="brand" style={{ fontSize: ".95rem" }}>
-            <span className="brand-mark" style={{ width: 26, height: 26, fontSize: ".8rem" }}>T</span>
-            {tournament.title || no.brand}
+        <div className="ctl-bar">
+          <span className="brand ctl-title">
+            <span className="brand-mark">T</span>
+            <span className="ctl-title-text">{tournament.title || no.brand}</span>
           </span>
-          <div className="row" style={{ gap: 8 }}>
-            {hasStandings && (
-              <button
-                className="pill"
-                data-on={showStandings}
-                onClick={() => setShowStandings((v) => !v)}
-              >
-                {no.board.standings}
-              </button>
-            )}
-            <button className="pill" onClick={() => setShowRoster((v) => !v)}>
-              {devices.length} {no.pair.attached}
+          <button
+            type="button"
+            className="ctl-conn"
+            data-offline={failures >= 2}
+            aria-expanded={showRoster}
+            aria-label={failures >= 2 ? `${no.control.offline}. ${no.control.connection(devices.length)}` : no.control.connection(devices.length)}
+            onClick={() => setShowRoster((v) => !v)}
+          >
+            <span className="ctl-conn-dot" />
+            {devices.length}
+          </button>
+          {hasStandings && (
+            <button type="button" className="btn ctl-standings" onClick={() => setShowStandings(true)}>
+              <Icon name="standings" size={18} />
+              {no.board.standings}
             </button>
-          </div>
+          )}
         </div>
 
         {showRoster && devices.length > 0 && (
@@ -344,150 +377,135 @@ export function ControlClient({ id }: { id: string }) {
           </div>
         )}
 
-        {showStandings && hasStandings && (
-          <div className="control-standings">
-            {groupStandings && groupStandings.length > 0 ? (
-              <GroupStandings
-                groups={groupStandings}
-                teams={teams}
-                showDraw={showDraw}
-                compact
-              />
-            ) : (
-              <Standings
-                standings={standings}
-                teams={teams}
-                showDraw={showDraw}
-                compact
-              />
-            )}
-          </div>
-        )}
-
-        <div className="tabs">
-          {(["scheduled", "live", "done"] as Tab[]).map((t) => (
-            <button key={t} className="tab" data-on={tab === t} onClick={() => setTab(t)}>
-              {t === "scheduled" ? no.control.scheduled : t === "live" ? no.control.live : no.control.done}
+        <div className="ctl-tabs" role="tablist" aria-label={no.control.matches}>
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              className="ctl-tab"
+              aria-selected={tab === t.key}
+              data-on={tab === t.key}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+              <span className="ctl-count">{t.count}</span>
             </button>
           ))}
+          <button
+            type="button"
+            role="tab"
+            className="ctl-tab ctl-tab-org"
+            aria-selected={tab === "org"}
+            data-on={tab === "org"}
+            onClick={() => setTab("org")}
+          >
+            <Icon name="settings" size={16} />
+            {no.control.organiser}
+          </button>
         </div>
+      </header>
 
-        {parallel && courts.length > 0 && (
-          <div className="chips" role="group" aria-label={no.control.pinCourt}>
-            <button className="chip" data-on={!courtId} onClick={() => pin(null)}>
-              {no.control.allCourts}
-            </button>
-            {courts.map((c) => (
-              <button key={c.id} className="chip" data-on={courtId === c.id} onClick={() => pin(c.id)}>
-                {c.name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Referee match timer (per-court in parallel, tournament-level otherwise). */}
-        <div className="timer-bar">
-          <span className="timer-label">
-            {no.control.matchTimer}
-            {timerEndsAt != null ? <TimerLeft endsAt={timerEndsAt} /> : null}
-          </span>
-          <div className="btn-row" style={{ gap: 6 }}>
-            {[5, 8, 10].map((min) => (
-              <button
-                key={min}
-                className="btn btn-sm"
-                disabled={busyTimer}
-                onClick={() => timerAction("start", min * 60)}
+      {tab === "org" ? (
+        <section className="ctl-org" role="tabpanel" aria-label={no.control.organiser}>
+          <OrganiserPanel
+            tournament={tournament}
+            matches={matches}
+            teams={teams}
+            courts={courts}
+            onChanged={refetch}
+            flash={flash}
+          />
+        </section>
+      ) : (
+        <section className="ctl-list" role="tabpanel" aria-label={tabs.find((t) => t.key === tab)?.label}>
+          {parallel && courts.length > 0 && (
+            <label className="court-pick">
+              <span className="court-pick-label">{no.control.chooseCourt}</span>
+              <select
+                className="select"
+                value={courtId ?? ""}
+                onChange={(e) => pin(e.target.value || null)}
               >
-                {min}m
-              </button>
-            ))}
-            <button className="btn btn-sm btn-ghost" disabled={busyTimer} onClick={() => timerAction("add")}>
-              +1
-            </button>
-            <button className="btn btn-sm btn-ghost" disabled={busyTimer} onClick={() => timerAction("stop")}>
-              {no.control.timerStop}
-            </button>
-          </div>
-        </div>
+                <option value="">{no.control.allCourts}</option>
+                {courts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {listed.length === 0 ? (
+            <div className="empty">{no.board.noMatches}</div>
+          ) : (
+            listed.map(({ m, flag }) => (
+              <MatchCard
+                key={m.id}
+                m={m}
+                teams={teams}
+                courts={courts}
+                profile={tournament.scoring.profile}
+                selfDeviceId={self?.deviceId ?? null}
+                unsent={unsentByMatch.get(m.id) ?? null}
+                timerEndsAt={m.status === "live" ? timerEndsAtFor(m) : null}
+                flag={flag}
+                starting={startingIds.has(m.id)}
+                onDismissUnsent={dismissOutbox}
+                onEnterScore={() => openMatch(m)}
+                onCorrect={() => openMatch(m)}
+                onStart={() => startMatch(m)}
+                onLocked={() => openMatch(m)}
+              />
+            ))
+          )}
+        </section>
+      )}
 
-        {nextMatch && tab !== "done" && (
-          <div className="next-hint">
-            {no.control.nextMatch}:{" "}
-            <strong>
-              {teams.get(nextMatch.home_team_id!)?.name} {no.common.vs}{" "}
-              {teams.get(nextMatch.away_team_id!)?.name}
-            </strong>
-            {parallel && nextMatch.court_id
-              ? ` · ${courts.find((c) => c.id === nextMatch.court_id)?.name ?? ""}`
-              : ""}
-          </div>
-        )}
-      </div>
-
-      <div className="stack" style={{ gap: 10 }}>
-        {filtered.length === 0 ? (
-          <div className="empty">{no.board.noMatches}</div>
-        ) : (
-          filtered.map((m) => (
-            <MatchCard
-              key={m.id}
-              m={m}
-              teams={teams}
-              courts={courts}
-              profile={tournament.scoring.profile}
-              selfDeviceId={self?.deviceId ?? null}
-              unsent={unsentByMatch.get(m.id) ?? null}
-              onDismissUnsent={dismissOutbox}
-              onTap={() => openMatch(m)}
-              onStart={m.status === "scheduled" || m.status === "called" ? () => startMatch(m) : undefined}
-            />
-          ))
-        )}
-      </div>
-
-      <div style={{ marginTop: 22 }}>
-        <OrganiserPanel
-          tournament={tournament}
-          matches={matches}
-          teams={teams}
-          courts={courts}
-          onChanged={refetch}
-          flash={flash}
-        />
-      </div>
-
-      {open && (
+      {open && openMatchNow && (
         <ResultModal
-          match={
-            // always render the freshest copy of the match
-            matches.find((x) => x.id === open.id) ?? open
-          }
+          // always render the freshest copy of the match
+          match={openMatchNow}
           tournament={tournament}
           teams={teams}
           deviceId={self?.deviceId ?? "anon"}
           deviceName={self?.name ?? "Enhet"}
           controlCode={ctl}
           mode={openMode}
+          subtitle={[openTime, openCourt?.name].filter(Boolean).join(" · ") || undefined}
+          timer={{
+            state: timerFor(openMatchNow),
+            perCourt: parallel && !!openMatchNow.court_id,
+            busy: busyTimer,
+            onAction: (action, durationSec) => timerAction(openMatchNow, action, durationSec),
+          }}
           onClose={() => setOpen(null)}
           onAuthError={codeRejected}
-          onDone={() => {
+          onDone={(result) => {
             setOpen(null);
+            confirmSaved(openMatchNow, result);
             refetch();
           }}
           onQueued={() => flash(no.control.queuedToast)}
           onConflict={() => {
-            flash(openMode === "correct" ? no.control.editWindowGone : no.control.conflict);
+            flash(openMode === "correct" ? no.control.editWindowGone : no.control.conflict, "error");
             refetch();
           }}
         />
       )}
 
+      {showStandings && hasStandings && (
+        <StandingsSheet
+          state={{ standings, groupStandings }}
+          teams={teams}
+          showDraw={showDraw}
+          onClose={() => setShowStandings(false)}
+        />
+      )}
+
       {/* Always mounted so the live region exists before the text lands —
           screen readers announce content changes, not freshly inserted regions. */}
-      <div role="status" aria-live="polite" className={toast ? "toast toast-danger" : undefined}>
-        {toast}
-      </div>
+      {toastRegion}
     </main>
   );
 }
@@ -528,13 +546,13 @@ function CodeGate({
 
   return (
     <main className="center-screen">
-      <div className="card card-pad stack" style={{ maxWidth: 420, width: "100%" }}>
-        <div className="brand" style={{ justifyContent: "center" }}>
+      <div className="card card-pad stack codegate">
+        <div className="brand codegate-brand">
           <span className="brand-mark">T</span>
           {title || no.brand}
         </div>
         <h2 className="center">{no.pair.reenterTitle}</h2>
-        <p className="faint center" style={{ fontSize: ".9rem" }}>{no.pair.reenterHint}</p>
+        <p className="faint center codegate-hint">{no.pair.reenterHint}</p>
         <input
           className="input code-input"
           value={code}
@@ -545,7 +563,7 @@ function CodeGate({
           autoFocus
           onKeyDown={(e) => e.key === "Enter" && code.length === 6 && attach()}
         />
-        {err && <div className="toast-danger" style={{ fontSize: ".9rem" }}>{err}</div>}
+        {err && <div className="toast-danger codegate-hint">{err}</div>}
         <button
           className="btn btn-gold btn-block btn-lg"
           disabled={busy || code.length !== 6}
@@ -556,141 +574,5 @@ function CodeGate({
         </button>
       </div>
     </main>
-  );
-}
-
-function MatchCard({
-  m,
-  teams,
-  courts,
-  profile,
-  selfDeviceId,
-  unsent,
-  onDismissUnsent,
-  onTap,
-  onStart,
-}: {
-  m: Match;
-  teams: Map<string, Team>;
-  courts: Court[];
-  profile: import("@/lib/types").ScoringProfileKey;
-  selfDeviceId: string | null;
-  /** A result for this match waits in the outbox: show it, block a second entry. */
-  unsent: OutboxEntry | null;
-  onDismissUnsent: (requestId: string) => void;
-  onTap: () => void;
-  onStart?: () => void;
-}) {
-  // Only finished cards run the self-correct countdown clock.
-  const now = useNow(m.status === "done" && !!selfDeviceId);
-  const correctMsLeft =
-    now && selfDeviceId && canSelfCorrect(m, selfDeviceId, now)
-      ? selfCorrectMsLeft(m, now)
-      : null;
-  const h = m.home_team_id ? teams.get(m.home_team_id) : null;
-  const a = m.away_team_id ? teams.get(m.away_team_id) : null;
-  const court = courts.find((c) => c.id === m.court_id);
-  const locked = m.locked_by && m.status !== "done";
-  const lockName = locked ? m.locked_by!.split("|")[1] : null;
-  const r = m.result ? resolve(profile, m.result) : null;
-  const ready = h && a;
-  // A failed entry no longer blocks: the referee may re-enter the score.
-  const tappable = (!unsent || unsent.failed) && ((ready && m.status !== "done") || correctMsLeft != null);
-  const unsentScore = unsent ? resolve(profile, unsent.payload.result).display : null;
-  const homeWon = !!(m.winner_team_id && m.winner_team_id === m.home_team_id);
-  const awayWon = !!(m.winner_team_id && m.winner_team_id === m.away_team_id);
-
-  return (
-    <div
-      className="match-card"
-      data-locked={!!locked}
-      data-disabled={!tappable}
-      role="button"
-      tabIndex={tappable ? 0 : -1}
-      onClick={tappable ? onTap : undefined}
-      onKeyDown={(e) => {
-        if (tappable && (e.key === "Enter" || e.key === " ")) {
-          e.preventDefault();
-          onTap();
-        }
-      }}
-    >
-      <div className="match-teams">
-        {m.status !== "done" && matchTime(m.scheduled_at) && (
-          <span className="match-time">{matchTime(m.scheduled_at)}</span>
-        )}
-        <TeamLine team={h} win={m.status === "done" && homeWon} />
-        <TeamLine team={a} win={m.status === "done" && awayWon} />
-      </div>
-      <div className="match-meta stack" style={{ gap: 4, alignItems: "flex-end" }}>
-        {unsentScore && unsent?.failed ? (
-          <>
-            <span className="pill pill-unsent" role="alert">{no.control.unsentCard(unsentScore)}</span>
-            <span className="muted" style={{ fontSize: ".8rem", textAlign: "right" }}>
-              {no.control.unsentFailed}
-            </span>
-            <button
-              className="btn btn-sm"
-              onClick={(ev) => {
-                ev.stopPropagation();
-                onDismissUnsent(unsent.requestId);
-              }}
-            >
-              {no.control.unsentDismiss}
-            </button>
-          </>
-        ) : unsentScore ? (
-          <span className="pill pill-unsent">{no.control.unsentCard(unsentScore)}</span>
-        ) : m.status === "done" && r ? (
-          // Full scoreline (e.g. "2–1 (25–20, 23–25, 15–10)") — no longer
-          // truncated to the set tally, so judges see exactly what was entered.
-          <span className="match-result">{r.display}</span>
-        ) : m.status === "live" ? (
-          <span className="pill pill-live"><span className="dot" />{no.control.live}</span>
-        ) : m.status === "called" ? (
-          <span className="pill pill-called">{court ? no.control.calledTo(court.name) : no.board.calledUp}</span>
-        ) : null}
-        {court && <span>{court.name}</span>}
-        {lockName && <span style={{ color: "var(--warn)" }}>{no.control.lockedBy(lockName)}</span>}
-        {onStart && ready && (m.status === "scheduled" || m.status === "called") && (
-          <button
-            className="btn btn-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onStart();
-            }}
-          >
-            {no.control.startMatch}
-          </button>
-        )}
-        {correctMsLeft != null && (
-          <button
-            className="btn btn-sm btn-ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              onTap();
-            }}
-          >
-            {no.control.editJustSaved} ({fmtClock(correctMsLeft)})
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TeamLine({
-  team,
-  win = false,
-}: {
-  team: Team | null | undefined;
-  win?: boolean;
-}) {
-  return (
-    <span className={`team${win ? " team-win" : ""}`}>
-      <span className="team-swatch" style={{ background: team?.colour ?? "#555" }} />
-      <span className="team-name">{team?.name ?? no.board.tbd}</span>
-      {win && <span className="win-mark" aria-label="Vinner" title="Vinner"><Icon name="check" size={16} strokeWidth={2.5} /></span>}
-    </span>
   );
 }
