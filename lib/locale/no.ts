@@ -432,6 +432,7 @@ export const no = {
     group: "Gruppe",
     groups: "Grupper",
     tbd: "Avventer",
+    legendTitle: "Slik leser du tabellen",
     th: { rank: "#", team: "Lag", p: "K", w: "S", d: "U", l: "T", diff: "±", pts: "P", form: "Form", buchholz: "Bu" },
     // Samme kolonner med hele ord: storskjermen viser dem når det er plass,
     // ellers står forkortelsene med en forklaringslinje under tabellen.
@@ -726,7 +727,6 @@ export const no = {
     nextUp: "Neste kamper",
     nextNone: "Ingen flere kamper er satt opp.",
     standings: "Tabell",
-    standingsWhat: "Slik leser du tabellen",
     bracket: "Sluttspill",
     bracketHint: "Sveip sideveis for å se alle rundene.",
     cheer: "Heie",
@@ -750,7 +750,7 @@ export const no = {
     provisional: "Foreløpig stilling",
     notFinished: "Turneringen er ikke ferdig. Vinneren kåres når arrangøren avslutter.",
     leader: "Leder nå",
-    podium: "Pallen",
+    ranking: "Sluttplassering",
   },
 
   // Sunday Account admin layer (logged-in organiser dashboard)

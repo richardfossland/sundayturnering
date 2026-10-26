@@ -16,7 +16,7 @@ import { Icon, reactionIcon } from "@/lib/client/Icon";
 import type { ReactionKind } from "@/lib/realtime";
 import { no } from "@/lib/locale/no";
 import { resolve } from "@/lib/tournament/scoring";
-import { Standings, GroupStandings } from "@/app/board/[id]/Standings";
+import { Standings, GroupStandings, StandingsLegend } from "@/app/board/[id]/Standings";
 import { Bracket } from "@/app/board/[id]/Bracket";
 import { hasStandingsTable } from "@/app/board/[id]/BoardStandingsPanel";
 import type { StateDTO } from "@/lib/dto";
@@ -109,29 +109,29 @@ export function SpectatorClient({ id }: { id: string }) {
 
       {!finished && (
         <section id="kamper" className="follow-sec">
-            <h2 className="follow-h">{no.spectator.nowPlaying}</h2>
-            {live.length > 0 ? (
-              <div className="follow-live">
-                {live.map((m) => (
-                  <LiveCard key={m.id} m={m} teams={teams} courts={courts} scoring={tournament.scoring} />
-                ))}
-              </div>
-            ) : (
-              <p className="follow-empty">
-                {started ? no.spectator.nothingLive : no.spectator.notStarted}
-              </p>
-            )}
+          <h2 className="follow-h">{no.spectator.nowPlaying}</h2>
+          {live.length > 0 ? (
+            <div className="follow-live">
+              {live.map((m) => (
+                <LiveCard key={m.id} m={m} teams={teams} courts={courts} scoring={tournament.scoring} />
+              ))}
+            </div>
+          ) : (
+            <p className="follow-empty">
+              {started ? no.spectator.nothingLive : no.spectator.notStarted}
+            </p>
+          )}
 
-            <h2 className="follow-h">{no.spectator.nextUp}</h2>
-            {next.length > 0 ? (
-              <ul className="follow-next">
-                {next.map((m) => (
-                  <NextRow key={m.id} m={m} teams={teams} courts={courts} />
-                ))}
-              </ul>
-            ) : (
-              <p className="follow-empty">{no.spectator.nextNone}</p>
-            )}
+          <h2 className="follow-h">{no.spectator.nextUp}</h2>
+          {next.length > 0 ? (
+            <ul className="follow-next">
+              {next.map((m) => (
+                <NextRow key={m.id} m={m} teams={teams} courts={courts} />
+              ))}
+            </ul>
+          ) : (
+            <p className="follow-empty">{no.spectator.nextNone}</p>
+          )}
         </section>
       )}
 
@@ -356,31 +356,5 @@ function NextRow({
         court && <span className="fn-court">{court.name}</span>
       )}
     </li>
-  );
-}
-
-/** What K / S / T / ± / P mean — spelled out under the table (same wording as the board). */
-function StandingsLegend({
-  standings,
-  showDraw,
-}: {
-  standings: StateDTO["standings"];
-  showDraw: boolean;
-}) {
-  const th = no.board.th;
-  const f = no.board.thFull;
-  const items: [string, string][] = [[th.p, f.p], [th.w, f.w]];
-  if (showDraw) items.push([th.d, f.d]);
-  items.push([th.l, f.l], [th.diff, f.diff], [th.pts, f.pts]);
-  if (standings.some((r) => r.buchholz !== undefined)) items.push([th.buchholz, f.buchholz]);
-  return (
-    <p className="follow-legend">
-      <span className="follow-legend-title">{no.spectator.standingsWhat}:</span>{" "}
-      {items.map(([s, w]) => (
-        <span key={s} className="follow-legend-item">
-          <b>{s}</b> {w.toLowerCase()}
-        </span>
-      ))}
-    </p>
   );
 }
