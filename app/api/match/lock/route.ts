@@ -4,6 +4,7 @@ import { checkControlCode, prefetchBlocked } from "@/lib/server/auth";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
+import { toMatchDTO } from "@/lib/dto";
 
 // POST /api/match/lock — soft lock for editing (spec §4.1). action:
 //   'lock'   set locked_by = deviceId; scheduled/called → live (response: promoted)
@@ -50,26 +51,50 @@ async function handlePOST(req: Request) {
     return fail(409, "turnering_avsluttet");
   if (m.phase === "league" && t.status === "playoff" && action !== "unlock")
     return fail(409, "serien_avsluttet");
+  // Going live needs two known teams: a match still waiting for a bracket
+  // feeder («Avventer») would go live and could never be finished.
+  const teamsKnown = !!(m.home_team_id && m.away_team_id);
+  if (action !== "unlock" && !teamsKnown && m.status !== "live")
+    return fail(409, "kamp_ikke_klar");
   const tag = body.deviceName
     ? `${body.deviceId}|${body.deviceName}`
     : body.deviceId;
 
+  // Every write below is a compare-and-set on the status (and lock) it READ:
+  // a save that commits on the server while this request is in flight turns
+  // the match `done`, and a blind write would put it back to live/scheduled
+  // (and drop the result). A write that matches no row means the match moved
+  // on; the answer is then built from a fresh read, never from the stale one.
   // True when THIS call moved the match scheduled/called → live; the client echoes it
   // back as `revert` on unlock so only a lock-induced live is undone.
   let promoted = false;
 
   if (action === "start") {
     // Go live without taking an edit lock (others can still register the result).
-    if (m.status === "scheduled" || m.status === "called")
-      must(await db().from("matches").update({ status: "live" }).eq("id", m.id));
+    if (m.status === "scheduled" || m.status === "called") {
+      const won = must<{ id: string }[]>(
+        await db()
+          .from("matches")
+          .update({ status: "live" })
+          .eq("id", m.id)
+          .in("status", ["scheduled", "called"])
+          .select("id"),
+      );
+      if (!won || won.length === 0) {
+        const now = await getMatch(m.id);
+        if (!now) return fail(404, "finnes_ikke");
+        if (now.status === "done" || now.status === "bye") return fail(409, "kamp_ferdig");
+        // Already live (another phone pressed Start first): same end state.
+      }
+    }
   } else if (action === "unlock") {
     if (m.locked_by && m.locked_by.split("|")[0] !== body.deviceId)
-      return ok({ match: m }); // not our lock; ignore
+      return ok({ match: toMatchDTO(m) }); // not our lock; ignore
     const demote = body.revert === true && m.status === "live";
     // A match that was CALLED before the lock lifted it to live (called_at is
     // kept by the promotion) goes back to «called», not to «scheduled».
     const wasCalled = demote && m.called_at != null;
-    must(await db()
+    let q = db()
       .from("matches")
       // A demoted match also drops any interim live score it was showing.
       .update(
@@ -79,38 +104,46 @@ async function handlePOST(req: Request) {
             : { locked_by: null, status: "scheduled", result: null, called_at: null }
           : { locked_by: null },
       )
-      .eq("id", m.id));
+      .eq("id", m.id);
+    // Only OUR lock is cleared (someone may have force-taken it since the read),
+    // and only a still-live match is demoted (it may have just been finished).
+    q = m.locked_by ? q.eq("locked_by", m.locked_by) : q.is("locked_by", null);
+    if (demote) q = q.eq("status", "live");
+    must(await q.select("id"));
+    // Zero rows = the match moved on; the fresh read below is the answer.
   } else {
-    // lock / force
+    // lock / force: both are a compare-and-set on the status we read (a match
+    // that became `done` must never go live again). `lock` additionally on the
+    // lock holder: two devices racing for a free (or their own) lock → exactly
+    // one UPDATE matches. On a miss, re-read: the holder may have released (or
+    // the status may have changed) in the meantime — retry once on the fresh
+    // row before answering. `force` takes the lock over whoever holds it.
     if (
       action === "lock" &&
       m.locked_by &&
       m.locked_by.split("|")[0] !== body.deviceId
     )
-      return fail(409, "laast_av_annen", { lockedBy: m.locked_by });
-    // `force` takes over unconditionally; `lock` is a compare-and-set on what we
-    // last read: two devices racing for a free (or their own) lock → exactly one
-    // UPDATE matches. On a miss, re-read: the holder may have released in the
-    // meantime (null or ours) — retry once on the fresh row before answering
-    // "locked by another".
+      return fail(409, "laast_av_annen", { lockedBy: toMatchDTO(m).locked_by });
     let cur = m;
     for (let attempt = 0; ; attempt++) {
       promoted = cur.status === "scheduled" || cur.status === "called";
+      if (promoted && !(cur.home_team_id && cur.away_team_id))
+        return fail(409, "kamp_ikke_klar");
       let q = db()
         .from("matches")
         .update({ locked_by: tag, status: promoted ? "live" : cur.status })
-        .eq("id", cur.id);
-      if (action === "lock") {
-        q = (cur.locked_by ? q.eq("locked_by", cur.locked_by) : q.is("locked_by", null))
-          .eq("status", cur.status);
-      }
+        .eq("id", cur.id)
+        .eq("status", cur.status);
+      if (action === "lock")
+        q = cur.locked_by ? q.eq("locked_by", cur.locked_by) : q.is("locked_by", null);
       const won = must<{ id: string }[]>(await q.select("id"));
-      if (action !== "lock" || (won && won.length > 0)) break;
+      if (won && won.length > 0) break;
       const now = await getMatch(m.id);
       if (!now) return fail(404, "finnes_ikke");
       if (now.status === "done" || now.status === "bye") return fail(409, "kamp_ferdig");
       const free = !now.locked_by || now.locked_by.split("|")[0] === body.deviceId;
-      if (attempt >= 1 || !free) return fail(409, "laast_av_annen", { lockedBy: now.locked_by });
+      if (attempt >= 1) return fail(409, action === "lock" ? "laast_av_annen" : "konflikt", { lockedBy: toMatchDTO(now).locked_by });
+      if (action === "lock" && !free) return fail(409, "laast_av_annen", { lockedBy: toMatchDTO(now).locked_by });
       cur = now;
     }
   }
@@ -119,7 +152,7 @@ async function handlePOST(req: Request) {
     matchId: m.id,
   }), "lock");
   const updated = await getMatch(m.id);
-  return ok({ match: updated, promoted });
+  return ok({ match: updated ? toMatchDTO(updated) : updated, promoted });
 }
 
 export const POST = withApi(handlePOST);

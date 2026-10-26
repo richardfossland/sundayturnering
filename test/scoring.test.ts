@@ -68,7 +68,7 @@ describe("sets profile", () => {
     expect(
       validateResult("sets", { sets: [[25, 20], [20, 25]] }, setsCfg),
     ).toBeTruthy(); // 1-1 can't stand
-    expect(validateResult("sets", { sets: [[25, 20]] }, setsCfg)).toBeNull();
+    expect(validateResult("sets", { sets: [[25, 20], [25, 20], [25, 20]] }, setsCfg)).toBeNull();
   });
 });
 

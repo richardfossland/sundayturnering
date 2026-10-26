@@ -15,8 +15,22 @@ import type {
 
 export type Outcome = "home" | "away" | "draw";
 
-/** Default scoreline credited to a walkover/DQ winner when the config omits one. */
-const DEFAULT_WALKOVER: [number, number] = [1, 0];
+/** Default scoreline credited to a walkover/DQ winner when the config omits one.
+ * Sets profile: a full-match win (2–0 in best of 3, 3–0 in best of 5), the
+ * same as a straight-sets win would count — not a 1–0 that is worth less than
+ * playing and winning. */
+function defaultWalkover(cfg?: ScoringConfig): [number, number] {
+  if (cfg?.profile === "sets") return [setsToWin(cfg.setsBestOf ?? 3), 0];
+  return [1, 0];
+}
+
+/** Sets needed to win a best-of-N match (best of 3 → 2, best of 5 → 3). */
+export function setsToWin(bestOf: number): number {
+  return Math.ceil(bestOf / 2);
+}
+
+/** Hard cap on the sets array, whatever the config says. */
+export const MAX_SETS = 15;
 
 function isSpecial(result: unknown): result is SpecialResult {
   return result != null && typeof result === "object" && "special" in result;
@@ -102,6 +116,7 @@ export function validateResult(
     const sets = r.sets;
     if (!Array.isArray(sets) || sets.length === 0)
       return "Legg til minst ett sett.";
+    if (sets.length > MAX_SETS) return "For mange sett.";
     for (const s of sets) {
       if (
         !Array.isArray(s) ||
@@ -118,7 +133,7 @@ export function validateResult(
     }
     const { home, away } = countSets(sets as [number, number][]);
     if (home === away) return "Kampen kan ikke ende likt på sett.";
-    return null;
+    return checkSetsBestOf(sets as [number, number][], cfg.setsBestOf);
   }
 
   if (profile === "winner") {
@@ -128,6 +143,31 @@ export function validateResult(
   }
 
   return "Ukjent poengprofil.";
+}
+
+/** «Best av N» for a sets match: the winner has exactly ceil(N/2) sets, the
+ * loser fewer, no more than N sets in total, and no set is played after the
+ * match was already decided. Null = fine (also without a configured N, which
+ * old tournaments may lack). Expects sets that already passed the per-set
+ * checks. The referee input uses the same rule to explain what is missing. */
+export function checkSetsBestOf(
+  sets: [number, number][],
+  bestOf: number | undefined,
+): string | null {
+  if (!bestOf || bestOf < 1) return null;
+  const target = setsToWin(bestOf);
+  let home = 0;
+  let away = 0;
+  for (let i = 0; i < sets.length; i++) {
+    if (home >= target || away >= target)
+      return `Kampen var allerede avgjort etter sett ${i}. Fjern sett ${i + 1}.`;
+    if (sets[i][0] > sets[i][1]) home++;
+    else if (sets[i][1] > sets[i][0]) away++;
+  }
+  if (sets.length > bestOf) return `Best av ${bestOf} kan ikke ha mer enn ${bestOf} sett.`;
+  if (home < target && away < target)
+    return `Kampen er ikke avgjort ennå. Best av ${bestOf}: første til ${target} sett vinner.`;
+  return null;
 }
 
 // ---------- live (interim) scores ----------
@@ -151,7 +191,7 @@ export function validateLiveResult(
   }
   if (profile === "sets") {
     const sets = r.sets;
-    if (!Array.isArray(sets) || sets.length === 0 || sets.length > 15)
+    if (!Array.isArray(sets) || sets.length === 0 || sets.length > MAX_SETS)
       return "Legg til minst ett sett.";
     for (const s of sets) {
       if (!Array.isArray(s) || s.length !== 2 || !isInt(s[0]) || !isInt(s[1]) || s[0] < 0 || s[1] < 0 || s[0] > 999 || s[1] > 999)
@@ -231,7 +271,7 @@ export function resolve(
     if (result.special === "abandoned")
       return { winner: "draw", display: "Avbrutt", homeScore: 0, awayScore: 0 };
     const w = result.winner ?? "home";
-    const [hi, lo] = cfg?.walkoverScore ?? DEFAULT_WALKOVER;
+    const [hi, lo] = cfg?.walkoverScore ?? defaultWalkover(cfg);
     const label = result.special === "walkover" ? "W.O." : "Disk.";
     return {
       winner: w,

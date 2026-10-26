@@ -56,6 +56,7 @@ vi.mock("@/lib/server/store", () => ({
 vi.mock("@/lib/server/broadcast", () => ({ broadcast: async () => {} }));
 vi.mock("@/lib/server/playoff", () => ({ propagateResult: async () => false }));
 
+import { resultByFor } from "@/lib/server/pair";
 import { POST as result } from "@/app/api/match/result/route";
 import { POST as lock } from "@/app/api/match/lock/route";
 import { POST as correct } from "@/app/api/match/correct/route";
@@ -113,7 +114,8 @@ function post(handler: (req: Request) => Promise<Response>, body: Record<string,
   );
 }
 
-const resultBody = { matchId: MID, expectedVersion: 0, result: { home: 2, away: 1 }, deviceId: "d1" };
+const SECRET = "device-secret-0123456789abcdef";
+const resultBody = { matchId: MID, expectedVersion: 0, result: { home: 2, away: 1 }, deviceId: "d1", deviceSecret: SECRET };
 const lockBody = { matchId: MID, deviceId: "d1", deviceName: "Bane 1", action: "lock" };
 const timerBody = { tournamentId: ID, action: "start", durationSec: 300 };
 
@@ -159,7 +161,7 @@ describe("referee routes require the control code", () => {
   });
 
   it("correct: the code is checked before the self-correct window", async () => {
-    matchRow = makeMatch({ status: "done", result_by: "d1|Bane 1", result: { home: 1, away: 0 } });
+    matchRow = makeMatch({ status: "done", result_by: await resultByFor(SECRET, "Bane 1"), result: { home: 1, away: 0 } });
     const res = await post(correct, resultBody);
     expect(res.status).toBe(403);
     expect((await res.json()).error).toBe("feil_kontrollkode");

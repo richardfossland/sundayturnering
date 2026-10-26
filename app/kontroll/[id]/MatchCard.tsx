@@ -3,7 +3,7 @@
 import type { OutboxEntry } from "@/lib/client/outbox";
 import { matchTime } from "@/lib/client/view";
 import { resolve } from "@/lib/tournament/scoring";
-import { canSelfCorrect, selfCorrectMsLeft } from "@/lib/tournament/correct";
+import { canSelfCorrect, selfCorrectMsLeft, type Owned } from "@/lib/tournament/correct";
 import { no } from "@/lib/locale/no";
 import { Icon } from "@/lib/client/Icon";
 import type { Court, Match, ScoringProfileKey, Team } from "@/lib/types";
@@ -19,7 +19,8 @@ export function MatchCard({
   teams,
   courts,
   profile,
-  selfDeviceId,
+  owned,
+  correctable,
   unsent,
   timerEndsAt,
   flag,
@@ -34,7 +35,10 @@ export function MatchCard({
   teams: Map<string, Team>;
   courts: Court[];
   profile: ScoringProfileKey;
-  selfDeviceId: string | null;
+  /** What this phone remembers of saving this match's result (identity.ownedResult). */
+  owned: Owned | null;
+  /** The tournament state still allows a referee correction (see correctBlock). */
+  correctable: boolean;
   /** A result for this match waits in the outbox: show it, block a second entry. */
   unsent: OutboxEntry | null;
   /** When this match's countdown ends (live cards only). */
@@ -51,16 +55,17 @@ export function MatchCard({
   onLocked: () => void;
 }) {
   // Only finished cards run the self-correct countdown clock.
-  const now = useNow(m.status === "done" && !!selfDeviceId);
+  const now = useNow(m.status === "done");
   const correctMsLeft =
-    now && selfDeviceId && canSelfCorrect(m, selfDeviceId, now)
+    now && correctable && canSelfCorrect(m, owned, now)
       ? selfCorrectMsLeft(m, now)
       : null;
   const h = m.home_team_id ? teams.get(m.home_team_id) : null;
   const a = m.away_team_id ? teams.get(m.away_team_id) : null;
   const court = courts.find((c) => c.id === m.court_id);
   const locked = m.locked_by && m.status !== "done";
-  const lockName = locked ? m.locked_by!.split("|")[1] : null;
+  // The public match carries only the holder's NAME (never the device id).
+  const lockName = locked ? m.locked_by : null;
   const r = m.result ? resolve(profile, m.result) : null;
   const ready = !!(h && a);
   const planned = m.status === "scheduled" || m.status === "called";

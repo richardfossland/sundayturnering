@@ -7,7 +7,7 @@ import type {
   SpecialKind,
   Team,
 } from "@/lib/types";
-import { MAX_SCORE, validateResult } from "@/lib/tournament/scoring";
+import { MAX_SCORE, MAX_SETS, checkSetsBestOf, validateResult } from "@/lib/tournament/scoring";
 import { no } from "@/lib/locale/no";
 import { Icon } from "@/lib/client/Icon";
 import { NumberField } from "@/lib/client/NumberField";
@@ -123,7 +123,7 @@ export function ResultInput({
     }
     if (profile === "simple")
       return knockout && level && decider ? { home: hs, away: as, decider } : { home: hs, away: as };
-    if (profile === "sets") return { sets, home: 0, away: 0 } as MatchResult;
+    if (profile === "sets") return { sets, home: setTally[0], away: setTally[1] } as MatchResult;
     if (winner) return { winner };
     return null;
   }
@@ -148,6 +148,16 @@ export function ResultInput({
     (acc, [h, a]) => (h > a ? [acc[0] + 1, acc[1]] : a > h ? [acc[0], acc[1] + 1] : acc),
     [0, 0],
   );
+
+  // «Best av N»: tell the referee what is missing/too much BEFORE saving and
+  // keep Lagre off until the set list is a finished, legal match. Same rule as
+  // the server (scoring.ts checkSetsBestOf). A level set is its own message.
+  const setsIssue: string | null =
+    !special && profile === "sets"
+      ? sets.some(([h, a]) => h === a)
+        ? no.control.setsLevel
+        : checkSetsBestOf(sets, scoring.setsBestOf)
+      : null;
 
   return (
     <div className="stack">
@@ -251,10 +261,19 @@ export function ResultInput({
               )}
             </div>
           ))}
-          <button className="btn btn-ghost" onClick={() => setSets([...sets, [0, 0]])}>
+          <button
+            className="btn btn-ghost"
+            onClick={() => setSets([...sets, [0, 0]])}
+            disabled={sets.length >= MAX_SETS}
+          >
             <Icon name="more" size={16} />
             {no.control.addSet}
           </button>
+          {setsIssue && (
+            <span className="hint" role="status" data-testid="sets-issue">
+              {setsIssue}
+            </span>
+          )}
         </div>
       )}
 
@@ -349,7 +368,7 @@ export function ResultInput({
         <button
           className="btn btn-gold btn-block btn-lg"
           onClick={submit}
-          disabled={submitting || (showSpecial && !special)}
+          disabled={submitting || (showSpecial && !special) || !!setsIssue}
         >
           {submitting ? <span className="spin" /> : null}
           {submitting ? no.control.saving : no.control.save}

@@ -168,18 +168,19 @@ export const api = {
     matchId: string,
     expectedVersion: number,
     result: MatchResult,
-    device: { deviceId: string; deviceName?: string },
+    device: { deviceId: string; deviceName?: string; deviceSecret?: string },
     controlCode: string,
     /** Idempotency key (lib/client/outbox.ts): a repeat of the same id returns
      * the first outcome instead of committing or 409-ing again. */
     requestId?: string,
   ) {
-    return post<{ match: Match }>("/api/match/result", {
+    return post<{ match: Match; propagated?: boolean }>("/api/match/result", {
       matchId,
       expectedVersion,
       result,
       deviceId: device.deviceId,
       deviceName: device.deviceName,
+      deviceSecret: device.deviceSecret,
       controlCode,
       requestId,
     });
@@ -206,15 +207,16 @@ export const api = {
     matchId: string,
     expectedVersion: number,
     result: MatchResult,
-    device: { deviceId: string; deviceName?: string },
+    device: { deviceId: string; deviceName?: string; deviceSecret?: string },
     controlCode: string,
   ) {
-    return post<{ match: Match }>("/api/match/correct", {
+    return post<{ match: Match; propagated?: boolean }>("/api/match/correct", {
       matchId,
       expectedVersion,
       result,
       deviceId: device.deviceId,
       deviceName: device.deviceName,
+      deviceSecret: device.deviceSecret,
       controlCode,
     });
   },

@@ -43,6 +43,7 @@ vi.mock("@/lib/server/store", () => ({
         const q: Record<string, unknown> = {
           eq: (col: string, v: unknown) => (conds.push(`eq:${col}:${v}`), q),
           is: (col: string, v: unknown) => (conds.push(`is:${col}:${v}`), q),
+          in: (col: string, v: unknown[]) => (conds.push(`in:${col}:${v.join(",")}`), q),
           select: async () => {
             conditions.push(conds);
             return { data: raceLost || raceLosses-- > 0 ? [] : [{ id: MID }], error: null };
@@ -155,7 +156,7 @@ describe("POST /api/match/lock — status side effects", () => {
     const r = await lock({ action: "lock" });
     expect(r.json.promoted).toBe(true);
     expect(patches).toEqual([{ locked_by: "d1|Bane 1", status: "live" }]);
-    expect(conditions[0]).toEqual(expect.arrayContaining(["eq:status:called"]));
+    expect(conditions[1]).toEqual(expect.arrayContaining(["eq:status:called"]));
   });
 
   it("lock is a compare-and-set on the free lock (is null) and current status", async () => {
@@ -195,7 +196,8 @@ describe("POST /api/match/lock — status side effects", () => {
     rereads = [matchRow, makeMatch({ status: "live", locked_by: "other|Bane 2" })];
     const r = await lock({ action: "lock" });
     expect(r.status).toBe(409);
-    expect(r.json).toEqual({ error: "laast_av_annen", lockedBy: "other|Bane 2" });
+    // Only the holder's NAME is public — never the device id half.
+    expect(r.json).toEqual({ error: "laast_av_annen", lockedBy: "Bane 2" });
     expect(conditions).toHaveLength(1); // no pointless retry on someone else's lock
   });
 
@@ -204,5 +206,106 @@ describe("POST /api/match/lock — status side effects", () => {
     const r = await lock({ action: "force" });
     expect(r.status).toBe(200);
     expect(conditions[0].some((c) => c.includes("locked_by"))).toBe(false);
+  });
+
+  // ---- C1: every write is a compare-and-set on what was read ----------------
+
+  it("start is a CAS on scheduled/called", async () => {
+    matchRow = makeMatch();
+    await lock({ action: "start" });
+    expect(conditions[0]).toEqual(expect.arrayContaining([`eq:id:${MID}`, "in:status:scheduled,called"]));
+  });
+
+  it("start loses to a save that finished the match → 409 kamp_ferdig, never live again", async () => {
+    matchRow = makeMatch();
+    raceLost = true;
+    rereads = [matchRow, makeMatch({ status: "done", result: { home: 1, away: 0 } })];
+    const r = await lock({ action: "start" });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe("kamp_ferdig");
+  });
+
+  it("start loses to another phone's Start → fine, the match is live either way", async () => {
+    matchRow = makeMatch();
+    raceLost = true;
+    rereads = [matchRow, makeMatch({ status: "live" })];
+    const r = await lock({ action: "start" });
+    expect(r.status).toBe(200);
+  });
+
+  it("start / lock refuse a match whose teams are not known yet (A5)", async () => {
+    matchRow = makeMatch({ away_team_id: null });
+    for (const action of ["start", "lock", "force"]) {
+      const r = await lock({ action });
+      expect(r.status).toBe(409);
+      expect(r.json.error).toBe("kamp_ikke_klar");
+    }
+    expect(patches).toEqual([]);
+  });
+
+  it("unlock-with-revert demotes only a still-live match and only OUR lock", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "d1|Bane 1" });
+    await lock({ action: "unlock", revert: true });
+    expect(conditions[0]).toEqual(
+      expect.arrayContaining([`eq:id:${MID}`, "eq:locked_by:d1|Bane 1", "eq:status:live"]),
+    );
+  });
+
+  it("unlock-with-revert that loses to a save leaves the done match alone (200, fresh row)", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "d1|Bane 1" });
+    raceLost = true; // the UPDATE matched nothing: the match is done by now
+    rereads = [matchRow, makeMatch({ status: "done", locked_by: "d1|Bane 1", result: { home: 2, away: 0 } })];
+    const r = await lock({ action: "unlock", revert: true });
+    expect(r.status).toBe(200);
+    expect(r.json.match.status).toBe("done");
+    expect(r.json.match.result).toEqual({ home: 2, away: 0 });
+  });
+
+  it("plain unlock only clears our lock (no status condition, no clobbering a new holder)", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "d1|Bane 1" });
+    await lock({ action: "unlock" });
+    expect(conditions[0]).toContain("eq:locked_by:d1|Bane 1");
+    expect(conditions[0].some((c) => c.startsWith("eq:status"))).toBe(false);
+  });
+
+  it("force is a CAS on the status it read", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "other|X" });
+    await lock({ action: "force" });
+    expect(conditions[0]).toContain("eq:status:live");
+  });
+
+  it("force on a match that just became done → 409 kamp_ferdig", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "other|X" });
+    raceLost = true;
+    rereads = [matchRow, makeMatch({ status: "done" })];
+    const r = await lock({ action: "force" });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe("kamp_ferdig");
+  });
+
+  it("force whose status moved (called → live by another phone) retries on the fresh row", async () => {
+    matchRow = makeMatch({ status: "called" });
+    raceLosses = 1;
+    rereads = [matchRow, makeMatch({ status: "live" })];
+    const r = await lock({ action: "force" });
+    expect(r.status).toBe(200);
+    expect(conditions[1]).toContain("eq:status:live");
+    expect(r.json.promoted).toBe(false);
+  });
+
+  it("lock that loses to a save → 409 kamp_ferdig", async () => {
+    matchRow = makeMatch();
+    raceLost = true;
+    rereads = [matchRow, makeMatch({ status: "done" })];
+    const r = await lock({ action: "lock" });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe("kamp_ferdig");
+  });
+
+  it("the match served back never carries the lock holder's device id", async () => {
+    matchRow = makeMatch({ status: "live", locked_by: "d1|Bane 1", result_by: "tag|Bane 1" });
+    const r = await lock({ action: "lock" });
+    expect(r.json.match.locked_by).toBe("Bane 1");
+    expect(r.json.match.result_by).toBe("Bane 1");
   });
 });

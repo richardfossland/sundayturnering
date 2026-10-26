@@ -26,6 +26,8 @@ export type OutboxPayload = {
   result: MatchResult;
   deviceId: string;
   deviceName?: string;
+  /** Private per-device secret (identity.deviceSecret) for «Endre» ownership. */
+  deviceSecret?: string;
   controlCode: string;
 };
 
@@ -43,7 +45,7 @@ export type OutboxEntry = {
 };
 
 export type OutboxEvent =
-  | { type: "sent"; entry: OutboxEntry; match: Match | null }
+  | { type: "sent"; entry: OutboxEntry; match: Match | null; propagated: boolean }
   | { type: "rejected"; entry: OutboxEntry; error: ApiError };
 
 /** Where the queue lives. All methods may reject; the Outbox swallows that. */
@@ -167,7 +169,7 @@ export async function openBestStore(): Promise<OutboxStore> {
 export type OutboxDeps = {
   store: OutboxStore;
   /** One send attempt. Resolves with the saved match, throws on any failure. */
-  send: (e: OutboxEntry) => Promise<Match | null>;
+  send: (e: OutboxEntry) => Promise<Match | null | { match: Match | null; propagated: boolean }>;
   now?: () => number;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (h: unknown) => void;
@@ -270,9 +272,14 @@ export class Outbox {
       if (!this.entries.some((x) => x.requestId === entry.requestId)) continue;
       if (entry.failed || blocked.has(entry.matchId)) continue;
       try {
-        const match = await this.deps.send(entry);
+        const sent = await this.deps.send(entry);
+        // `send` may answer a bare match (older seams/tests) or match + flag.
+        const { match, propagated } =
+          sent && typeof sent === "object" && "propagated" in sent
+            ? (sent as { match: Match | null; propagated: boolean })
+            : { match: sent as Match | null, propagated: true };
         await this.drop(entry);
-        this.fire({ type: "sent", entry, match });
+        this.fire({ type: "sent", entry, match, propagated });
       } catch (e) {
         if (classifySendError(e) === "drop") {
           await this.drop(entry);
@@ -361,17 +368,21 @@ export class Outbox {
 
 // ---- browser singleton + React glue ----------------------------------------
 
-function sendEntry(e: OutboxEntry): Promise<Match | null> {
+function sendEntry(e: OutboxEntry): Promise<{ match: Match | null; propagated: boolean }> {
   return api
     .submitResult(
       e.matchId,
       e.expectedVersion,
       e.payload.result,
-      { deviceId: e.payload.deviceId, deviceName: e.payload.deviceName },
+      {
+        deviceId: e.payload.deviceId,
+        deviceName: e.payload.deviceName,
+        deviceSecret: e.payload.deviceSecret,
+      },
       e.payload.controlCode,
       e.requestId,
     )
-    .then((r) => r.match ?? null);
+    .then((r) => ({ match: r.match ?? null, propagated: r.propagated !== false }));
 }
 
 let shared: Outbox | null = null;
@@ -419,11 +430,11 @@ export async function submitResultOrQueue(
     matchId: string;
     expectedVersion: number;
     result: MatchResult;
-    device: { deviceId: string; deviceName?: string };
+    device: { deviceId: string; deviceName?: string; deviceSecret?: string };
     controlCode: string;
   },
   outbox: Outbox = getOutbox(),
-): Promise<{ queued: false; match: Match } | { queued: true }> {
+): Promise<{ queued: false; match: Match; propagated: boolean } | { queued: true }> {
   const requestId = newRequestId();
   try {
     const r = await api.submitResult(
@@ -435,7 +446,7 @@ export async function submitResultOrQueue(
       requestId,
     );
     await outbox.discardFailed(args.matchId);
-    return { queued: false, match: r.match };
+    return { queued: false, match: r.match, propagated: r.propagated !== false };
   } catch (e) {
     if (!isNetworkFailure(e)) throw e;
     await outbox.enqueue({
@@ -447,6 +458,7 @@ export async function submitResultOrQueue(
         result: args.result,
         deviceId: args.device.deviceId,
         deviceName: args.device.deviceName,
+        deviceSecret: args.device.deviceSecret,
         controlCode: args.controlCode,
       },
       attempts: 1,

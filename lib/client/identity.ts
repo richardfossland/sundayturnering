@@ -6,6 +6,10 @@
 
 const DEVICE_ID = "turnering:deviceId";
 const DEVICE_NAME = "turnering:deviceName";
+const DEVICE_SECRET = "turnering:deviceSecret";
+const OWNED = "turnering:owned";
+/** How long a remembered save is worth keeping: well past the 4-minute window. */
+const OWNED_TTL_MS = 15 * 60 * 1000;
 const ORG_CODE = (id: string) => `turnering:org:${id}`;
 const PINNED_COURT = (id: string) => `turnering:court:${id}`;
 const CONTROL_CODE = (id: string) => `turnering:ctl:${id}`;
@@ -24,6 +28,29 @@ function rid(): string {
 // id — that breaks soft locks and self-correct ownership. A per-page-load random
 // id is stable enough within a session.
 let memoryId: string | null = null;
+let memorySecret: string | null = null;
+let memoryOwned: Record<string, { v: number; at: number }> = {};
+
+/** 128 random bits as hex; crypto.getRandomValues first, Math.random as a last
+ * resort for ancient WebViews (the server also bounds what it accepts). */
+function randomSecret(): string {
+  try {
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return Array.from({ length: 4 }, () => Math.random().toString(16).slice(2, 10).padEnd(8, "0")).join("");
+  }
+}
+
+function readOwned(): Record<string, { v: number; at: number }> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(OWNED) ?? "{}");
+    return raw && typeof raw === "object" ? raw : {};
+  } catch {
+    return memoryOwned;
+  }
+}
 
 export const identity = {
   deviceId(): string {
@@ -37,6 +64,42 @@ export const identity = {
     } catch {
       return (memoryId ??= rid());
     }
+  },
+  /** Private per-device secret. Unlike deviceId (which travels in locks and
+   * presence) it is sent ONLY with result saves/corrections: the server keeps
+   * an HMAC of it, and it is what authorises «Endre» on a result this phone
+   * saved. Never shown, never in a URL. */
+  deviceSecret(): string {
+    try {
+      let v = localStorage.getItem(DEVICE_SECRET);
+      if (!v || v.length < 16) {
+        v = randomSecret();
+        localStorage.setItem(DEVICE_SECRET, v);
+      }
+      return v;
+    } catch {
+      return (memorySecret ??= randomSecret());
+    }
+  },
+  /** Remember that THIS phone saved a result (at `version`), so «Endre» can be
+   * offered. Nothing about who saved it is public, so the phone keeps its own
+   * short list; old entries are pruned on every write. */
+  markOwned(matchId: string, version: number) {
+    const now = Date.now();
+    const next: Record<string, { v: number; at: number }> = {};
+    for (const [id, e] of Object.entries(readOwned()))
+      if (e && now - e.at < OWNED_TTL_MS) next[id] = e;
+    next[matchId] = { v: version, at: now };
+    memoryOwned = next;
+    try {
+      localStorage.setItem(OWNED, JSON.stringify(next));
+    } catch {}
+  },
+  /** The result_version this phone saved for a match, or null. */
+  ownedResult(matchId: string): { version: number } | null {
+    const e = readOwned()[matchId];
+    if (!e || Date.now() - e.at >= OWNED_TTL_MS) return null;
+    return { version: e.v };
   },
   deviceName(): string {
     try {

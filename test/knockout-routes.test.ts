@@ -34,7 +34,17 @@ vi.mock("@/lib/server/store", () => ({
       return { data: [{ ...matchRow, status: "done" }], error: null };
     },
     from: () => ({
-      update: () => ({ eq: async () => ({ error: null }) }),
+      update: () => {
+        // eq/is/in chain → select() (the lock route's compare-and-set writes)
+        const q: Record<string, unknown> = {
+          eq: () => q,
+          is: () => q,
+          in: () => q,
+          select: async () => ({ data: [{ id: MID }], error: null }),
+          then: (res: (v: unknown) => void) => res({ error: null }),
+        };
+        return q;
+      },
     }),
   }),
 }));
@@ -52,6 +62,7 @@ vi.mock("@/lib/server/auth", async (orig) => ({
     code === "ABCD-EF" ? tournamentRow : null,
 }));
 
+import { resultByFor } from "@/lib/server/pair";
 import { POST as result } from "@/app/api/match/result/route";
 import { POST as lock } from "@/app/api/match/lock/route";
 import { POST as correct } from "@/app/api/match/correct/route";
@@ -109,7 +120,8 @@ function post(handler: (req: Request) => Promise<Response>, body: Record<string,
     }),
   );
 }
-const ref = { matchId: MID, expectedVersion: 0, deviceId: "d1", controlCode: "402815" };
+const SECRET = "device-secret-0123456789abcdef";
+const ref = { matchId: MID, expectedVersion: 0, deviceId: "d1", deviceSecret: SECRET, controlCode: "402815" };
 
 beforeEach(() => {
   tournamentRow = tournament();
@@ -157,13 +169,13 @@ describe("status guards", () => {
 });
 
 describe("changing a knockout winner after the next round was played", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     rpcError = null;
     matchRow = match({
       status: "done",
       result: { home: 2, away: 1 },
       winner_team_id: "h",
-      result_by: "d1",
+      result_by: await resultByFor(SECRET, "Bane 1"),
       updated_at: new Date().toISOString(),
     });
   });

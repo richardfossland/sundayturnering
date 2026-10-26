@@ -12,7 +12,7 @@ import { api, setPairToken } from "@/lib/client/api";
 import { teamMap, matchTime } from "@/lib/client/view";
 import { parseControlTarget, resolveControlTarget, type ControlTarget } from "@/lib/client/controlTarget";
 import { resolve } from "@/lib/tournament/scoring";
-import { canSelfCorrect } from "@/lib/tournament/correct";
+import { canSelfCorrect, correctBlock } from "@/lib/tournament/correct";
 import { no } from "@/lib/locale/no";
 import { Icon } from "@/lib/client/Icon";
 import { useToast } from "@/lib/client/useToast";
@@ -138,7 +138,13 @@ export function ControlClient({ id }: { id: string }) {
   const onOutbox = useCallback(
     (e: OutboxEvent) => {
       if (e.type === "sent") {
-        flash(no.control.unsentSent, "success");
+        // The saved copy is this phone's: remember it so «Endre» is offered.
+        if (e.match && e.entry.payload.deviceSecret) identity.markOwned(e.entry.matchId, e.match.result_version);
+        if (e.propagated) flash(no.control.unsentSent, "success");
+        else {
+          console.warn("[result] sent from outbox, but the bracket was not updated", e.entry.matchId);
+          flash(no.control.notPropagated, "error", 9000);
+        }
         holdSaved(e.entry.matchId);
       } else if (!codeRejected(e.error)) {
         flash(e.error.code === "konflikt" ? no.control.unsentRejected : errorMessage(e.error), "error");
@@ -240,11 +246,24 @@ export function ControlClient({ id }: { id: string }) {
     identity.setPinnedCourt(id, cId);
   }
 
+  /** «Endre» is offered only to the phone that saved the result (it remembers
+   * that itself; the server re-checks with the secret), inside the window, and
+   * where the plain «Lagre» would also be allowed (serie not over, no later
+   * Swiss round; the deciding final stays editable after the tournament
+   * finished). */
+  function canCorrect(m: Match): boolean {
+    return (
+      !!self &&
+      canSelfCorrect(m, identity.ownedResult(m.id), wallClock()) &&
+      correctBlock({ status: tournament.status, format: tournament.format }, m, matches) === null
+    );
+  }
+
   function openMatch(m: Match) {
     if (m.status === "done") {
       // Read the clock at tap time (no per-second state in this component);
       // the server re-checks the window authoritatively.
-      if (self && canSelfCorrect(m, self.deviceId, wallClock())) {
+      if (canCorrect(m)) {
         setOpenMode("correct");
         setOpen(m);
       } else {
@@ -312,6 +331,12 @@ export function ControlClient({ id }: { id: string }) {
     } finally {
       setBusyTimer(false);
     }
+  }
+
+  /** Saved, but the bracket's next match was not updated (server flag
+   * `propagated:false`): the referee must hear it, it stays up longer. */
+  function warnNotPropagated() {
+    flash(no.control.notPropagated, "error", 9000);
   }
 
   /** «Lagret: Lag 1 2–1 Lag 8» + the card held on top for a few seconds. */
@@ -464,7 +489,8 @@ export function ControlClient({ id }: { id: string }) {
                 teams={teams}
                 courts={courts}
                 profile={tournament.scoring.profile}
-                selfDeviceId={self?.deviceId ?? null}
+                owned={self ? identity.ownedResult(m.id) : null}
+                correctable={correctBlock({ status: tournament.status, format: tournament.format }, m, matches) === null}
                 unsent={unsentByMatch.get(m.id) ?? null}
                 timerEndsAt={m.status === "live" ? timerEndsAtFor(m) : null}
                 flag={flag}
@@ -499,9 +525,10 @@ export function ControlClient({ id }: { id: string }) {
           }}
           onClose={() => setOpen(null)}
           onAuthError={codeRejected}
-          onDone={(result) => {
+          onDone={(result, info) => {
             setOpen(null);
             confirmSaved(openMatchNow, result);
+            if (!info.propagated) warnNotPropagated();
             refetch();
           }}
           onQueued={() => flash(no.control.queuedToast)}

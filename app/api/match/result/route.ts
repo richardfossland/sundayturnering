@@ -1,7 +1,9 @@
 import { ok, fail, readJson, rateLimit, ipKey, withApi } from "@/lib/server/http";
 import type { Match } from "@/lib/types";
 import { db, getMatch, getTournament } from "@/lib/server/store";
-import { propagateResult } from "@/lib/server/playoff";
+import { propagateAfterCommit } from "@/lib/server/propagate";
+import { resultByFor } from "@/lib/server/pair";
+import { toMatchDTO } from "@/lib/dto";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { checkControlCode, prefetchBlocked } from "@/lib/server/auth";
@@ -29,6 +31,9 @@ async function handlePOST(req: Request) {
     result?: Record<string, unknown>;
     deviceId?: string;
     deviceName?: string;
+    /** Random per-device secret (never public): proves later that this phone
+     * saved the result, see lib/server/pair.ts resultByFor. */
+    deviceSecret?: string;
     controlCode?: string;
     requestId?: string;
   }>(req);
@@ -70,18 +75,12 @@ async function handlePOST(req: Request) {
       // The first send may have committed but died before propagating the
       // bracket. propagate_playoff_result is a no-op once bracket_propagations
       // holds this result_version, so re-running it on every replay is safe.
-      let propagated = true;
       const pm = prior as Match;
-      if (pm.phase === "playoff") {
-        try {
-          await propagateResult(pm);
-        } catch (e) {
-          propagated = false;
-          console.error("[result] propagate failed on replay", e);
-        }
-      }
+      const propagated = await propagateAfterCommit(pm, "result replay");
       return ok(
-        propagated ? { match: prior, replay: true } : { match: prior, replay: true, propagated: false },
+        propagated
+          ? { match: toMatchDTO(pm), replay: true }
+          : { match: toMatchDTO(pm), replay: true, propagated: false },
       );
     }
     if (m.status === "done") return fail(409, "kamp_ferdig");
@@ -108,11 +107,9 @@ async function handlePOST(req: Request) {
   const winnerTeamId =
     winner === "home" ? m.home_team_id : winner === "away" ? m.away_team_id : null;
 
-  const resultBy = body.deviceId
-    ? body.deviceName
-      ? `${body.deviceId}|${body.deviceName}`
-      : body.deviceId
-    : null;
+  // `<ownerTag>|<name>`: the tag (HMAC of the phone's secret) is what lets this
+  // phone — and only this phone — use «Endre» later. No raw deviceId is stored.
+  const resultBy = await resultByFor(body.deviceSecret, body.deviceName);
 
   // Atomic guarded write.
   const { data, error } = await db().rpc("submit_match_result", {
@@ -142,20 +139,15 @@ async function handlePOST(req: Request) {
   // The RPC has already committed: a failure here must NOT surface as 5xx, or
   // the referee retries, gets 409 kamp_ferdig and sees a false "konflikt".
   // Report the result as saved and flag the bracket for the organiser.
-  let propagated = true;
-  if (saved?.phase === "playoff") {
-    try {
-      await propagateResult(saved);
-    } catch (e) {
-      propagated = false;
-      console.error("[result] propagate failed after commit", e);
-    }
-  }
+  // One retry inside (the RPC is idempotent); still failing → the response says
+  // so and the referee is told to alert the organiser.
+  const propagated = await propagateAfterCommit(saved, "result");
 
   defer(() => broadcast(channels.tournament(m.tournament_id), events.matchUpdated, {
     matchId: m.id,
   }), "result");
-  return ok(propagated ? { match: saved } : { match: saved, propagated: false });
+  const out = saved ? toMatchDTO(saved) : saved;
+  return ok(propagated ? { match: out } : { match: out, propagated: false });
 }
 
 export const POST = withApi(handlePOST);
