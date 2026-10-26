@@ -18,7 +18,7 @@
 // storylines verbatim when no key is configured (degrade gracefully). The pure
 // diff here is the source of truth and the place all the test coverage lives.
 
-import { doubleElimOutcome } from "@/lib/tournament/doubleElim";
+import { championId } from "@/lib/tournament/champion";
 import type { StateDTO } from "@/lib/dto";
 import type { Match, StandingRow, Team } from "@/lib/types";
 import { resolve } from "@/lib/tournament/scoring";
@@ -374,30 +374,12 @@ function finalKickoff(before: StateDTO, after: StateDTO): Match | null {
   const playoff = after.matches.filter((m) => m.phase === "playoff" && (m.bracket ?? "A") === "A");
   if (playoff.length === 0) return null;
   const finalRound = Math.max(...playoff.map((m) => m.round));
+  // Finalen er bracket_slot 0; bronsefinalen deler runde, men er aldri «finalen».
   const final = playoff.find(
-    (m) => m.round === finalRound && m.home_team_id && m.away_team_id,
+    (m) => m.round === finalRound && m.bracket_slot === 0 && m.home_team_id && m.away_team_id,
   );
   if (!final || final.status !== "live") return null;
   const old = before.matches.find((m) => m.id === final.id);
   if (old?.status === "live") return null; // already live before
   return final;
-}
-
-/** Champion = playoff final winner if a bracket exists, else rank-1 standing.
- * (Local copy — narrate is pure and must not import the client `view` module,
- * which pulls in "use client" deps.) */
-function championId(state: StateDTO): string | null {
-  if (state.tournament.format === "double_elim")
-    return doubleElimOutcome(state.matches)?.champion ?? null;
-  const playoff = state.matches.filter((m) => m.phase === "playoff" && (m.bracket ?? "A") === "A");
-  if (playoff.length > 0) {
-    const finalRound = Math.max(...playoff.map((m) => m.round));
-    const final = playoff.find(
-      (m) => m.round === finalRound && m.status === "done",
-    );
-    if (final?.winner_team_id) return final.winner_team_id;
-  }
-  const top = state.standings.find((s) => s.rank === 1) ?? state.standings[0];
-  if (top && top.played > 0) return top.team_id;
-  return null;
 }

@@ -1,9 +1,10 @@
 // Small pure view helpers shared by board + control.
-import type { Match, Team, TournamentStatus } from "@/lib/types";
+import type { Match, StandingRow, Team, TournamentStatus } from "@/lib/types";
 import type { StateDTO } from "@/lib/dto";
 import { BRONZE_SLOT } from "@/lib/tournament/bracket";
 import { no } from "@/lib/locale/no";
 import { doubleElimOutcome } from "@/lib/tournament/doubleElim";
+import { championId } from "@/lib/tournament/champion";
 import { isPlayable } from "@/lib/tournament/courts";
 
 export function teamMap(teams: Team[]): Map<string, Team> {
@@ -56,28 +57,8 @@ export function bChampionId(matches: Match[]): string | null {
   );
 }
 
-/** The champion's team id: playoff final winner if a bracket exists, else the
- * rank-1 league standing. Null until decided. */
-export function championId(state: StateDTO): string | null {
-  if (state.tournament.format === "double_elim")
-    return doubleElimOutcome(state.matches)?.champion ?? null;
-  const playoff = state.matches.filter((m) => m.phase === "playoff" && inA(m));
-  if (playoff.length > 0) {
-    const finalRound = Math.max(...playoff.map((m) => m.round));
-    // The final is at bracket_slot 0; the bronze final (slot 1) shares the round
-    // but never crowns the champion.
-    const final = playoff.find(
-      (m) =>
-        m.round === finalRound &&
-        m.bracket_slot === 0 &&
-        m.status === "done",
-    );
-    if (final?.winner_team_id) return final.winner_team_id;
-  }
-  if (state.standings.length > 0 && state.standings.some((s) => s.played > 0))
-    return state.standings[0].team_id;
-  return null;
-}
+// Mesteren: én regel delt med speaker og resultatside (se champion.ts).
+export { championId };
 
 /** The decided knockout podium, in order: champion, final loser, bronze winner,
  * bronze loser. Only teams whose place is actually settled appear — and nothing
@@ -108,64 +89,100 @@ export function knockoutPodium(playoff: Match[]): string[] {
   });
 }
 
+/** Hvor langt et lag kom i én brakett (A eller B); høyere = bedre.
+ *   1000, 999, … = avgjort pallplass (mester, taper av finalen, bronse-vinner/-taper)
+ *   500 + runde  = lag som ikke har tapt (turneringen ble avsluttet midt i), lengst kommet først
+ *   runde        = runden laget røk ut i (senere = bedre)
+ * Bronsefinalen teller ikke som en runde: begge lagene røk ut i semifinalen. Laget som
+ * ikke er med i braketten er ikke med i kartet. */
+function bracketProgress(ms: Match[]): Map<string, number> {
+  const out = new Map<string, number>();
+  if (ms.length === 0) return out;
+  const finalRound = Math.max(...ms.map((m) => m.round));
+  const isBronze = (m: Match) => m.round === finalRound && m.bracket_slot === BRONZE_SLOT;
+  const lost = new Map<string, number>();
+  const reach = new Map<string, number>();
+  for (const m of ms) {
+    const sides = [m.home_team_id, m.away_team_id].filter((x): x is string => !!x);
+    if (isBronze(m)) {
+      // Å spille bronsefinale betyr å ha tapt semifinalen.
+      for (const tid of sides) lost.set(tid, Math.max(lost.get(tid) ?? 0, finalRound - 1));
+      continue;
+    }
+    for (const tid of sides) reach.set(tid, Math.max(reach.get(tid) ?? 0, m.round));
+    if (m.status === "done" && m.winner_team_id)
+      for (const tid of sides)
+        if (tid !== m.winner_team_id) lost.set(tid, Math.max(lost.get(tid) ?? 0, m.round));
+  }
+  for (const tid of reach.keys())
+    out.set(tid, lost.has(tid) ? lost.get(tid)! : 500 + reach.get(tid)!);
+  for (const tid of lost.keys()) if (!out.has(tid)) out.set(tid, lost.get(tid)!);
+  knockoutPodium(ms).forEach((tid, i) => out.set(tid, 1000 - i));
+  return out;
+}
+
+/** Tabellrekkefølgen laget hadde (lavere = bedre), for lag som ikke avgjøres av sluttspillet.
+ * Gruppespill: plassen i egen gruppe først (alle treere før alle firere), så rekord per kamp —
+ * den flate tabellen blander grupper som aldri møtte hverandre. */
+function tableOrder(state: StateDTO): Map<string, number> {
+  const order = new Map<string, number>();
+  const { standings, groupStandings } = state;
+  if (groupStandings && groupStandings.length > 0) {
+    const pg = (n: number, r: StandingRow) => (r.played > 0 ? n / r.played : 0);
+    const rows = groupStandings
+      .flatMap((g) => g.rows.map((r) => ({ r, g: g.group_no })))
+      .filter(({ r }) => r.played > 0);
+    rows.sort(
+      (a, b) =>
+        a.r.rank - b.r.rank ||
+        pg(b.r.points, b.r) - pg(a.r.points, a.r) ||
+        pg(b.r.diff, b.r) - pg(a.r.diff, a.r) ||
+        pg(b.r.scoreFor, b.r) - pg(a.r.scoreFor, a.r) ||
+        a.g - b.g,
+    );
+    rows.forEach(({ r }, i) => order.set(r.team_id, i));
+    return order;
+  }
+  if (standings.some((s) => s.played > 0)) standings.forEach((s, i) => order.set(s.team_id, i));
+  return order;
+}
+
 /** Final ranking of all teams for the results/diploma page.
  *
- * With a knockout (cup, liga + sluttspill, gruppespill) the decided podium
- * comes first — champion, final loser, bronze winner, bronze loser — because
- * that is what the bracket settled. The league table is NOT the podium: in a
- * liga + sluttspill the team that topped the table but lost the final is the
- * runner-up, not "2nd because it was 1st in the league" — and vice versa.
- * Everyone else is ordered by the league table when there is one (the phase
- * they were eliminated in), else by how far they got in the cup (later loss =
- * better), then seed. */
+ * Bracket first: champion, final loser, bronze winner and loser (when a bronze final
+ * is played) — the bracket decided those, not the league table. Then everyone else in
+ * the A bracket by how far they got (later exit = better); a team that has not lost
+ * yet (tournament ended early) ranks above those knocked out. Then the B bracket by
+ * how far each team got there (B champion first); a team in both A and B (cup
+ * consolation) keeps its A rank and is split by B. Teams that never reached a
+ * playoff follow in table order. The table (or seed) only breaks ties inside the same
+ * elimination round — a quarter-final loser never outranks a semi-final loser. */
 export function finalRanking(state: StateDTO): Team[] {
-  const { teams, standings, matches } = state;
+  const { teams, matches } = state;
   if (state.tournament.format === "double_elim") return doubleElimRanking(teams, matches);
-  const playoff = matches.filter((m) => m.phase === "playoff" && inA(m));
-  const hasStandings =
-    standings.length > 0 && standings.some((s) => s.played > 0);
-
-  const podium = knockoutPodium(playoff);
-  const podiumRank = new Map(podium.map((id, i) => [id, i]));
-
-  // League table position (rank order) as the fallback for everyone else.
-  const tableRank = new Map<string, number>();
-  if (hasStandings) standings.forEach((s, i) => tableRank.set(s.team_id, i));
-
-  // Cup-only fallback: the round a team was eliminated in (higher = better).
-  const finalRound = playoff.length ? Math.max(...playoff.map((m) => m.round)) : 0;
-  const lostRound = new Map<string, number>();
-  for (const m of playoff) {
-    if (m.status !== "done" || !m.winner_team_id) continue;
-    if (m.round === finalRound && m.bracket_slot === BRONZE_SLOT) continue;
-    for (const tid of [m.home_team_id, m.away_team_id]) {
-      if (tid && tid !== m.winner_team_id)
-        lostRound.set(tid, Math.max(lostRound.get(tid) ?? 0, m.round));
-    }
-  }
-
-  // League without a knockout: the table IS the ranking (champion = rank 1).
-  const champ = podium[0] ?? (hasStandings ? championId(state) : null);
+  const playoff = matches.filter((m) => m.phase === "playoff");
+  const aProgress = bracketProgress(playoff.filter(inA));
+  const bProgress = bracketProgress(playoff.filter((m) => m.bracket === "B"));
+  const table = tableOrder(state);
 
   return [...teams].sort((a, b) => {
-    const pa = podiumRank.get(a.id) ?? (a.id === champ ? 0 : 99);
-    const pb = podiumRank.get(b.id) ?? (b.id === champ ? 0 : 99);
-    if (pa !== pb) return pa - pb;
-    if (hasStandings) {
-      const ta = tableRank.get(a.id) ?? 999;
-      const tb = tableRank.get(b.id) ?? 999;
-      if (ta !== tb) return ta - tb;
-    }
-    const ra = lostRound.get(a.id) ?? 0;
-    const rb = lostRound.get(b.id) ?? 0;
-    if (rb !== ra) return rb - ra;
+    const pa = aProgress.get(a.id) ?? -1;
+    const pb = aProgress.get(b.id) ?? -1;
+    if (pa !== pb) return pb - pa;
+    const ba = bProgress.get(a.id) ?? -1;
+    const bb = bProgress.get(b.id) ?? -1;
+    if (ba !== bb) return bb - ba;
+    const ta = table.get(a.id) ?? 9999;
+    const tb = table.get(b.id) ?? 9999;
+    if (ta !== tb) return ta - tb;
     return (a.seed ?? 99) - (b.seed ?? 99);
   });
 }
 
 /** Dobbel utslag: 1 = vinneren av avgjørende finale, 2 = taperen, 3 = taperen av
  * taperfinalen. Resten etter hvor sent de røk ut av taperbraketten (senere = bedre),
- * så seed. Før finalen er avgjort rangeres alle slik. */
+ * så seed. Avsluttes turneringen før finalen er avgjort, står lag som ikke har røket
+ * ut av taperbraketten (storfinalistene først) over de som er ute. */
 function doubleElimRanking(teams: Team[], matches: Match[]): Team[] {
   const out = doubleElimOutcome(matches);
   const podium = out ? [out.champion, out.runnerUp, out.third].filter((id): id is string => !!id) : [];
@@ -176,13 +193,17 @@ function doubleElimRanking(teams: Team[], matches: Match[]): Team[] {
     for (const tid of [m.home_team_id, m.away_team_id])
       if (tid && tid !== m.winner_team_id) outRound.set(tid, Math.max(outRound.get(tid) ?? 0, m.round));
   }
+  const inGrandFinal = new Set(
+    matches.filter((m) => m.bracket === "GF").flatMap((m) => [m.home_team_id, m.away_team_id]),
+  );
+  // Lag som ikke har røket ut ennå: bare relevant når finalen ikke er avgjort.
+  const alive = (id: string) => !out && !outRound.has(id);
+  const key = (id: string) =>
+    podiumRank.has(id) ? 1000 - podiumRank.get(id)! : alive(id) ? (inGrandFinal.has(id) ? 502 : 501) : (outRound.get(id) ?? 0);
   return [...teams].sort((a, b) => {
-    const pa = podiumRank.get(a.id) ?? 99;
-    const pb = podiumRank.get(b.id) ?? 99;
-    if (pa !== pb) return pa - pb;
-    const ra = outRound.get(a.id) ?? 0;
-    const rb = outRound.get(b.id) ?? 0;
-    if (rb !== ra) return rb - ra;
+    const ka = key(a.id);
+    const kb = key(b.id);
+    if (ka !== kb) return kb - ka;
     return (a.seed ?? 99) - (b.seed ?? 99);
   });
 }

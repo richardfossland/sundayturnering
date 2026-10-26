@@ -88,7 +88,7 @@ describe("advanceToPlayoff med B-sluttspill", () => {
     expect(built!.opts.bSeeds).toBeUndefined();
   });
 
-  it("gruppespill: de som falt ut krysseedes (gruppe A først)", async () => {
+  it("gruppespill: de som falt ut krysseedes etter rekord (b3: 1 poeng per kamp, a3: 0)", async () => {
     teams = [team("a1", 0), team("a2", 0), team("a3", 0), team("b1", 1), team("b2", 1), team("b3", 1), team("b4", 1)];
     matches = [
       win("a1", "a2", 0), win("a1", "a3", 0), win("a2", "a3", 0),
@@ -101,6 +101,6 @@ describe("advanceToPlayoff med B-sluttspill", () => {
       }),
     );
     expect(built!.seeds).toEqual(["a1", "b1", "a2", "b2"]);
-    expect(built!.opts.bSeeds).toEqual(["a3", "b3", "b4"]);
+    expect(built!.opts.bSeeds).toEqual(["b3", "a3", "b4"]);
   });
 });

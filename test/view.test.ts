@@ -157,8 +157,9 @@ describe("finalRanking", () => {
       matches: [final, bronze],
     });
     expect(knockoutPodium(s.matches)).toEqual([]);
-    // No champion yet → table order stands.
-    expect(finalRanking(s).map((t) => t.id)).toEqual(["a", "b", "c", "d"]);
+    // No champion yet: the finalists have not lost and rank above the semi-final
+    // losers (who played the bronze final), which are then ordered by the table.
+    expect(finalRanking(s).map((t) => t.id)).toEqual(["a", "d", "b", "c"]);
   });
 });
 
