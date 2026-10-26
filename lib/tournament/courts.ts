@@ -5,7 +5,7 @@
 // (nedtelling til laget er uthvilt). Reglene speiler RPC-en `call_match`
 // (migrasjon 0014); ruta bruker `callError` til pene feil, databasen har siste ord.
 
-import type { Match, Court } from "@/lib/types";
+import type { Match, Court, TournamentStatus } from "@/lib/types";
 
 const MIN = 60_000;
 
@@ -20,7 +20,7 @@ type MatchLike = Pick<
   | "away_team_id"
   | "status"
   | "updated_at"
->;
+> & { phase?: Match["phase"] };
 
 export interface CourtLane<M extends MatchLike = MatchLike> {
   court: CourtLike;
@@ -40,6 +40,18 @@ function byOrder(a: MatchLike, b: MatchLike): number {
 
 const ready = (m: MatchLike) =>
   m.status === "scheduled" && m.home_team_id !== null && m.away_team_id !== null;
+
+/** Kan kampen fortsatt spilles? Etter at sluttspillet er startet (eller turneringen
+ * er avsluttet) avviser serveren uspilte seriekamper («serien_avsluttet»,
+ * «turnering_avsluttet»), så de skal ikke stå som neste kamp på en bane. Samme
+ * regel som result- og lock-rutene. Uten status vet vi ikke, og alt regnes som spillbart. */
+export function isPlayable(
+  m: { phase?: Match["phase"] },
+  tournamentStatus?: TournamentStatus,
+): boolean {
+  if (tournamentStatus === "finished") return false;
+  return !(m.phase === "league" && tournamentStatus === "playoff");
+}
 
 /** Lag som spiller eller er kalt opp akkurat nå (kan ikke kalles opp igjen). */
 export function busyTeams(matches: MatchLike[]): Set<string> {
@@ -95,6 +107,7 @@ export function courtStrip<M extends MatchLike>(
   matches: M[],
   courts: CourtLike[],
   nextLimit = 3,
+  tournamentStatus?: TournamentStatus,
 ): CourtLane<M>[] {
   return [...courts]
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -104,7 +117,10 @@ export function courtStrip<M extends MatchLike>(
         court,
         live: here.find((m) => m.status === "live") ?? null,
         called: here.find((m) => m.status === "called") ?? null,
-        next: here.filter(ready).sort(byOrder).slice(0, nextLimit),
+        next: here
+          .filter((m) => ready(m) && isPlayable(m, tournamentStatus))
+          .sort(byOrder)
+          .slice(0, nextLimit),
       };
     });
 }
@@ -119,13 +135,18 @@ export function courtFree(courtId: string, matches: MatchLike[]): boolean {
 /** Kamper som kan kalles opp til `courtId` (uavhengig av hvile): begge lag kjent
  * og ikke i gang/kalt andre steder; kun kamper uten bane eller låst til denne.
  * Tidligst først. Tom hvis banen er opptatt. */
-export function callCandidates<M extends MatchLike>(courtId: string, matches: M[]): M[] {
+export function callCandidates<M extends MatchLike>(
+  courtId: string,
+  matches: M[],
+  tournamentStatus?: TournamentStatus,
+): M[] {
   if (!courtFree(courtId, matches)) return [];
   const busy = busyTeams(matches);
   return matches
     .filter(
       (m) =>
         ready(m) &&
+        isPlayable(m, tournamentStatus) &&
         (m.court_id === null || m.court_id === courtId) &&
         !busy.has(m.home_team_id!) &&
         !busy.has(m.away_team_id!),
@@ -140,9 +161,10 @@ export function suggestNext<M extends MatchLike>(
   matches: M[],
   nowIso: string,
   minRestMinutes: number,
+  tournamentStatus?: TournamentStatus,
 ): M | null {
   return (
-    callCandidates(courtId, matches).find(
+    callCandidates(courtId, matches, tournamentStatus).find(
       (m) => matchRest(m, matches, nowIso, minRestMinutes).ms === 0,
     ) ?? null
   );

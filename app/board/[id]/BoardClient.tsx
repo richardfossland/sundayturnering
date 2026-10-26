@@ -24,7 +24,7 @@ import { useReactionWall } from "./ReactionWall";
 import { channels, events } from "@/lib/realtime";
 import { useChannel } from "@/lib/client/useChannel";
 import { playDing } from "@/lib/client/sound";
-import type { Court, Match, ScoringConfig, Team } from "@/lib/types";
+import type { Court, Match, ScoringConfig, Team, TournamentStatus } from "@/lib/types";
 
 export function BoardClient({ id }: { id: string }) {
   const [flash, setFlash] = useState(false);
@@ -91,7 +91,7 @@ export function BoardClient({ id }: { id: string }) {
 
   const live = liveMatches(matches);
   // The projector shows as many as fit (CSS hides the rest), so fetch plenty.
-  const next = upcoming(matches, 10);
+  const next = upcoming(matches, 10, tournament.status);
   // The on-screen QR is the READ-ONLY spectator link — anyone in the room can
   // scan it safely. Points at /se/ («Følg turneringen»); referees get
   // the control code from the organiser or the codes overlay.
@@ -179,6 +179,7 @@ export function BoardClient({ id }: { id: string }) {
             courts={courts}
             scoring={tournament.scoring}
             parallel={tournament.parallelism === "parallel"}
+            status={tournament.status}
           />
 
           <BoardStandingsPanel state={state} teams={teams} />
@@ -245,6 +246,7 @@ function BoardLeft({
   courts,
   scoring,
   parallel,
+  status,
 }: {
   matches: Match[];
   live: Match[];
@@ -253,6 +255,7 @@ function BoardLeft({
   courts: Court[];
   scoring: ScoringConfig;
   parallel: boolean;
+  status: TournamentStatus;
 }) {
   const hasCourts = courts.length >= 2;
   const [view, setView] = useState<"now" | "courts">("now");
@@ -264,6 +267,10 @@ function BoardLeft({
   }, [hasCourts, pinned]);
 
   const called = matches.filter((m) => m.status === "called");
+  // Nothing live or called: «Nå spiller» turns into «Neste kamp» (the first in the
+  // queue), so the list below starts at the one after it.
+  const between = live.length === 0 && called.length === 0;
+  const upNext = between ? (next[0] ?? null) : null;
   const showCourts = hasCourts && view === "courts";
   const views = [
     { id: "now" as const, name: no.board.nowPlaying },
@@ -298,7 +305,7 @@ function BoardLeft({
       {showCourts ? (
         <div className="panel board-courts">
           <div className="board-region-title">{no.board.courts}</div>
-          <CourtStrip matches={matches} courts={courts} teams={teams} scoring={scoring} />
+          <CourtStrip matches={matches} courts={courts} teams={teams} scoring={scoring} tournamentStatus={status} />
         </div>
       ) : (
         <>
@@ -309,9 +316,15 @@ function BoardLeft({
             courts={courts}
             scoring={scoring}
             parallel={parallel}
+            upNext={upNext}
           />
-          {next.length > 0 && (
-            <NextPanel title={no.board.nextUp} next={next} teams={teams} courts={courts} />
+          {(upNext ? next.slice(1) : next).length > 0 && (
+            <NextPanel
+              title={no.board.nextUp}
+              next={upNext ? next.slice(1) : next}
+              teams={teams}
+              courts={courts}
+            />
           )}
         </>
       )}

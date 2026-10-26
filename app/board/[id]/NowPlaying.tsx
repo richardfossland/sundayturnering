@@ -15,6 +15,7 @@ export function NowPlaying({
   courts,
   scoring,
   parallel,
+  upNext = null,
 }: {
   live: Match[];
   /** Kalt opp til en bane, ikke startet ennå (A3). */
@@ -23,6 +24,8 @@ export function NowPlaying({
   courts: Court[];
   scoring: ScoringConfig;
   parallel: boolean;
+  /** Neste kamp i køen. Vises i stedet for en tom ramme mellom to kamper. */
+  upNext?: Match | null;
 }) {
   // Sequential with nothing live: the called match is "up next, on its way".
   if (live.length === 0 && called.length > 0 && !(parallel && courts.length > 0))
@@ -41,16 +44,21 @@ export function NowPlaying({
       </div>
     );
 
+  // Between two matches: show what is coming, not an empty frame.
   if (live.length === 0 && !(parallel && courts.length > 0 && called.length > 0))
     return (
       <div className="now-card">
         <div className="now-label">
-          <span className="dot" />
-          {no.board.nowPlaying}
+          {no.board.nextMatch}
+          {upNext?.court_id && courtName(courts, upNext.court_id) && (
+            <span className="next-court now-court">{courtName(courts, upNext.court_id)}</span>
+          )}
         </div>
-        <div className="empty now-empty">
-          {no.board.lobby}
-        </div>
+        {upNext ? (
+          <Versus m={upNext} teams={teams} scoring={scoring} />
+        ) : (
+          <div className="empty now-empty">{no.board.waitingNext}</div>
+        )}
       </div>
     );
 

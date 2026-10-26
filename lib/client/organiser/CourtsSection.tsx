@@ -56,8 +56,11 @@ function CourtCard({
   const here = matches.filter((m) => m.court_id === c.id);
   const live = here.find((m) => m.status === "live");
   const called = here.find((m) => m.status === "called");
-  const candidates = callCandidates(c.id, matches);
-  const suggested = suggestNext(c.id, matches, nowIso, minRest);
+  // Etter tidlig sluttspillstart kan uspilte seriekamper ikke lenger føres (serveren
+  // svarer «serien_avsluttet»), så de står verken i køen eller som forslag.
+  const status = tournament.status;
+  const candidates = callCandidates(c.id, matches, status);
+  const suggested = suggestNext(c.id, matches, nowIso, minRest, status);
   const chosen =
     candidates.find((m) => m.id === picked) ?? suggested ?? candidates[0] ?? null;
   const rest = chosen ? matchRest(chosen, matches, nowIso, minRest) : null;

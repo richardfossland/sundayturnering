@@ -4,7 +4,7 @@ import { no } from "@/lib/locale/no";
 import { matchTime } from "@/lib/client/view";
 import { resolve } from "@/lib/tournament/scoring";
 import { courtStrip } from "@/lib/tournament/courts";
-import type { Court, Match, ScoringConfig, Team } from "@/lib/types";
+import type { Court, Match, ScoringConfig, Team, TournamentStatus } from "@/lib/types";
 
 // «Baner»: én kolonne per bane — Spiller nå / Kalt opp (gull) / Neste med tid.
 // Lesbar på projektor: store lagnavn, ingen skrolling (maks tre «neste»).
@@ -14,13 +14,15 @@ export function CourtStrip({
   courts,
   teams,
   scoring,
+  tournamentStatus,
 }: {
   matches: Match[];
   courts: Court[];
   teams: Map<string, Team>;
   scoring: ScoringConfig;
+  tournamentStatus?: TournamentStatus;
 }) {
-  const lanes = courtStrip(matches, courts);
+  const lanes = courtStrip(matches, courts, 3, tournamentStatus);
   // One row of columns up to three courts, then two or more rows, so every
   // column stays wide enough for readable names and the strip fits the box.
   const cols = lanes.length <= 3 ? lanes.length : Math.min(4, Math.ceil(lanes.length / 2));

@@ -1,9 +1,10 @@
 // Small pure view helpers shared by board + control.
-import type { Match, Team } from "@/lib/types";
+import type { Match, Team, TournamentStatus } from "@/lib/types";
 import type { StateDTO } from "@/lib/dto";
 import { BRONZE_SLOT } from "@/lib/tournament/bracket";
 import { no } from "@/lib/locale/no";
 import { doubleElimOutcome } from "@/lib/tournament/doubleElim";
+import { isPlayable } from "@/lib/tournament/courts";
 
 export function teamMap(teams: Team[]): Map<string, Team> {
   return new Map(teams.map((t) => [t.id, t]));
@@ -30,10 +31,13 @@ export function liveMatches(matches: Match[]): Match[] {
   return matches.filter((m) => m.status === "live");
 }
 
-/** The next scheduled (or called-to-court) matches in queue order (board "next up"). */
-export function upcoming(matches: Match[], limit = 5): Match[] {
+/** The next scheduled (or called-to-court) matches in queue order (board "next up").
+ * With the tournament status, league matches left unplayed when the playoff was
+ * started early are left out: they can no longer be registered. */
+export function upcoming(matches: Match[], limit = 5, tournamentStatus?: TournamentStatus): Match[] {
   return matches
     .filter((m) => (m.status === "scheduled" || m.status === "called") && m.home_team_id && m.away_team_id)
+    .filter((m) => m.status === "called" || isPlayable(m, tournamentStatus))
     .sort((a, b) => a.queue_order - b.queue_order)
     .slice(0, limit);
 }
