@@ -31,11 +31,26 @@ function playable(matches: Match[]): Match[] {
   );
 }
 
+export interface AwardOptions {
+  /** Turneringens mester (se `championId`), eller null/udefinert når ingen er kåret. */
+  championId?: string | null;
+  /** Gruppespill: den flate tabellen blander grupper som aldri møtte hverandre, så den
+   * kårer ikke «kveldens lag». */
+  groupPlay?: boolean;
+}
+
+/** «2,5» — snitt per kamp med komma, ett desimal (heltall vises uten desimal). */
+function perMatch(total: number, n: number): string {
+  const v = Math.round((total / n) * 10) / 10;
+  return String(v).replace(".", ",");
+}
+
 export function computeAwards(
   teams: Team[],
   matches: Match[],
   standings: StandingRow[],
   cfg: ScoringConfig,
+  opts: AwardOptions = {},
 ): Award[] {
   const byId = new Map(teams.map((t) => [t.id, t]));
   const name = (id?: string | null) => (id ? byId.get(id)?.name ?? "?" : "?");
@@ -43,14 +58,20 @@ export function computeAwards(
   const out: Award[] = [];
   const hasScores = cfg.profile !== "winner";
 
-  // Team of the night: the rank-1 team (champion / table-topper) once played.
-  const top = standings.find((s) => s.rank === 1 && s.played > 0);
-  if (top)
+  // Team of the night: the champion when the tournament has one (a table-topper who
+  // lost the final is not the team of the night), else the table leader once played.
+  const night =
+    opts.championId && byId.has(opts.championId)
+      ? opts.championId
+      : opts.groupPlay
+        ? undefined
+        : standings.find((s) => s.rank === 1 && s.played > 0)?.team_id;
+  if (night)
     out.push({
       kind: "team_of_night",
       label: aw.teamOfNight,
-      teamId: top.team_id,
-      detail: name(top.team_id),
+      teamId: night,
+      detail: name(night),
     });
 
   // Most wins across all (league + playoff) matches.
@@ -109,23 +130,48 @@ export function computeAwards(
         detail: `${name(highest.m.home_team_id)} ${highest.hs}–${highest.as} ${name(highest.m.away_team_id)}`,
       });
 
-    const played = standings.filter((s) => s.played > 0);
-    if (played.length) {
-      const atk = [...played].sort((a, b) => b.scoreFor - a.scoreFor)[0];
+    // Angrep/forsvar per kamp (totaler favoriserer lag med flere kamper), regnet fra alle
+    // spilte kamper — også sluttspill og tvers av grupper. Likt snitt: flest kamper først.
+    const tally = new Map<string, { for: number; against: number; n: number }>();
+    for (const m of done) {
+      const r = resolve(cfg.profile, m.result!, cfg);
+      for (const [id, f, a] of [
+        [m.home_team_id!, r.homeScore, r.awayScore],
+        [m.away_team_id!, r.awayScore, r.homeScore],
+      ] as const) {
+        const t = tally.get(id) ?? { for: 0, against: 0, n: 0 };
+        t.for += f;
+        t.against += a;
+        t.n++;
+        tally.set(id, t);
+      }
+    }
+    const rows = [...tally.entries()].filter(([, t]) => t.n > 0);
+    // a før b når a.x/a.n er bedre enn b.x/b.n (krysskalt: heltall, ingen avrundingsfeil).
+    const best = (key: "for" | "against", sign: 1 | -1) =>
+      rows.reduce<[string, { for: number; against: number; n: number }] | null>((acc, row) => {
+        if (!acc) return row;
+        const [, a] = acc;
+        const [, b] = row;
+        const cmp = sign * (b[key] * a.n - a[key] * b.n); // > 0: row er bedre
+        return cmp > 0 || (cmp === 0 && b.n > a.n) ? row : acc;
+      }, null);
+    const atk = best("for", 1);
+    if (atk)
       out.push({
         kind: "best_attack",
         label: aw.bestAttack,
-        teamId: atk.team_id,
-        detail: aw.scored(atk.scoreFor),
+        teamId: atk[0],
+        detail: aw.scoredPerMatch(perMatch(atk[1].for, atk[1].n)),
       });
-      const def = [...played].sort((a, b) => a.scoreAgainst - b.scoreAgainst)[0];
+    const def = best("against", -1);
+    if (def)
       out.push({
         kind: "best_defense",
         label: aw.bestDefense,
-        teamId: def.team_id,
-        detail: aw.conceded(def.scoreAgainst),
+        teamId: def[0],
+        detail: aw.concededPerMatch(perMatch(def[1].against, def[1].n)),
       });
-    }
   }
 
   return out;

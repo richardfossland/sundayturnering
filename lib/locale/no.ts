@@ -906,4 +906,6 @@ export const aw = {
   wins: (n: number) => `${n} ${n === 1 ? "seier" : "seire"}`,
   scored: (n: number) => `${n} scoret`,
   conceded: (n: number) => `${n} sluppet inn`,
+  scoredPerMatch: (avg: string) => `${avg} scoret per kamp`,
+  concededPerMatch: (avg: string) => `${avg} sluppet inn per kamp`,
 } as const;

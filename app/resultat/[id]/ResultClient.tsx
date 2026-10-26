@@ -40,6 +40,7 @@ export function ResultClient({ id }: { id: string }) {
     state.matches,
     state.standings,
     state.tournament.scoring,
+    { championId: champ, groupPlay: state.tournament.format === "group_playoff" },
   );
   const byId = teamMap(state.teams);
   const bTeam = finished ? byId.get(bChampionId(state.matches) ?? "") : undefined;
