@@ -686,12 +686,14 @@ textarea {
   flex: 1;
   display: grid;
   gap: clamp(16px, 2vw, 26px);
-  grid-template-columns: 1.15fr 1fr;
+  /* minmax(0, …): a wide bracket must scroll inside its own box, not stretch
+     the column (and with it the whole page on a phone). */
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   min-height: 0;
 }
 @media (max-width: 1024px) {
   .board-body {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -700,11 +702,13 @@ textarea {
    they never get squeezed off-screen. */
 .board-right {
   display: grid;
+  min-width: 0;
   grid-template-rows: auto 1fr;
   gap: clamp(14px, 1.8vw, 22px);
   min-height: 0;
 }
 .board-standings-region {
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -714,11 +718,13 @@ textarea {
   overflow: auto;
 }
 .board-bracket-region {
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 .board-bracket-scroll {
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   scroll-behavior: smooth;
