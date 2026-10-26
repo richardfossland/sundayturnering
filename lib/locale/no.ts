@@ -633,6 +633,7 @@ export const no = {
     enterScore: "Før resultat",
     started: "Kampen er i gang.",
     waitingTeams: "Venter på lag",
+    matchClosed: "Kampen ble ikke spilt før sluttspillet startet, og kan ikke føres nå.",
     savedMatch: (home: string, score: string, away: string) => `Lagret: ${home} ${score} ${away}`,
     savedBadge: "Lagret",
     resultLabel: "Resultat",

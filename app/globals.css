@@ -6595,6 +6595,10 @@ html[data-board-idle] .speaker-toggle {
   }
   .board-fit .lobby-title {
     font-size: calc(3.6 * var(--u));
+    /* Room for two lines in both cards, so the two QR codes start at the same height. */
+    min-height: 2.3em;
+    display: grid;
+    align-items: center;
   }
   .board-fit .lobby-hint {
     font-size: calc(2.2 * var(--u));

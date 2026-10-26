@@ -7,6 +7,8 @@ import {
   busyTeams,
   courtFree,
   callError,
+  callCandidates,
+  isPlayable,
 } from "@/lib/tournament/courts";
 import type { Match } from "@/lib/types";
 
@@ -22,7 +24,7 @@ const courts = [
 type M = Pick<
   Match,
   "id" | "court_id" | "queue_order" | "scheduled_at" | "home_team_id" | "away_team_id" | "status" | "updated_at"
->;
+> & { phase?: Match["phase"] };
 let q = 0;
 const m = (id: string, home: string | null, away: string | null, over: Partial<M> = {}): M => ({
   id,
@@ -130,5 +132,25 @@ describe("callError", () => {
     expect(callError(ms[0], "c2", courts, ms)).toBe("bane_opptatt");
     const clash = [ms[0], m("c", "A", "Z", { status: "called", court_id: "c2" })];
     expect(callError(ms[0], "c1", courts, clash)).toBe("lag_opptatt");
+  });
+});
+
+describe("seriekamper etter tidlig sluttspillstart", () => {
+  const league = m("l", "A", "B", { phase: "league", scheduled_at: at(10) });
+  const playoff = m("p", "C", "D", { phase: "playoff", scheduled_at: at(20) });
+  it("isPlayable følger result-/lock-rutene", () => {
+    expect(isPlayable({ phase: "league" }, "league")).toBe(true);
+    expect(isPlayable({ phase: "league" }, "playoff")).toBe(false);
+    expect(isPlayable({ phase: "playoff" }, "playoff")).toBe(true);
+    expect(isPlayable({ phase: "playoff" }, "finished")).toBe(false);
+    expect(isPlayable({ phase: "league" })).toBe(true); // ukjent status: alt spillbart
+  });
+  it("uspilte seriekamper er verken kandidat, forslag eller «neste» når sluttspillet er i gang", () => {
+    const ms = [league, playoff];
+    expect(callCandidates("c1", ms).map((x) => x.id)).toEqual(["l", "p"]);
+    expect(callCandidates("c1", ms, "playoff").map((x) => x.id)).toEqual(["p"]);
+    expect(suggestNext("c1", ms, NOW_ISO, 0, "playoff")?.id).toBe("p");
+    const [lane] = courtStrip([{ ...league, court_id: "c1" }, { ...playoff, court_id: "c1" }], courts, 3, "playoff");
+    expect(lane.next.map((x) => x.id)).toEqual(["p"]);
   });
 });

@@ -20,6 +20,7 @@ import type { Match, MatchResult, TimerState } from "@/lib/types";
 import { ResultModal } from "./ResultModal";
 import { OrganiserPanel } from "./OrganiserPanel";
 import { MatchCard } from "./MatchCard";
+import { isPlayable } from "@/lib/tournament/courts";
 import { StandingsSheet } from "./StandingsSheet";
 import { wallClock } from "./clock";
 
@@ -197,7 +198,14 @@ export function ControlClient({ id }: { id: string }) {
 
   // Next match the referee should run (respects the pinned court).
   const nextMatch = matches
-    .filter((m) => isPlanned(m) && m.home_team_id && m.away_team_id && onCourt(m))
+    .filter(
+      (m) =>
+        isPlanned(m) &&
+        m.home_team_id &&
+        m.away_team_id &&
+        isPlayable(m, tournament.status) &&
+        onCourt(m),
+    )
     .sort(byOrder)[0];
 
   // A match saved a moment ago stays on top of whichever list is open.
@@ -450,6 +458,7 @@ export function ControlClient({ id }: { id: string }) {
                 unsent={unsentByMatch.get(m.id) ?? null}
                 timerEndsAt={m.status === "live" ? timerEndsAtFor(m) : null}
                 flag={flag}
+                closed={!isPlayable(m, tournament.status)}
                 starting={startingIds.has(m.id)}
                 onDismissUnsent={dismissOutbox}
                 onEnterScore={() => openMatch(m)}

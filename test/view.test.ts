@@ -170,4 +170,11 @@ describe("upcoming / liveMatches with a called match (A3)", () => {
     expect(upcoming([b, c, a]).map((m) => m.id)).toEqual([a.id, b.id]);
     expect(liveMatches([a, b, c])).toEqual([]);
   });
+
+  it("uspilte seriekamper står ikke som neste når sluttspillet er i gang", () => {
+    const league = { ...pmatch(1, "a", "b", null), phase: "league" as const, queue_order: 0 };
+    const playoff = { ...pmatch(1, "c", "d", null), queue_order: 1 };
+    expect(upcoming([league, playoff]).map((m) => m.id)).toEqual([league.id, playoff.id]);
+    expect(upcoming([league, playoff], 5, "playoff").map((m) => m.id)).toEqual([playoff.id]);
+  });
 });
