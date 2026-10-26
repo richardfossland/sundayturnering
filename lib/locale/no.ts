@@ -90,7 +90,7 @@ export const no = {
     startTitle: "Kom i gang",
     startIntro: "Tre steg, så er turneringen i gang.",
     startHide: "Skjul",
-    startShow: "Vis «Kom i gang»",
+    startShow: "Vis",
     stepDone: "Gjort",
     step1Title: "Vis turneringen på storskjerm",
     step1Body: "Åpne storskjermen på projektoren eller en stor skjerm. Den viser kamper, stilling og nedtelling.",
