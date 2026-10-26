@@ -3410,71 +3410,372 @@ button.brk-row:focus-visible {
   }
 }
 
-/* ============ spectator phone view (/se/[id]) ============ */
-.spectator {
+/* ============ «Følg turneringen» (/se/[id]) — phone-first public page ============ */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.follow) {
+    scroll-behavior: smooth;
+  }
+}
+.follow {
   width: 100%;
-  max-width: 560px;
+  max-width: var(--w-form);
   margin: 0 auto;
-  padding: 16px 14px calc(28px + env(safe-area-inset-bottom));
+  /* bottom room for the fixed theme switch */
+  padding: var(--sp-5) var(--sp-4) calc(var(--sp-8) + var(--sp-6) + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--sp-5);
 }
-.spectator-head {
+.follow-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.follow-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+.follow-sport {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-ink);
+}
+.follow-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 640px) {
+  .follow-title {
+    font-size: var(--fs-2xl);
+  }
+}
+
+/* winner card (finished) */
+.follow-champ {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-4);
+  text-align: center;
+  background: linear-gradient(180deg, var(--ink-2), var(--ink-3));
+  border: 1px solid var(--gold-deep);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+}
+.follow-champ-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-ink);
+}
+.follow-champ-label {
+  font-size: var(--fs-sm);
+  color: var(--txt-dim);
+}
+.follow-champ-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  font-family: var(--display);
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+/* sticky mini-nav */
+.follow-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  gap: var(--sp-1);
+  margin-inline: calc(var(--sp-4) * -1);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--page);
+  border-bottom: 1px solid var(--ink-line);
+  overflow-x: auto;
+}
+.follow-nav-link {
+  flex: 1 0 auto;
+  display: grid;
+  place-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--sp-4);
+  border-radius: 10px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--txt-dim);
+  text-decoration: none;
+}
+.follow-nav-link:hover {
+  background: var(--s-hover);
+  color: var(--txt);
+}
+.follow-nav-link[aria-current="true"] {
+  background: var(--gold-grad);
+  color: var(--on-gold);
+}
+.follow-nav-link:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.follow-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  scroll-margin-top: calc(var(--tap) + var(--sp-5));
+}
+.follow-h {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+.follow-sec > .follow-h:not(:first-child) {
+  margin-top: var(--sp-3);
+}
+.follow-empty {
+  margin: 0;
+  padding: var(--sp-4);
+  border: 1px dashed var(--ink-line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--txt-dim);
   text-align: center;
 }
-.spectator-title {
-  font-size: 1.5rem;
-  line-height: 1.15;
-  margin: 0;
+.follow-card {
+  padding: var(--sp-4);
+  overflow: hidden;
 }
+.follow-hint {
+  margin: 0 0 var(--sp-3);
+}
+.follow-foot {
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--txt-faint);
+}
+
+/* team marks */
+.follow-swatch,
+.follow-logo {
+  flex: none;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.follow-swatch-md,
+.follow-logo-md {
+  width: 14px;
+  height: 14px;
+}
+.follow-swatch-lg,
+.follow-logo-lg {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+/* live matches */
+.follow-live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.live-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: linear-gradient(180deg, var(--ink-2), var(--ink-3));
+  border: 1px solid var(--ink-line);
+  border-left: 4px solid var(--live);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+}
+.live-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.live-card-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--live-ink);
+}
+.live-card-court {
+  color: var(--gold-ink);
+}
+.live-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.live-row-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.live-row-score {
+  font-family: var(--display);
+  font-size: var(--fs-xl);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.live-card-sets {
+  font-size: var(--fs-sm);
+  color: var(--txt-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* next matches: time · teams · court */
+.follow-next {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.fn-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--s-025);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius-sm);
+}
+.fn-time {
+  flex: none;
+  min-width: 3.2rem;
+  font-size: var(--fs-base);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--txt);
+}
+.fn-teams {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.fn-team {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.fn-name {
+  min-width: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.fn-court {
+  flex: none;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--gold-ink);
+}
+
+/* table legend */
+.follow-legend {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  color: var(--txt-dim);
+}
+.follow-legend-title {
+  font-weight: 700;
+  color: var(--txt);
+}
+.follow-legend-item {
+  display: inline-block;
+  margin-right: var(--sp-3);
+  white-space: nowrap;
+}
+.follow-legend-item b {
+  color: var(--gold-ink);
+}
+
+/* cheer buttons */
 .react-pad {
   background: linear-gradient(180deg, var(--ink-2), var(--ink-3));
   border: 1px solid var(--ink-line);
   border-radius: var(--radius);
-  padding: 16px 14px 18px;
+  padding: var(--sp-4);
   text-align: center;
 }
 .react-intro {
+  margin: 0 0 var(--sp-4);
   color: var(--txt-dim);
-  font-size: 0.95rem;
-  margin-bottom: 14px;
+  font-size: var(--fs-sm);
 }
 .react-buttons {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .react-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 18px 6px;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 88px;
+  padding: var(--sp-3) var(--sp-2);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--ink-line-strong);
-  background: var(--ink-soft);
-  color: var(--txt);
+  border: 1px solid var(--ctl-border);
+  background: var(--s-05);
+  color: var(--gold-ink);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   transition: transform 0.06s var(--ease);
 }
-.react-btn:active {
-  transform: scale(0.92);
+.react-btn:hover {
+  background: var(--s-hover);
 }
-.react-btn-emoji {
-  font-size: 2.4rem;
-  line-height: 1;
+.react-btn:active {
+  transform: scale(0.94);
+}
+.react-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 .react-btn-label {
-  font-size: 0.78rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
-  color: var(--txt-dim);
+  color: var(--txt);
 }
 .react-btn-goal {
   background: var(--gold-grad);
   border-color: var(--gold-deep);
+  color: var(--on-gold);
+}
+.react-btn-goal:hover {
+  background: var(--gold-grad);
+  filter: brightness(1.06);
 }
 .react-btn-goal .react-btn-label {
   color: var(--on-gold);
@@ -3835,7 +4136,6 @@ button.brk-row:focus-visible {
   justify-content: center;
 }
 .speaker-icon,
-.react-btn-emoji,
 .reaction-tally-emoji {
   display: inline-grid;
   place-items: center;
@@ -3849,12 +4149,6 @@ button.brk-row:focus-visible {
 }
 .champion-badge .icon {
   color: #fff;
-}
-.react-btn-emoji {
-  color: var(--gold-ink);
-}
-.react-btn-goal .react-btn-emoji {
-  color: var(--on-gold);
 }
 .reaction-floater {
   color: var(--gold);
