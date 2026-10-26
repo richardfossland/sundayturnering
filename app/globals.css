@@ -3561,6 +3561,9 @@ button.brk-row:focus-visible {
 .follow-hint {
   margin: 0 0 var(--sp-3);
 }
+.follow .brk {
+  --brk-u: 112px; /* the default (11vh) is too short on a phone: matches touch */
+}
 .follow-foot {
   margin: 0;
   text-align: center;
@@ -3638,7 +3641,8 @@ button.brk-row:focus-visible {
   font-size: var(--fs-xl);
   font-weight: 900;
   line-height: 1;
-  font-variant-numeric: tabular-nums;
+  color: var(--gold-ink);
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .live-card-sets {
   font-size: var(--fs-sm);

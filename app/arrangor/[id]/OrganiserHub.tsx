@@ -191,8 +191,7 @@ export function OrganiserHub({ id }: { id: string }) {
               <Icon name="print" />
               {no.hub.print}
             </Link>
-            {/* Same link the board's QR points at: the phone view with
-                tap-to-cheer (/se), not the projector layout (/live). */}
+            {/* Same link the board's QR points at: «Følg turneringen» (/se). */}
             <CopyButton
               className="btn"
               value={`${base}/se/${id}`}

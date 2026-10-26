@@ -21,17 +21,10 @@ const IDLE_MS = 4000;
  * on <html>.
  *
  * `onCodes` opens the existing CodesOverlay (codes are managed by the parent so
- * the overlay keeps living at the board root). Spectator boards hide the codes
- * action entirely. Sound state + the one-time "turn on sound" hint are folded in
+ * the overlay keeps living at the board root). Sound state + the one-time "turn on sound" hint are folded in
  * here so audio is still unlocked on the first interaction with the page.
  */
-export function BoardControls({
-  spectator,
-  onCodes,
-}: {
-  spectator: boolean;
-  onCodes: () => void;
-}) {
+export function BoardControls({ onCodes }: { onCodes: () => void }) {
   const [idle, setIdle] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [unlocked, setUnlocked] = useState(true);
@@ -130,16 +123,14 @@ export function BoardControls({
           <Icon name={fullscreen.active ? "exitFullscreen" : "fullscreen"} size="1.2em" />
         </button>
       )}
-      {!spectator && (
-        <button
-          className="board-ctl-btn"
-          onClick={onCodes}
-          aria-label={no.board.codesBtn}
-          title={no.board.codesBtn}
-        >
-          <Icon name="code" size="1.2em" />
-        </button>
-      )}
+      <button
+        className="board-ctl-btn"
+        onClick={onCodes}
+        aria-label={no.board.codesBtn}
+        title={no.board.codesBtn}
+      >
+        <Icon name="code" size="1.2em" />
+      </button>
       <button
         className="board-ctl-btn"
         onClick={toggleSound}

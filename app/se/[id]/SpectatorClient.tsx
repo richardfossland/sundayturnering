@@ -227,7 +227,17 @@ function FollowNav({ sections }: { sections: { id: SectionId; label: string }[] 
       const el = document.getElementById(i);
       if (el) io.observe(el);
     }
-    return () => io.disconnect();
+    // The last section can be too short to ever reach the band: at the very
+    // bottom of the page it is the current one.
+    const onScroll = () => {
+      const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      if (atEnd) setActive(ids[ids.length - 1]);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      io.disconnect();
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [key]);
 
   return (
