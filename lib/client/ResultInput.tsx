@@ -123,7 +123,7 @@ export function ResultInput({
     }
     if (profile === "simple")
       return knockout && level && decider ? { home: hs, away: as, decider } : { home: hs, away: as };
-    if (profile === "sets") return { sets, home: 0, away: 0 } as MatchResult;
+    if (profile === "sets") return { sets, home: setTally[0], away: setTally[1] } as MatchResult;
     if (winner) return { winner };
     return null;
   }
