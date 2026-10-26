@@ -6,7 +6,7 @@ import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
 import { previewShift, type ShiftError } from "@/lib/tournament/schedule";
 
-// POST /api/organiser/shift — skyv tidsplanen (alle baner eller én) fra et
+// POST /api/organiser/shift — flytt tidsplanen (alle baner eller én) fra et
 // tidspunkt. Authorised by EITHER the organiser code OR a signed-in admin who
 // owns it. Reglene valideres her (previewShift) for pene feil og igjen,
 // atomisk, i RPC-en shift_schedule (migrasjon 0013).

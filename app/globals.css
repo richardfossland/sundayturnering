@@ -1464,7 +1464,7 @@ button.pill[aria-selected="true"]:hover {
   border-radius: 8px;
 }
 
-/* court strip («Baner»-visning på tavla) */
+/* court strip («Baner»-visning på storskjermen) */
 .court-strip {
   display: grid;
   gap: 14px;

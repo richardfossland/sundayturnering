@@ -85,7 +85,7 @@ export function TournamentSection({ tournament, matches, code, busy, guard, flas
               className="btn btn-danger"
               disabled={busy || !code}
               onClick={async () => {
-                if (!confirm(no.control.finish + "?")) return;
+                if (!confirm(no.control.finishConfirm)) return;
                 await guard(async () => {
                   try {
                     return await api.finish(tournament.id, code);

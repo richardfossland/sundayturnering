@@ -1,6 +1,7 @@
 "use client";
 
 import { useAutoReset } from "@/lib/client/useAutoReset";
+import { no } from "@/lib/locale/no";
 
 // Replaces the root layout, so no globals.css classes/tokens are guaranteed.
 export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
@@ -20,7 +21,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
         }}
       >
         <div>
-          <p>Noe gikk galt. Prøver igjen automatisk om litt…</p>
+          <p>{no.common.errorAuto}</p>
           <button
             onClick={reset}
             style={{
@@ -34,7 +35,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
               cursor: "pointer",
             }}
           >
-            Prøv igjen
+            {no.common.retry}
           </button>
         </div>
       </body>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { no } from "@/lib/locale/no";
 
 type Theme = "light" | "dark";
 const KEY = "turnering:theme";
@@ -38,8 +39,8 @@ export function ThemeToggle() {
     <button
       className="theme-toggle"
       onClick={toggle}
-      aria-label={isDark ? "Bytt til lyst tema" : "Bytt til mørkt tema"}
-      title={isDark ? "Lyst tema" : "Mørkt tema"}
+      aria-label={isDark ? no.common.themeToLight : no.common.themeToDark}
+      title={isDark ? no.common.themeLight : no.common.themeDark}
       suppressHydrationWarning
     >
       {!mounted ? null : isDark ? <SunIcon /> : <MoonIcon />}

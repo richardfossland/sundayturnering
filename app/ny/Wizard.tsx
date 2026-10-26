@@ -748,7 +748,7 @@ export function Wizard() {
                             <span className="team-idx" aria-hidden="true">{i + 1}</span>
                             <input type="color" value={t.colour} onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, colour: e.target.value } : x))}
                               title={no.wizard.s4ColourTitle}
-                              aria-label={`Farge, lag ${i + 1}`} />
+                              aria-label={no.wizard.s4ColourLabel(i + 1)} />
                             <input id={`w-team-${i}`} className="input" value={t.name} placeholder={no.wizard.s4Name}
                               aria-label={`${no.wizard.s4Name} ${i + 1}`}
                               onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
@@ -1253,7 +1253,7 @@ function LogoUpload({ url, onUrl }: { url: string | null; onUrl: (u: string | nu
     <label className="logo-btn" title={err ?? no.wizard.s4LogoTitle}>
       {/* Visually hidden, not display:none — keeps it reachable by keyboard. */}
       <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={busy}
-        aria-label="Last opp logo"
+        aria-label={no.wizard.s4LogoUpload}
         onChange={async (e) => {
           const f = e.target.files?.[0];
           e.target.value = "";

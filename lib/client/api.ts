@@ -304,7 +304,7 @@ export const api = {
     });
   },
 
-  /** Skyv tidsplanen (minutter, negativt = framskynd) for én bane eller alle. */
+  /** Flytt tidsplanen (minutter, negativt = framskynd) for én bane eller alle. */
   shift(
     tournamentId: string,
     organiserCode: string,

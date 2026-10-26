@@ -60,7 +60,7 @@ export default function AdminLoginPage() {
             <div className="card card-pad stack">
               {sent ? (
                 <p>
-                  {no.admin.loginSentTo} <b>{email}</b> {no.admin.loginSentTail}
+                  {no.admin.loginSentTo} <b>{email}</b>{no.admin.loginSentTail}
                 </p>
               ) : (
                 <form onSubmit={sendMagicLink} className="stack">

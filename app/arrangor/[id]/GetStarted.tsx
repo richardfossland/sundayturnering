@@ -101,7 +101,7 @@ function Step({
       <div className="step-main">
         <h3 className="step-title">
           {title}
-          {done && <span className="sr-only"> — {no.hub.stepDone}</span>}
+          {done && <span className="sr-only">. {no.hub.stepDone}</span>}
         </h3>
         <p className="step-body">{body}</p>
         <div className="step-act">{children}</div>

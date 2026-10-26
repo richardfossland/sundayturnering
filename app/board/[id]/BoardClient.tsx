@@ -154,7 +154,7 @@ export function BoardClient({ id }: { id: string }) {
             aria-label={no.board.codesBtn}
           >
             <div className="board-qr">
-              <QRCode value={followUrl} size={240} />
+              <QRCode value={followUrl} size={240} alt={no.board.qrFollowAlt} />
               <div className="board-qr-label">{no.board.follow}</div>
             </div>
           </button>
@@ -212,14 +212,14 @@ function Lobby({
         <div className="lobby-card">
           <h2 className="lobby-title">{no.board.lobbyFollowTitle}</h2>
           <div className="lobby-qr">
-            <QRCode value={followUrl} size={480} alt="QR-kode til turneringssiden" />
+            <QRCode value={followUrl} size={480} alt={no.board.qrFollowAlt} />
           </div>
           <p className="lobby-hint">{no.board.lobbyFollowHint}</p>
         </div>
         <div className="lobby-card">
           <h2 className="lobby-title">{no.board.lobbyRefTitle}</h2>
           <div className="lobby-qr">
-            <QRCode value={controlUrl} size={480} alt="QR-kode til dommersiden" />
+            <QRCode value={controlUrl} size={480} alt={no.board.qrControlAlt} />
           </div>
           <p className="lobby-hint">
             {no.board.lobbyRefGo} <strong className="lobby-url">{no.board.lobbyRefUrl}</strong>{" "}

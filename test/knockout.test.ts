@@ -21,7 +21,7 @@ describe("a level score in a knockout match needs a decider", () => {
 
   it("knockout: 1–1 without a decider is refused, even when draws are allowed", () => {
     expect(validateResult("simple", { home: 1, away: 1 }, simple, { knockout: true })).toMatch(
-      /velg hvem som gikk videre/,
+      /Velg hvem som gikk videre/,
     );
   });
 
@@ -42,7 +42,7 @@ describe("a level score in a knockout match needs a decider", () => {
   });
 
   it("rejects absurd scores (final results had no cap)", () => {
-    expect(validateResult("simple", { home: 1000, away: 0 }, simple)).toMatch(/Urimelig/);
+    expect(validateResult("simple", { home: 1000, away: 0 }, simple)).toMatch(/urimelig/);
     const sets = defaultScoringConfig("sets");
     expect(validateResult("sets", { sets: [[1000, 0]] }, sets)).toMatch(/gyldige/);
   });

@@ -134,7 +134,7 @@ export function pairSwissRound(input: SwissInput): SwissPairing[] {
     done.add(j);
     out.push(orient(ranked[i], ranked[j], homes, idx));
   }
-  // Rekkefølge på tavla: beste lag først, bye sist.
+  // Rekkefølge på storskjermen: beste lag først, bye sist.
   out.sort((x, y) => {
     if ((x.awayId === null) !== (y.awayId === null)) return x.awayId === null ? 1 : -1;
     return Math.min(idx.get(x.homeId)!, idx.get(x.awayId ?? x.homeId)!) -
