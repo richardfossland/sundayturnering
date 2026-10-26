@@ -1587,6 +1587,9 @@ button.pill[aria-selected="true"]:hover {
   border: 1px solid var(--ink-line);
   font-size: clamp(0.92rem, 1.3vw, 1.1rem);
 }
+.next-row .team {
+  flex: 1 1 0;
+}
 .next-vs {
   color: var(--txt-faint);
   font-size: 0.85em;
@@ -5120,6 +5123,14 @@ label.check-row > input[type="checkbox"] {
   align-items: center;
   flex-wrap: wrap;
   gap: var(--sp-4);
+}
+
+/* the follow QR is generated large (sharp on a projector) and shown small */
+.board-qr img,
+.board-qr > div:first-child {
+  width: 104px;
+  height: 104px;
+  min-height: 0;
 }
 
 /* per-court scoreboard card (parallel format) */
