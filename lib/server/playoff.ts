@@ -43,11 +43,21 @@ export async function advanceToPlayoff(t: Tournament): Promise<void> {
       const qualifiers = groups.map((g) =>
         g.rows.slice(0, perGroup).map((r) => r.team_id),
       );
-      seedIds = seedKnockoutFromGroups(qualifiers);
+      // Innen hvert nivå seedes lagene etter rekord (poeng per kamp osv.), ikke gruppebokstav.
+      const records = new Map(
+        groups.flatMap((g) =>
+          g.rows.map((r) => [
+            r.team_id,
+            { played: r.played, points: r.points, diff: r.diff, scored: r.scoreFor },
+          ] as const),
+        ),
+      );
+      seedIds = seedKnockoutFromGroups(qualifiers, records);
       if (wantB)
         bSeeds = bSeedsFromGroups(
           groups.map((g) => g.rows.map((r) => r.team_id)),
           perGroup,
+          records,
         );
     } else {
       const standings = computeStandings(teams, matches, t.scoring, size, t.config?.tiebreak);
