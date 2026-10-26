@@ -5957,6 +5957,12 @@ html[data-board-idle] .speaker-toggle {
   gap: var(--sp-5);
   min-height: 0;
 }
+/* Referee card switched off: the follow card alone, centred. */
+.lobby-cards-one {
+  grid-template-columns: minmax(0, 1fr);
+  width: min(100%, 720px);
+  margin-inline: auto;
+}
 .lobby-card {
   display: flex;
   flex-direction: column;
@@ -6635,6 +6641,9 @@ html[data-board-idle] .speaker-toggle {
   /* lobby */
   .board-fit .lobby-cards {
     gap: calc(2.4 * var(--u));
+  }
+  .board-fit .lobby-cards-one {
+    width: min(100%, calc(90 * var(--u)));
   }
   .board-fit .lobby-card {
     padding: calc(2.4 * var(--u));
