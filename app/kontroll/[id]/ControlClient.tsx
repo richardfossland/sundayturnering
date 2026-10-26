@@ -14,6 +14,7 @@ import { parseControlTarget, resolveControlTarget, type ControlTarget } from "@/
 import { resolve } from "@/lib/tournament/scoring";
 import { canSelfCorrect, selfCorrectMsLeft } from "@/lib/tournament/correct";
 import { no } from "@/lib/locale/no";
+import { Icon } from "@/lib/client/Icon";
 import type { Court, Match, Team, TimerState } from "@/lib/types";
 import { ResultModal } from "./ResultModal";
 import { OrganiserPanel } from "./OrganiserPanel";
@@ -689,7 +690,7 @@ function TeamLine({
     <span className={`team${win ? " team-win" : ""}`}>
       <span className="team-swatch" style={{ background: team?.colour ?? "#555" }} />
       <span className="team-name">{team?.name ?? no.board.tbd}</span>
-      {win && <span className="win-mark" aria-label="Vinner" title="Vinner">✓</span>}
+      {win && <span className="win-mark" aria-label="Vinner" title="Vinner"><Icon name="check" size={16} strokeWidth={2.5} /></span>}
     </span>
   );
 }

@@ -7,6 +7,7 @@ import { initials, finalRanking, championId, bChampionId, teamMap } from "@/lib/
 import { computeAwards } from "@/lib/tournament/awards";
 import { matchesCsv, standingsCsv } from "@/lib/tournament/csv";
 import { downloadText, safeFilename } from "@/lib/client/download";
+import { Icon } from "@/lib/client/Icon";
 import type { StateDTO } from "@/lib/dto";
 import type { StandingRow, Team } from "@/lib/types";
 import { groupLabel } from "@/app/board/[id]/Standings";
@@ -40,7 +41,8 @@ export function ResultClient({ id }: { id: string }) {
     <main className="result-page">
       <div className="result-actions">
         <button className="btn btn-gold" onClick={() => window.print()}>
-          🖨️ Skriv ut / lagre som PDF
+          <Icon name="print" />
+          Skriv ut / lagre som PDF
         </button>
         <button
           className="btn"
@@ -51,7 +53,8 @@ export function ResultClient({ id }: { id: string }) {
             )
           }
         >
-          ⬇️ Tabell (CSV)
+          <Icon name="download" />
+          Tabell (CSV)
         </button>
         <button
           className="btn"
@@ -62,7 +65,8 @@ export function ResultClient({ id }: { id: string }) {
             )
           }
         >
-          ⬇️ Resultater (CSV)
+          <Icon name="download" />
+          Resultater (CSV)
         </button>
       </div>
 
@@ -80,7 +84,10 @@ export function ResultClient({ id }: { id: string }) {
 
         {champTeam && (
           <section className="result-champ">
-            <div className="result-champ-eyebrow">🏆 Vinner</div>
+            <div className="result-champ-eyebrow">
+              <Icon name="trophy" size={18} />
+              Vinner
+            </div>
             <TeamCrest team={champTeam} size={86} />
             <div className="result-champ-name">{champTeam.name}</div>
           </section>
@@ -165,10 +172,15 @@ export function ResultClient({ id }: { id: string }) {
   );
 }
 
-function medal(place: number): string {
-  if (place === 1) return "🥇 1.";
-  if (place === 2) return "🥈 2.";
-  if (place === 3) return "🥉 3.";
+/** Top three get a medal glyph in gold / silver / bronze; the rest a plain number. */
+function medal(place: number): React.ReactNode {
+  if (place >= 1 && place <= 3)
+    return (
+      <span className={`place place-${place}`}>
+        <Icon name="medal" size={28} />
+        {place}.
+      </span>
+    );
   return `${place}.`;
 }
 

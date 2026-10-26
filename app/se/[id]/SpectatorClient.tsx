@@ -5,7 +5,7 @@ import { OfflineBanner } from "@/lib/client/OfflineBanner";
 import { useTournament } from "@/lib/client/useTournament";
 import { useReactionSender } from "@/lib/client/useReactionSender";
 import { teamMap, liveMatches, upcoming, matchTime } from "@/lib/client/view";
-import { reactionEmoji } from "@/lib/realtime";
+import { Icon, reactionIcon } from "@/lib/client/Icon";
 import type { ReactionKind } from "@/lib/realtime";
 import { no } from "@/lib/locale/no";
 import { Standings, GroupStandings } from "@/app/board/[id]/Standings";
@@ -66,7 +66,9 @@ export function SpectatorClient({ id }: { id: string }) {
               onClick={() => react(b.kind)}
               aria-label={b.label}
             >
-              <span className="react-btn-emoji">{reactionEmoji[b.kind]}</span>
+              <span className="react-btn-emoji">
+                <Icon name={reactionIcon[b.kind]} size="1em" strokeWidth={1.75} />
+              </span>
               <span className="react-btn-label">{b.label}</span>
             </button>
           ))}

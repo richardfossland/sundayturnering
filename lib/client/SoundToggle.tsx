@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { setSoundEnabled, unlockAudio } from "@/lib/client/sound";
+import { Icon } from "@/lib/client/Icon";
 
 const KEY = "turnering:sound";
 
@@ -45,7 +46,8 @@ export function SoundToggle() {
     <>
       {on && !unlocked && (
         <button className="sound-hint" onClick={() => setUnlocked(true)}>
-          🔊 Trykk for lyd
+          <Icon name="soundOn" size={18} />
+          Trykk for lyd
         </button>
       )}
       <button
@@ -54,7 +56,7 @@ export function SoundToggle() {
         aria-label={on ? "Slå av lyd" : "Slå på lyd"}
         title={on ? "Lyd på" : "Lyd av"}
       >
-        {on ? "🔊" : "🔇"}
+        <Icon name={on ? "soundOn" : "soundOff"} size={20} />
       </button>
     </>
   );

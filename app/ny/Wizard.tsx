@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/client/api";
 import { no } from "@/lib/locale/no";
+import { Icon } from "@/lib/client/Icon";
+import { NumberField } from "@/lib/client/NumberField";
 import { paletteColour } from "@/lib/palette";
 import { nextOsloHourLocal, osloLocalToIso } from "@/lib/tournament/osloTime";
 import {
@@ -344,7 +346,7 @@ export function Wizard() {
             <span className="brand-mark" style={{ width: 26, height: 26, fontSize: ".8rem" }}>T</span>
             {no.wizard.title}
           </span>
-          <span className="faint" style={{ fontSize: ".82rem" }}>
+          <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
             {no.wizard.step(stepNumberLabel(step, showStep6), showStep6 ? 7 : 6)}
           </span>
         </div>
@@ -356,7 +358,10 @@ export function Wizard() {
             <Step title={no.wizard.s1Title}>
               {tmpls.length > 0 && (
                 <div className="panel stack" style={{ gap: 8 }}>
-                  <span className="label">📁 Maler</span>
+                  <span className="label label-icon">
+                    <Icon name="templates" size={16} />
+                    Maler
+                  </span>
                   <div className="chips">
                     {tmpls.map((t) => (
                       <span key={t.id} className="chip" style={{ padding: 0, display: "inline-flex" }}>
@@ -374,7 +379,7 @@ export function Wizard() {
                           onClick={() => setTmpls(templates.remove(t.id))}
                           style={{ opacity: 0.6, paddingLeft: 0 }}
                         >
-                          ✕
+                          <Icon name="close" size={14} />
                         </button>
                       </span>
                     ))}
@@ -466,9 +471,9 @@ export function Wizard() {
                 <label className="label">{no.wizard.points}</label>
                 <div className="row">
                   {(["pointsWin", "pointsDraw", "pointsLoss"] as const).map((k) => (
-                    <input key={k} className="input" type="number" min={0} max={100} style={{ width: 80 }}
+                    <NumberField key={k} min={0} max={100} compact
                       aria-label={no.wizard.pointsLabel[k]}
-                      value={scoring[k]} onChange={(e) => setScoring({ ...scoring, [k]: Number(e.target.value) })}
+                      value={scoring[k]} onChange={(n) => setScoring({ ...scoring, [k]: n })}
                       disabled={k === "pointsDraw" && !(scoring.profile === "simple" && scoring.allowDraw)} />
                   ))}
                 </div>
@@ -494,17 +499,14 @@ export function Wizard() {
               <div className="panel stack" style={{ gap: 10 }}>
                 <label className="label" htmlFor="w-count">{no.wizard.s4HowMany}</label>
                 <div className="row">
-                  <input
+                  <NumberField
                     id="w-count"
-                    className="input"
-                    type="number"
+                    aria-label={no.wizard.s4HowMany}
                     min={2}
                     max={32}
-                    inputMode="numeric"
-                    style={{ width: 96 }}
                     value={count}
-                    onChange={(e) => setCount(Math.max(0, Number(e.target.value) || 0))}
-                    onKeyDown={(e) => e.key === "Enter" && setTeamCount(count)}
+                    onChange={setCount}
+                    onEnter={setTeamCount}
                   />
                   <button className="btn btn-gold" onClick={() => setTeamCount(count)}>
                     {no.wizard.s4Generate}
@@ -517,7 +519,7 @@ export function Wizard() {
                     </button>
                   ))}
                 </div>
-                <span className="faint" style={{ fontSize: ".82rem" }}>
+                <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
                   {no.wizard.s4GenerateHint}
                 </span>
               </div>
@@ -526,7 +528,6 @@ export function Wizard() {
                   <div className="panel" key={i} style={{ padding: 10 }}>
                     <div className="row">
                       <input type="color" value={t.colour} onChange={(e) => setTeams(teams.map((x, j) => j === i ? { ...x, colour: e.target.value } : x))}
-                        style={{ width: 42, height: 42, border: "none", borderRadius: 10, background: "none" }}
                         aria-label={`Farge, lag ${i + 1}`} />
                       <input className="input grow" value={t.name} placeholder={no.wizard.s4Name}
                         aria-label={`${no.wizard.s4Name} ${i + 1}`}
@@ -536,12 +537,14 @@ export function Wizard() {
                         onUrl={(u) => setTeams(teams.map((x, j) => j === i ? { ...x, logo_url: u } : x))}
                       />
                       <button className="btn btn-ghost" aria-label={`Fjern lag ${t.name || i + 1}`}
-                        onClick={() => setTeams(teams.filter((_, j) => j !== i))}>✕</button>
+                        onClick={() => setTeams(teams.filter((_, j) => j !== i))}>
+                        <Icon name="close" size={16} />
+                      </button>
                     </div>
                     {t.members.length > 0 && (
                       <div className="chips" style={{ marginTop: 8 }}>
                         {t.members.map((m, mi) => (
-                          <span className="chip" key={mi} style={{ fontSize: ".78rem", cursor: "default" }}>
+                          <span className="chip" key={mi} style={{ fontSize: "var(--fs-sm)", cursor: "default" }}>
                             {m}
                           </span>
                         ))}
@@ -557,15 +560,17 @@ export function Wizard() {
                   <textarea className="textarea" value={draw} onChange={(e) => setDraw(e.target.value)} placeholder={"Ola\nKari\nPer\nNora\n…"} />
                   <div className="row">
                     <span className="label">{no.wizard.s4DrawTeams}</span>
-                    <input className="input" type="number" min={2} max={24} style={{ width: 80 }}
-                      value={count}
-                      onChange={(e) => setCount(Math.max(2, Math.min(24, Number(e.target.value) || 2)))} />
+                    <NumberField min={2} max={24} compact
+                      aria-label={no.wizard.s4DrawTeams}
+                      value={Math.min(count, 24)}
+                      onChange={setCount} />
                     <button className="btn btn-gold grow" onClick={() => drawTeams(count)}
                       disabled={parseNames(draw).length < 2}>
-                      🎲 {no.wizard.s4DrawDo}
+                      <Icon name="random" />
+                      {no.wizard.s4DrawDo}
                     </button>
                   </div>
-                  <span className="faint" style={{ fontSize: ".82rem" }}>
+                  <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
                     {parseNames(draw).length > 0
                       ? `${parseNames(draw).length} deltakere → ${Math.min(count, parseNames(draw).length)} lag. `
                       : ""}
@@ -598,9 +603,10 @@ export function Wizard() {
                 <>
                   <div className="field">
                     <label className="label" htmlFor="w-courts">{no.wizard.courtCount}</label>
-                    <input id="w-courts" className="input" type="number" min={1} max={12} value={courtCount} style={{ width: 100 }}
-                      onChange={(e) => {
-                        const n = Math.max(1, Math.min(12, Number(e.target.value) || 1));
+                    <NumberField id="w-courts" aria-label={no.wizard.courtCount} min={1} max={12} value={courtCount}
+                      onChange={(n) => {
+                        // Only committed (in-range) values reach here, so the
+                        // name list is never resized by a half-typed number.
                         setCourtCount(n);
                         setCourtNames((prev) => Array.from({ length: n }, (_, i) => prev[i] ?? `Bane ${i + 1}`));
                       }} />
@@ -749,7 +755,8 @@ export function Wizard() {
                   onClick={() => setTmplName(title || sport || "Mal")}
                   disabled={validTeams.length < minTeams}
                 >
-                  💾 {no.wizard.saveTemplate}
+                  <Icon name="save" />
+                  {no.wizard.saveTemplate}
                 </button>
               ) : (
                 <div className="row">
@@ -913,7 +920,9 @@ function LogoUpload({ url, onUrl }: { url: string | null; onUrl: (u: string | nu
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" className="team-logo" />
       ) : (
-        <span className="btn btn-ghost" style={{ padding: "10px 12px" }}>🖼</span>
+        <span className="btn btn-ghost" style={{ padding: "10px 12px" }}>
+          <Icon name="image" size={20} />
+        </span>
       )}
     </label>
   );
@@ -933,8 +942,7 @@ function MinuteField({
   return (
     <div className="field">
       <label className="label" htmlFor={id}>{label}</label>
-      <input id={id} className="input" type="number" min={min} max={max} value={value} style={{ width: 100 }}
-        onChange={(e) => onChange(Math.max(min, Math.min(max, Math.floor(Number(e.target.value)) || min)))} />
+      <NumberField id={id} aria-label={label} min={min} max={max} value={value} onChange={onChange} suffix="min" />
     </div>
   );
 }

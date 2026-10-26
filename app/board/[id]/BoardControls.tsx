@@ -5,13 +5,14 @@ import { useEffect, useState } from "react";
 import { setSoundEnabled, unlockAudio } from "@/lib/client/sound";
 import { useFullscreen } from "@/lib/client/useFullscreen";
 import { no } from "@/lib/locale/no";
+import { Icon } from "@/lib/client/Icon";
 
 const SOUND_KEY = "turnering:sound";
 
 /**
  * One small collapsible cluster in the corner of the board, replacing the
- * separate floating buttons (home ⌂, fullscreen ⛶, codes ⚿, sound 🔊) that used
- * to compete for attention. Collapsed it's a single ⋯ disc; expanded it reveals the actions.
+ * separate floating buttons (home, fullscreen, codes, sound) that used
+ * to compete for attention. Collapsed it's a single menu disc; expanded it reveals the actions.
  *
  * `onCodes` opens the existing CodesOverlay (codes are managed by the parent so
  * the overlay keeps living at the board root). Spectator boards hide the codes
@@ -79,7 +80,8 @@ export function BoardControls({
     <>
       {soundOn && !unlocked && (
         <button className="sound-hint" onClick={() => setUnlocked(true)}>
-          🔊 Trykk for lyd
+          <Icon name="soundOn" size={18} />
+          Trykk for lyd
         </button>
       )}
       <div className="board-controls" data-open={open || undefined}>
@@ -91,7 +93,7 @@ export function BoardControls({
               aria-label="Hjem"
               title="Hjem"
             >
-              ⌂
+              <Icon name="home" size={20} />
             </Link>
             {fullscreen.supported && (
               <button
@@ -101,7 +103,7 @@ export function BoardControls({
                 aria-pressed={fullscreen.active}
                 title={`${fullscreen.active ? no.board.exitFullscreen : no.board.fullscreen} (F)`}
               >
-                {fullscreen.active ? "🗗" : "⛶"}
+                <Icon name={fullscreen.active ? "exitFullscreen" : "fullscreen"} size={20} />
               </button>
             )}
             {!spectator && (
@@ -111,7 +113,7 @@ export function BoardControls({
                 aria-label={no.board.codesBtn}
                 title={no.board.codesBtn}
               >
-                ⚿
+                <Icon name="code" size={20} />
               </button>
             )}
             <button
@@ -120,7 +122,7 @@ export function BoardControls({
               aria-label={soundOn ? "Slå av lyd" : "Slå på lyd"}
               title={soundOn ? "Lyd på" : "Lyd av"}
             >
-              {soundOn ? "🔊" : "🔇"}
+              <Icon name={soundOn ? "soundOn" : "soundOff"} size={20} />
             </button>
           </div>
         )}
@@ -131,7 +133,7 @@ export function BoardControls({
           aria-expanded={open}
           title="Meny"
         >
-          {open ? "✕" : "⋯"}
+          {open ? <Icon name="close" size={20} /> : "⋯"}
         </button>
       </div>
     </>

@@ -84,7 +84,7 @@ export interface BracketLayout {
 }
 
 /** Kobling for et standard enkelt utslag når radene ikke har noen (bygger
- * `buildBracket`-regelen: runde r slot i → runde r+1 slot ⌊i/2⌋, partall = hjemme)
+ * `buildBracket`-regelen: runde r slot i → runde r+1 slot floor(i/2), partall = hjemme)
  * pluss tapere fra semifinalene til bronsefinalen. */
 export function inferLinks(matches: LayoutMatch[]): LayoutLink[] {
   const at = new Map<string, LayoutMatch>();

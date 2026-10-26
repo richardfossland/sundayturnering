@@ -5,7 +5,7 @@ import {
   emptyReactionCounts,
   isReactionKind,
   parseReactionPayload,
-  reactionEmoji,
+  reactionLabel,
   reactionKinds,
 } from "@/lib/realtime";
 
@@ -18,8 +18,8 @@ describe("isReactionKind", () => {
     expect(isReactionKind(3)).toBe(false);
     expect(isReactionKind(null)).toBe(false);
   });
-  it("every kind has an emoji", () => {
-    for (const k of reactionKinds) expect(reactionEmoji[k]).toBeTruthy();
+  it("every kind has a label", () => {
+    for (const k of reactionKinds) expect(reactionLabel[k]).toBeTruthy();
   });
 });
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { no } from "@/lib/locale/no";
+import { Icon } from "@/lib/client/Icon";
 import { MyTournaments } from "./MyTournaments";
 
 export default function Home() {
@@ -23,6 +24,7 @@ export default function Home() {
             {no.landing.createCta}
           </Link>
           <Link href="/hurtig" className="btn btn-lg btn-block">
+            <Icon name="quick" />
             {no.landing.quickCta}
           </Link>
           <Link href="/kontroll" className="btn btn-block">

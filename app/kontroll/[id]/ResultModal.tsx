@@ -5,6 +5,7 @@ import { api, ApiError } from "@/lib/client/api";
 import { submitResultOrQueue } from "@/lib/client/outbox";
 import { ResultInput } from "@/lib/client/ResultInput";
 import { no } from "@/lib/locale/no";
+import { Icon } from "@/lib/client/Icon";
 import { errorMessage } from "@/lib/locale/errors";
 import { useEscape } from "@/lib/client/useEscape";
 import { useFocusTrap } from "@/lib/client/useFocusTrap";
@@ -190,7 +191,7 @@ export function ResultModal({
 
   return (
     // No close on a backdrop tap: a stray tap on a phone used to throw away
-    // the score being typed. ✕ or Escape closes.
+    // the score being typed. The close button or Escape closes.
     <div className="scrim">
       <div
         ref={dialogRef}
@@ -203,7 +204,9 @@ export function ResultModal({
           <h2 id="result-modal-title" style={{ fontSize: "1.3rem" }}>
             {correcting ? no.control.edit : no.control.enterResult}
           </h2>
-          <button className="btn btn-ghost" onClick={onClose} aria-label={no.common.close}>✕</button>
+          <button className="btn btn-ghost" onClick={onClose} aria-label={no.common.close}>
+            <Icon name="close" />
+          </button>
         </div>
         {err && (
           <div className="toast-danger" role="alert" style={{ fontSize: ".9rem" }}>

@@ -6,6 +6,8 @@ import { identity } from "@/lib/client/identity";
 import { ResultInput } from "@/lib/client/ResultInput";
 import { resolve } from "@/lib/tournament/scoring";
 import { no } from "@/lib/locale/no";
+import { Icon } from "@/lib/client/Icon";
+import { NumberField } from "@/lib/client/NumberField";
 import { errorMessage } from "@/lib/locale/errors";
 import { useEscape } from "@/lib/client/useEscape";
 import { matchTime } from "@/lib/client/view";
@@ -76,7 +78,8 @@ export function OrganiserPanel({
   if (!openPanel)
     return (
       <button className="btn btn-ghost btn-block" onClick={() => setOpenPanel(true)}>
-        ⚙︎ {no.control.organiser}
+        <Icon name="settings" />
+        {no.control.organiser}
       </button>
     );
 
@@ -84,7 +87,9 @@ export function OrganiserPanel({
     <div className="card card-pad stack">
       <div className="spread">
         <h2 style={{ fontSize: "1.2rem" }}>{no.control.organiser}</h2>
-        <button className="btn btn-ghost" onClick={() => setOpenPanel(false)}>✕</button>
+        <button className="btn btn-ghost" onClick={() => setOpenPanel(false)} aria-label={no.common.close}>
+          <Icon name="close" />
+        </button>
       </div>
 
       <a
@@ -93,7 +98,8 @@ export function OrganiserPanel({
         target="_blank"
         rel="noopener"
       >
-        🏅 Resultater &amp; diplom
+        <Icon name="award" />
+        Resultater &amp; diplom
       </a>
 
       <div className="field">
@@ -106,7 +112,7 @@ export function OrganiserPanel({
           onChange={(e) => saveCode(e.target.value.toUpperCase())}
           placeholder="KODE-XX"
         />
-        <span className="faint" style={{ fontSize: ".82rem" }}>
+        <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>
           {no.control.organiserHint}
         </span>
       </div>
@@ -260,11 +266,11 @@ export function OrganiserPanel({
                   <div className="match-teams">
                     <span className={`team-name${homeWon ? " team-win" : ""}`}>
                       {h?.name}
-                      {homeWon && <span className="win-mark"> ✓</span>}
+                      {homeWon && <span className="win-mark"> <Icon name="check" size={14} strokeWidth={2.5} className="icon-inline" /></span>}
                     </span>
                     <span className={`team-name${awayWon ? " team-win" : ""}`}>
                       {a?.name}
-                      {awayWon && <span className="win-mark"> ✓</span>}
+                      {awayWon && <span className="win-mark"> <Icon name="check" size={14} strokeWidth={2.5} className="icon-inline" /></span>}
                     </span>
                   </div>
                   {/* Full scoreline (was truncated to the set tally before). */}
@@ -384,9 +390,9 @@ function CourtsSection({
                       >
                         {candidates.map((m) => (
                           <option key={m.id} value={m.id}>
-                            {m.id === suggested?.id ? "★ " : ""}
                             {timed(m)}
                             {label(m)}
+                            {m.id === suggested?.id ? ` (${no.control.suggestedTag})` : ""}
                           </option>
                         ))}
                       </select>
@@ -464,7 +470,7 @@ function ShiftSection({
 }) {
   const [courtId, setCourtId] = useState("");
   const [fromId, setFromId] = useState(""); // "" = nå
-  const [minutes, setMinutes] = useState("10");
+  const [mins, setMins] = useState(10);
   // "Nå" tickes når panelet tegnes på nytt (refetch) — nok for en forhåndsvisning.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -479,11 +485,10 @@ function ShiftSection({
   const fromMatch = upcoming.find((m) => m.id === fromId);
   // Standard: alle uspilte kamper, også de som er forsinket (før «nå»).
   const fromIso = fromMatch?.scheduled_at ?? new Date(0).toISOString();
-  const mins = Number(minutes);
   const { changes, error } = previewShift(matches, {
     courtId: courtId || null,
     fromIso,
-    minutes: minutes.trim() === "" ? NaN : mins,
+    minutes: mins,
     nowIso: new Date(now).toISOString(),
   });
   const byId = new Map(matches.map((m) => [m.id, m]));
@@ -537,7 +542,7 @@ function ShiftSection({
               key={d}
               type="button"
               className="btn btn-ghost"
-              onClick={() => setMinutes(String(d))}
+              onClick={() => setMins(d)}
             >
               {d > 0 ? `+${d}` : `−${-d}`}
             </button>
@@ -545,17 +550,7 @@ function ShiftSection({
         </div>
         <div className="field">
           <label className="label" htmlFor="shift-minutes">{no.control.shiftMinutes}</label>
-          <input
-            id="shift-minutes"
-            className="input"
-            type="number"
-            inputMode="numeric"
-            step={1}
-            min={-240}
-            max={240}
-            value={minutes}
-            onChange={(e) => setMinutes(e.target.value)}
-          />
+          <NumberField id="shift-minutes" min={-240} max={240} value={mins} onChange={setMins} suffix="min" />
         </div>
 
         {error ? (
@@ -663,7 +658,7 @@ function OverrideModal({
   }
 
   return (
-    // Backdrop taps don't close (would discard the typed score); ✕ / Escape do.
+    // Backdrop taps don't close (would discard the typed score); the close button / Escape do.
     <div className="scrim">
       <div
         className="card card-pad modal stack"
@@ -673,7 +668,9 @@ function OverrideModal({
       >
         <div className="spread">
           <h2 id="override-modal-title" style={{ fontSize: "1.2rem" }}>{no.control.override}</h2>
-          <button className="btn btn-ghost" onClick={onClose} aria-label={no.common.close}>✕</button>
+          <button className="btn btn-ghost" onClick={onClose} aria-label={no.common.close}>
+            <Icon name="close" />
+          </button>
         </div>
         {err && (
           <div className="toast-danger" role="alert" style={{ fontSize: ".9rem" }}>

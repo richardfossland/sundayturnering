@@ -102,7 +102,7 @@ export function BoardClient({
   const next = upcoming(matches, 6);
   // The on-screen QR is the READ-ONLY spectator link — anyone in the room can
   // scan it safely. Points at /se/ (phone view + tap-to-cheer); referees get
-  // the control code from the organiser or the ⚿ codes overlay.
+  // the control code from the organiser or the codes overlay.
   const followUrl = `${baseUrl}/se/${tournament.id}`;
 
   // Commentator stays mounted in a stable tree position across the league →
@@ -141,7 +141,7 @@ export function BoardClient({
         ) : (
           // The control code is NOT on the projector by default — anyone in the
           // room could read it and enter results. The header keeps just the
-          // read-only follow QR; the codes live behind ⚿ (CodesOverlay).
+          // read-only follow QR; the codes live behind the codes button (CodesOverlay).
           <button
             className="board-code-chip"
             onClick={() => setShowCodes(true)}

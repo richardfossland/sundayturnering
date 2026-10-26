@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { QRCode } from "@/lib/client/QRCode";
+import { Icon } from "@/lib/client/Icon";
 import { api } from "@/lib/client/api";
 import { pairErrorMessage } from "@/lib/locale/errors";
 import { identity } from "@/lib/client/identity";
@@ -58,7 +59,8 @@ export function CodesOverlay({
             {no.board.codesTitle}
           </div>
           <button className="btn" onClick={onClose}>
-            {no.common.close} ✕
+            {no.common.close}
+            <Icon name="close" size={16} />
           </button>
         </div>
 
