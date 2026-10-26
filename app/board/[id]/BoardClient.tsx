@@ -26,13 +26,7 @@ import { useChannel } from "@/lib/client/useChannel";
 import { playDing } from "@/lib/client/sound";
 import type { Court, Match, ScoringConfig, Team } from "@/lib/types";
 
-export function BoardClient({
-  id,
-  spectator = false,
-}: {
-  id: string;
-  spectator?: boolean;
-}) {
+export function BoardClient({ id }: { id: string }) {
   const [flash, setFlash] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -41,11 +35,8 @@ export function BoardClient({
   const [wallRef, wall] = useReactionWall();
   // A projector that dims or sleeps mid-tournament is the classic failure.
   useWakeLock();
-  const { state, error, failures, lastOkAt } = useTournament(id, {
-    // Public /live boards may be many; spread their refetches. The organiser's
-    // own board wants the result the moment it lands.
-    jitterMs: spectator ? 1500 : 0,
-  });
+  // The organiser's own board wants the result the moment it lands (no jitter).
+  const { state, error, failures, lastOkAt } = useTournament(id, { jitterMs: 0 });
   // Spectator cheers arrive on their own topic → float emoji (no refetch).
   useChannel(channels.cheer(id), (event, payload) => {
     if (event === events.reaction) wallRef.current?.push(payload);
@@ -99,19 +90,16 @@ export function BoardClient({
   const finished = tournament.status === "finished";
 
   const live = liveMatches(matches);
-  // The projector shows as many as fit (CSS hides the rest), so fetch plenty;
-  // a phone (spectator) keeps the short list.
-  const next = upcoming(matches, spectator ? 6 : 10);
+  // The projector shows as many as fit (CSS hides the rest), so fetch plenty.
+  const next = upcoming(matches, 10);
   // The on-screen QR is the READ-ONLY spectator link — anyone in the room can
-  // scan it safely. Points at /se/ (phone view + tap-to-cheer); referees get
+  // scan it safely. Points at /se/ («Følg turneringen»); referees get
   // the control code from the organiser or the codes overlay.
   const followUrl = `${baseUrl}/se/${tournament.id}`;
   // Before the first match: calm instructions instead of an empty scoreboard.
-  // Not on the public spectator view (its phone layout has no use for it, and
-  // the referee instructions belong on the room's screen only).
-  const lobby =
-    !spectator &&
-    !matches.some((m) => m.status === "live" || m.status === "called" || m.status === "done");
+  const lobby = !matches.some(
+    (m) => m.status === "live" || m.status === "called" || m.status === "done",
+  );
   const hasBracket = matches.some((m) => m.phase === "playoff");
   // League table AND bracket (not cup / double elimination): on a wide screen they
   // become two full-height columns beside "Nå spiller" so neither is squeezed.
@@ -132,9 +120,9 @@ export function BoardClient({
         hasBracket ? " board-has-bracket" : ""
       }${tri ? " board-tri" : ""}`}
     >
-      <BoardControls spectator={spectator} onCodes={() => setShowCodes(true)} />
+      <BoardControls onCodes={() => setShowCodes(true)} />
       {wall}
-      {showCodes && !spectator && (
+      {showCodes && (
         <CodesOverlay
           tournamentId={tournament.id}
           baseUrl={baseUrl}
@@ -155,28 +143,22 @@ export function BoardClient({
           </div>
           <BoardTimer timer={tournament.timer} />
         </div>
-        {!lobby &&
-          (spectator ? (
+        {!lobby && (
+          // The control code is NOT on the projector by default — anyone in the
+          // room could read it and enter results. The header keeps just the
+          // read-only follow QR; the codes live behind the codes button (CodesOverlay).
+          <button
+            className="board-code-chip"
+            onClick={() => setShowCodes(true)}
+            title={no.board.codesBtn}
+            aria-label={no.board.codesBtn}
+          >
             <div className="board-qr">
               <QRCode value={followUrl} size={240} />
               <div className="board-qr-label">{no.board.follow}</div>
             </div>
-          ) : (
-            // The control code is NOT on the projector by default — anyone in the
-            // room could read it and enter results. The header keeps just the
-            // read-only follow QR; the codes live behind the codes button (CodesOverlay).
-            <button
-              className="board-code-chip"
-              onClick={() => setShowCodes(true)}
-              title={no.board.codesBtn}
-              aria-label={no.board.codesBtn}
-            >
-              <div className="board-qr">
-                <QRCode value={followUrl} size={240} />
-                <div className="board-qr-label">{no.board.follow}</div>
-              </div>
-            </button>
-          ))}
+          </button>
+        )}
       </header>
 
       {lobby ? (

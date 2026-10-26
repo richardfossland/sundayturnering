@@ -55,7 +55,7 @@ export function PrintClient({ id }: { id: string }) {
   if (access === null)
     return (
       <main className="center-screen">
-        <div className="card card-pad stack center" style={{ maxWidth: 440, width: "100%" }}>
+        <div className="card card-pad stack center print-noaccess">
           <h2>{no.print.noAccessTitle}</h2>
           <p className="faint">{no.print.noAccessBody}</p>
           <Link href={`/arrangor/${id}`} className="btn btn-gold btn-block">
@@ -85,21 +85,57 @@ export function PrintClient({ id }: { id: string }) {
 
   return (
     <main className="print-page">
-      <div className="print-toolbar card card-pad stack">
-        <div className="row" style={{ justifyContent: "space-between", gap: 12 }}>
-          <strong>{no.print.choose}</strong>
-          <button className="btn btn-gold" onClick={() => window.print()}>
+      <div className="print-toolbar card card-pad">
+        <div className="print-panel-head">
+          <div>
+            <h1 className="print-panel-title">{no.print.heading}</h1>
+            <p className="hint">{no.print.lead}</p>
+          </div>
+          <button className="btn btn-gold btn-lg" onClick={() => window.print()} disabled={nothing}>
             <Icon name="print" />
             {no.print.action}
           </button>
         </div>
-        <div className="print-options">
-          <Check label={no.print.programmeCourt} on={showCourt} set={setShowCourt} />
-          <Check label={no.print.programmeTeam} on={showTeam} set={setShowTeam} />
-          <Check label={no.print.matchCards} on={showCards} set={setShowCards} />
-          <Check label={no.print.courtCards} on={showCourtCards} set={setShowCourtCards} />
-          <Check label={no.print.onlyKnown} on={onlyKnown} set={setOnlyKnown} />
-        </div>
+        <fieldset className="print-group">
+          <legend className="print-group-title">{no.print.contentTitle}</legend>
+          <div className="print-options">
+            <Option
+              label={no.print.programmeCourt}
+              hint={no.print.programmeCourtHint}
+              on={showCourt}
+              set={setShowCourt}
+            />
+            <Option
+              label={no.print.programmeTeam}
+              hint={no.print.programmeTeamHint}
+              on={showTeam}
+              set={setShowTeam}
+            />
+            <Option
+              label={no.print.matchCards}
+              hint={no.print.matchCardsHint}
+              on={showCards}
+              set={setShowCards}
+            />
+            <Option
+              label={no.print.courtCards}
+              hint={no.print.courtCardsHint}
+              on={showCourtCards}
+              set={setShowCourtCards}
+            />
+          </div>
+        </fieldset>
+        <fieldset className="print-group">
+          <legend className="print-group-title">{no.print.filterTitle}</legend>
+          <div className="print-options">
+            <Option
+              label={no.print.onlyKnown}
+              hint={no.print.onlyKnownHint}
+              on={onlyKnown}
+              set={setOnlyKnown}
+            />
+          </div>
+        </fieldset>
         {!control && (showCards || showCourtCards) && (
           <div className="panel" role="status">{no.print.noControlCode}</div>
         )}
@@ -265,10 +301,25 @@ function TeamName({ team }: { team: Team | undefined }) {
   );
 }
 
-function Check({ label, on, set }: { label: string; on: boolean; set: (v: boolean) => void }) {
+/** One print option: the whole tile is the hit area; a short line says what it prints. */
+function Option({
+  label,
+  hint,
+  on,
+  set,
+}: {
+  label: string;
+  hint: string;
+  on: boolean;
+  set: (v: boolean) => void;
+}) {
   return (
-    <label className="print-check">
-      <input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} /> {label}
+    <label className="check-row print-option">
+      <input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} />
+      <span>
+        <span className="check-title">{label}</span>
+        <span className="hint">{hint}</span>
+      </span>
     </label>
   );
 }

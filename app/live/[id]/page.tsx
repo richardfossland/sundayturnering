@@ -1,11 +1,12 @@
-import { BoardClient } from "@/app/board/[id]/BoardClient";
+import { permanentRedirect } from "next/navigation";
 
-// Public, read-only spectator view. Same board, minus the referee control code.
+// «Følg turneringen» lives at /se/[id] now. /live/[id] is on printed QR codes
+// and old links, so it stays and forwards (permanent: 308).
 export default async function LivePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <BoardClient id={id} spectator />;
+  permanentRedirect(`/se/${encodeURIComponent(id)}`);
 }

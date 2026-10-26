@@ -170,3 +170,30 @@ export function FormDots({ form }: { form: ("W" | "D" | "L")[] }) {
     </span>
   );
 }
+
+/** What K / S / T / ± / P mean — spelled out under the table (phone and results page;
+ * the projector has its own one-line legend in BoardStandings). */
+export function StandingsLegend({
+  standings,
+  showDraw,
+}: {
+  standings: StandingRow[];
+  showDraw: boolean;
+}) {
+  const th = no.board.th;
+  const f = no.board.thFull;
+  const items: [string, string][] = [[th.p, f.p], [th.w, f.w]];
+  if (showDraw) items.push([th.d, f.d]);
+  items.push([th.l, f.l], [th.diff, f.diff], [th.pts, f.pts]);
+  if (standings.some((r) => r.buchholz !== undefined)) items.push([th.buchholz, f.buchholz]);
+  return (
+    <p className="standings-legend">
+      <span className="standings-legend-title">{no.board.legendTitle}:</span>{" "}
+      {items.map(([s, w]) => (
+        <span key={s} className="standings-legend-item">
+          <b>{s}</b> {w.toLowerCase()}
+        </span>
+      ))}
+    </p>
+  );
+}

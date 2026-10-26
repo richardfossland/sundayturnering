@@ -3096,15 +3096,15 @@ button.brk-row:focus-visible {
 /* ============ results / diploma page ============ */
 .result-page {
   min-height: 100dvh;
-  padding: 24px 16px 60px;
+  padding: var(--sp-5) var(--sp-4) var(--sp-8);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: var(--sp-4);
 }
 .result-actions {
   width: 100%;
-  max-width: 760px;
+  max-width: var(--w-form);
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
@@ -3112,92 +3112,161 @@ button.brk-row:focus-visible {
 }
 .result-sheet {
   width: 100%;
-  max-width: 760px;
+  max-width: var(--w-form);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
   background: linear-gradient(180deg, var(--ink-2), var(--ink-3));
   border: 1px solid var(--ink-line);
   border-radius: var(--radius);
   box-shadow: var(--shadow-2);
-  padding: 40px;
+  padding: var(--sp-6) var(--sp-4);
+}
+@media (min-width: 640px) {
+  .result-sheet {
+    padding: var(--sp-7);
+  }
 }
 .result-head {
   text-align: center;
-  margin-bottom: 28px;
 }
 .result-head .brand {
   justify-content: center;
-  font-size: 0.95rem;
-  margin-bottom: 14px;
+  font-size: var(--fs-sm);
+  margin-bottom: var(--sp-3);
 }
 .result-head h1 {
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  overflow-wrap: anywhere;
 }
 .result-sport {
+  margin-top: var(--sp-2);
   color: var(--gold-ink);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-size: 0.85rem;
-  margin-top: 6px;
+  font-size: var(--fs-sm);
+}
+/* the not-finished note: replaces the winner block until the organiser ends the tournament */
+.result-provisional {
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-sm);
+  background: rgba(224, 137, 74, 0.1);
+}
+.result-provisional-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-md);
+  color: var(--warn-ink);
+}
+.result-provisional p {
+  margin: 0;
+  font-size: var(--fs-base);
 }
 .result-champ {
   text-align: center;
-  padding: 24px;
-  margin: 0 auto 28px;
+  padding: var(--sp-5);
   border: 1px solid rgba(235, 184, 75, 0.3);
   background: rgba(235, 184, 75, 0.08);
   border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .result-champ-eyebrow {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--gold-ink);
   font-weight: 800;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 .result-champ-name {
   font-family: var(--display);
   font-weight: 900;
   font-size: clamp(1.6rem, 4vw, 2.4rem);
+  overflow-wrap: anywhere;
+}
+.result-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.result-sec-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+.result-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.result-group + .result-group {
+  margin-top: var(--sp-3);
 }
 .result-podium {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .diploma {
   border: 1px solid var(--ink-line-strong);
   border-radius: 14px;
-  padding: 16px;
+  padding: var(--sp-4);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   background: var(--s-03);
 }
 .diploma-place {
   font-family: var(--display);
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size: var(--fs-md);
   color: var(--gold-ink);
 }
 .diploma-name {
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 .diploma-members {
-  font-size: 0.78rem;
+  font-size: var(--fs-sm);
   color: var(--txt-dim);
   line-height: 1.35;
 }
+.crest {
+  flex: none;
+  display: grid;
+  place-items: center;
+  object-fit: cover;
+  color: #fff;
+  font-family: var(--display);
+  font-weight: 900;
+}
+.crest-lg {
+  width: 86px;
+  height: 86px;
+  border-radius: 19px;
+  font-size: 2.15rem;
+}
+.crest-md {
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  font-size: 1.35rem;
+}
+.award-swatch {
+  width: 14px;
+  height: 14px;
+}
 .result-foot {
   text-align: center;
-  margin-top: 28px;
   color: var(--txt-faint);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   letter-spacing: 0.04em;
 }
 
@@ -3214,12 +3283,30 @@ button.brk-row:focus-visible {
   .result-page {
     padding: 0;
   }
+  /* the sheet is always white: use the light-theme ink whatever theme is on screen */
   .result-sheet {
+    --txt: #161b27;
+    --txt-dim: #4f586a;
+    --txt-faint: #566074;
+    --gold-ink: #7a5c0a;
+    --warn-ink: #a8501f;
+    --medal-gold: #a87d12;
+    --medal-silver: #6c7482;
+    --medal-bronze: #9a5a2b;
+    --ink-line: rgba(20, 24, 33, 0.12);
+    --ink-line-strong: rgba(20, 24, 33, 0.22);
+    --s-03: rgba(20, 24, 33, 0.035);
     box-shadow: none;
     border: none;
     background: #fff;
     color: #14171e;
     max-width: 100%;
+    padding: 0;
+    gap: 8mm;
+  }
+  .result-champ,
+  .result-provisional {
+    break-inside: avoid;
   }
   .diploma {
     border-color: #ccc;
@@ -3410,71 +3497,376 @@ button.brk-row:focus-visible {
   }
 }
 
-/* ============ spectator phone view (/se/[id]) ============ */
-.spectator {
+/* ============ «Følg turneringen» (/se/[id]) — phone-first public page ============ */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.follow) {
+    scroll-behavior: smooth;
+  }
+}
+.follow {
   width: 100%;
-  max-width: 560px;
+  max-width: var(--w-form);
   margin: 0 auto;
-  padding: 16px 14px calc(28px + env(safe-area-inset-bottom));
+  /* bottom room for the fixed theme switch */
+  padding: var(--sp-5) var(--sp-4) calc(var(--sp-8) + var(--sp-6) + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--sp-5);
 }
-.spectator-head {
+.follow-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.follow-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+.follow-sport {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-ink);
+}
+.follow-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 640px) {
+  .follow-title {
+    font-size: var(--fs-2xl);
+  }
+}
+
+/* winner card (finished) */
+.follow-champ {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-4);
+  text-align: center;
+  background: linear-gradient(180deg, var(--ink-2), var(--ink-3));
+  border: 1px solid var(--gold-deep);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+}
+.follow-champ-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-ink);
+}
+.follow-champ-label {
+  font-size: var(--fs-sm);
+  color: var(--txt-dim);
+}
+.follow-champ-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  font-family: var(--display);
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+/* sticky mini-nav */
+.follow-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  gap: var(--sp-1);
+  margin-inline: calc(var(--sp-4) * -1);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--page);
+  border-bottom: 1px solid var(--ink-line);
+  overflow-x: auto;
+}
+.follow-nav-link {
+  flex: 1 0 auto;
+  display: grid;
+  place-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--sp-4);
+  border-radius: 10px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--txt-dim);
+  text-decoration: none;
+}
+.follow-nav-link:hover {
+  background: var(--s-hover);
+  color: var(--txt);
+}
+.follow-nav-link[aria-current="true"] {
+  background: var(--gold-grad);
+  color: var(--on-gold);
+}
+.follow-nav-link:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.follow-sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  scroll-margin-top: calc(var(--tap) + var(--sp-5));
+}
+.follow-h {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+.follow-sec > .follow-h:not(:first-child) {
+  margin-top: var(--sp-3);
+}
+.follow-empty {
+  margin: 0;
+  padding: var(--sp-4);
+  border: 1px dashed var(--ink-line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--txt-dim);
   text-align: center;
 }
-.spectator-title {
-  font-size: 1.5rem;
-  line-height: 1.15;
-  margin: 0;
+.follow-card {
+  padding: var(--sp-4);
+  overflow: hidden;
 }
+.follow-hint {
+  margin: 0 0 var(--sp-3);
+}
+.follow .brk {
+  --brk-u: 112px; /* the default (11vh) is too short on a phone: matches touch */
+}
+.follow-foot {
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--txt-faint);
+}
+
+/* team marks */
+.follow-swatch,
+.follow-logo {
+  flex: none;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.follow-swatch-md,
+.follow-logo-md {
+  width: 14px;
+  height: 14px;
+}
+.follow-swatch-lg,
+.follow-logo-lg {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+/* live matches */
+.follow-live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.live-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: linear-gradient(180deg, var(--ink-2), var(--ink-3));
+  border: 1px solid var(--ink-line);
+  border-left: 4px solid var(--live);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+}
+.live-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.live-card-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--live-ink);
+}
+.live-card-court {
+  color: var(--gold-ink);
+}
+.live-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.live-row-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.live-row-score {
+  font-family: var(--display);
+  font-size: var(--fs-xl);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--gold-ink);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.live-card-sets {
+  font-size: var(--fs-sm);
+  color: var(--txt-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* next matches: time · teams · court */
+.follow-next {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.fn-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--s-025);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius-sm);
+}
+.fn-time {
+  flex: none;
+  min-width: 3.2rem;
+  font-size: var(--fs-base);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--txt);
+}
+.fn-teams {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.fn-team {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.fn-name {
+  min-width: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.fn-court {
+  flex: none;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--gold-ink);
+}
+
+/* table legend (phone + results page) */
+.standings-legend {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  color: var(--txt-dim);
+}
+.standings-legend-title {
+  font-weight: 700;
+  color: var(--txt);
+}
+.standings-legend-item {
+  display: inline-block;
+  margin-right: var(--sp-3);
+  white-space: nowrap;
+}
+.standings-legend-item b {
+  color: var(--gold-ink);
+}
+
+/* cheer buttons */
 .react-pad {
   background: linear-gradient(180deg, var(--ink-2), var(--ink-3));
   border: 1px solid var(--ink-line);
   border-radius: var(--radius);
-  padding: 16px 14px 18px;
+  padding: var(--sp-4);
   text-align: center;
 }
 .react-intro {
+  margin: 0 0 var(--sp-4);
   color: var(--txt-dim);
-  font-size: 0.95rem;
-  margin-bottom: 14px;
+  font-size: var(--fs-sm);
 }
 .react-buttons {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: var(--sp-3);
 }
 .react-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 18px 6px;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 88px;
+  padding: var(--sp-3) var(--sp-2);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--ink-line-strong);
-  background: var(--ink-soft);
-  color: var(--txt);
+  border: 1px solid var(--ctl-border);
+  background: var(--s-05);
+  color: var(--gold-ink);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   transition: transform 0.06s var(--ease);
 }
-.react-btn:active {
-  transform: scale(0.92);
+.react-btn:hover {
+  background: var(--s-hover);
 }
-.react-btn-emoji {
-  font-size: 2.4rem;
-  line-height: 1;
+.react-btn:active {
+  transform: scale(0.94);
+}
+.react-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 .react-btn-label {
-  font-size: 0.78rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
-  color: var(--txt-dim);
+  color: var(--txt);
 }
 .react-btn-goal {
   background: var(--gold-grad);
   border-color: var(--gold-deep);
+  color: var(--on-gold);
+}
+.react-btn-goal:hover {
+  background: var(--gold-grad);
+  filter: brightness(1.06);
 }
 .react-btn-goal .react-btn-label {
   color: var(--on-gold);
@@ -3598,32 +3990,94 @@ button.brk-row:focus-visible {
 /* ============ utskrift (/skriv-ut): kampprogram, kampkort, banekort ============ */
 .print-page {
   min-height: 100dvh;
-  padding: 20px 16px 60px;
+  padding: var(--sp-5) var(--sp-4) var(--sp-8);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: var(--sp-5);
+}
+.print-noaccess {
+  max-width: 440px;
+  width: 100%;
 }
 .print-toolbar {
   width: 100%;
-  max-width: 820px;
+  max-width: var(--w-page);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
 }
-.print-options {
+.print-panel-head {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 18px;
-}
-.print-check {
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  cursor: pointer;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+.print-panel-title {
+  margin: 0 0 var(--sp-1);
+  font-size: var(--fs-xl);
+}
+.print-panel-head .hint {
+  margin: 0;
+}
+.print-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.print-group-title {
+  padding: 0;
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--txt-dim);
+}
+.print-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+}
+@media (min-width: 640px) {
+  .print-options {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+/* each option is a tile; the checked ones get the gold edge */
+label.print-option:has(> input[type="checkbox"]) {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--ink-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--s-025);
+  transition:
+    border-color 0.14s var(--ease),
+    background 0.14s var(--ease);
+}
+label.print-option:has(> input[type="checkbox"]):hover {
+  background: var(--s-hover);
+}
+label.print-option:has(> input[type="checkbox"]:checked) {
+  border-color: var(--gold-deep);
+  background: rgba(235, 184, 75, 0.08);
+}
+label.print-option:has(> input[type="checkbox"]:focus-visible) {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.print-option > span {
+  padding-top: 0;
+}
+label.print-option > input[type="checkbox"] {
+  margin-top: 2px;
 }
 /* Arket er alltid hvitt med svart tekst, uansett tema. */
 .print-sheet {
   page: print-sheet;
   width: 100%;
-  max-width: 820px;
+  max-width: var(--w-page);
   background: #fff;
   color: #000;
   padding: 12mm;
@@ -3640,9 +4094,12 @@ button.brk-row:focus-visible {
 .ps-block + .ps-block {
   break-before: page;
 }
+/* air around the section heading («Bane 2»): below it ~6 mm before the table */
 .ps-block h2 {
   font-size: 15pt;
-  margin: 0 0 8px;
+  margin: 0 0 6mm;
+  padding-bottom: 2mm;
+  border-bottom: 1.5pt solid #000;
 }
 .ps-table {
   width: 100%;
@@ -3651,15 +4108,18 @@ button.brk-row:focus-visible {
 .ps-table th,
 .ps-table td {
   text-align: left;
-  padding: 4px 8px;
+  padding: 2.2mm 2.5mm;
   border-bottom: 1px solid #bbb;
+}
+.ps-table th {
+  border-bottom-color: #000;
 }
 .ps-team {
   break-inside: avoid;
-  margin-bottom: 12px;
+  margin-bottom: 7mm;
 }
 .ps-team h3 {
-  margin: 0 0 4px;
+  margin: 0 0 2mm;
   font-size: 12pt;
 }
 .ps-swatch {
@@ -3835,7 +4295,6 @@ button.brk-row:focus-visible {
   justify-content: center;
 }
 .speaker-icon,
-.react-btn-emoji,
 .reaction-tally-emoji {
   display: inline-grid;
   place-items: center;
@@ -3849,12 +4308,6 @@ button.brk-row:focus-visible {
 }
 .champion-badge .icon {
   color: #fff;
-}
-.react-btn-emoji {
-  color: var(--gold-ink);
-}
-.react-btn-goal .react-btn-emoji {
-  color: var(--on-gold);
 }
 .reaction-floater {
   color: var(--gold);
@@ -4284,13 +4737,44 @@ button.stepper-btn:hover .stepper-dot {
   cursor: pointer;
   transition: background 0.15s var(--ease);
 }
-.seg-btn:hover:not([aria-selected="true"]) {
+.seg-btn:hover:not([aria-selected="true"]):not([aria-checked="true"]) {
   background: var(--s-hover);
   color: var(--txt);
 }
-.seg-btn[aria-selected="true"] {
+.seg-btn[aria-selected="true"],
+.seg-btn[aria-checked="true"] {
   background: var(--gold-grad);
   color: var(--on-gold);
+}
+.seg-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+/* a choice with a one-line explanation under the title (radiogroup variant) */
+.seg-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+}
+.seg-title {
+  font-size: var(--fs-base);
+}
+.seg-hint {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.35;
+}
+/* ============ enkeltkamp (/hurtig) ============ */
+.hurtig-card {
+  width: 100%;
+  max-width: 520px;
+}
+.hurtig-title {
+  margin: 0;
+  font-size: var(--fs-xl);
 }
 
 /* team list: grows with the page, no inner scroll box */
