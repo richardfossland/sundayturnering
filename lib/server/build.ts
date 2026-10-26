@@ -7,6 +7,7 @@ import {
 } from "@/lib/codes";
 import { planRoundRobins } from "@/lib/tournament/roundRobin";
 import {
+  bracketPlayOrder,
   buildCupConsolationSet,
   buildPlayoffSet,
   cupConsolationFeasible,
@@ -439,12 +440,9 @@ async function persistBracketSet(
   const sb = db();
 
   // Spillerekkefølge: runde for runde, A før B, så B-runde 1 kommer rett etter
-  // A-runde 1 (og ikke etter hele A). Med bare A er dette samme rekkefølge som før.
-  const flat = set.brackets.flatMap(({ id, bracket }, bi) =>
-    bracket.matches.map((m) => ({ id, bi, m })),
-  );
+  // A-runde 1 (og ikke etter hele A). Bronsefinalen kommer før finalen (B2).
+  const flat = bracketPlayOrder(set, opts?.order);
   const at = (id: string, round: number) => opts?.order?.(id, round) ?? round;
-  flat.sort((x, y) => at(x.id, x.m.round) - at(y.id, y.m.round) || x.bi - y.bi || x.m.slot - y.m.slot);
 
   let queue = 0;
   const perRound = new Map<number, number>();
