@@ -62,12 +62,17 @@ function isBronzeMatch(id: BracketId, bracket: BuiltBracket, m: BuiltMatch): boo
 
 /** Spillerekkefølgen for alle kampene i et brakettsett (lavest først), brukt som
  * `queue_order` og i tidsplanen: runde for runde (eller etter `order`), A før B,
- * så etter plass. Bronsefinalen settes FØR finalen i samme runde — finalen er
- * dagens siste kamp, og turneringen avsluttes først når begge er avgjort. */
+ * så etter plass. Bronsefinalen settes FØR finalen i samme runde: med én bane
+ * spilles finalen sist, og turneringen avsluttes først når begge er avgjort.
+ * (Med flere baner kan de gå samtidig; da skal finalen ha første bane, se
+ * `finalFirstCourt` i build.ts.) `bronzeFirst: false` gir den klassiske rekkefølgen
+ * (finalen først), brukt til å fordele baner. */
 export function bracketPlayOrder(
   set: BracketSet,
   order?: (bracket: string, round: number) => number,
+  opts: { bronzeFirst?: boolean } = {},
 ): { id: BracketId; bi: number; m: BuiltMatch }[] {
+  const bronzeFirst = opts.bronzeFirst ?? true;
   const flat = set.brackets.flatMap(({ id, bracket }, bi) =>
     bracket.matches.map((m) => ({ id, bi, m, bronze: isBronzeMatch(id, bracket, m) })),
   );
@@ -76,7 +81,7 @@ export function bracketPlayOrder(
     (x, y) =>
       at(x.id, x.m.round) - at(y.id, y.m.round) ||
       x.bi - y.bi ||
-      (x.bronze ? -1 : x.m.slot) - (y.bronze ? -1 : y.m.slot),
+      (x.bronze && bronzeFirst ? -1 : x.m.slot) - (y.bronze && bronzeFirst ? -1 : y.m.slot),
   );
   return flat.map(({ id, bi, m }) => ({ id, bi, m }));
 }

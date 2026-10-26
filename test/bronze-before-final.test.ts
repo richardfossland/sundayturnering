@@ -86,6 +86,25 @@ describe("bronsefinale før finale i køen", () => {
     expect(at(2, 1)).toBeLessThan(at(2, 0));
   });
 
+  it("flere baner uten tidsplan: finalen får første bane, bronsefinalen den neste", async () => {
+    await buildCupMatches("t", ids(4), ["c1", "c2"], { thirdPlace: true });
+    const court = (round: number, slot: number) => matches.find((r) => r.round === round && r.bracket_slot === slot)!.court_id;
+    expect(court(2, 0)).toBe("c1");
+    expect(court(2, 1)).toBe("c2");
+    // Semifinalene uendret: c1, c2.
+    expect([court(1, 0), court(1, 1)]).toEqual(["c1", "c2"]);
+  });
+
+  it("flere baner med tidsplan: bronse og finale samtidig → finalen på første bane", async () => {
+    await buildCupMatches("t", ids(4), ["c1", "c2"], { thirdPlace: true, schedule });
+    const row = (round: number, slot: number) => matches.find((r) => r.round === round && r.bracket_slot === slot)!;
+    expect(row(2, 0).scheduled_at).toBe(row(2, 1).scheduled_at);
+    expect(row(2, 0).court_id).toBe("c1");
+    expect(row(2, 1).court_id).toBe("c2");
+    // Køen er fortsatt bronse først.
+    expect(row(2, 1).queue_order as number).toBeLessThan(row(2, 0).queue_order as number);
+  });
+
   it("estimatet bruker samme rekkefølge (sluttid uendret for én bane: 4 kamper)", () => {
     const e = estimateEnd({ format: "cup", teamCount: 4, courtCount: 1, schedule, thirdPlace: true });
     expect(e.matchCount).toBe(4);
