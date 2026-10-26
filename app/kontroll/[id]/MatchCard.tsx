@@ -182,6 +182,12 @@ export function MatchCard({
               {primary.label}
             </button>
           )}
+          {/* Many referees only report afterwards — they may skip "Start kamp". */}
+          {primary && planned && !unsent && (
+            <button type="button" className="btn btn-ghost" onClick={onEnterScore}>
+              {no.control.enterScore}
+            </button>
+          )}
           {unsent?.failed && (
             <button type="button" className="btn" onClick={() => onDismissUnsent(unsent.requestId)}>
               {no.control.unsentDismiss}

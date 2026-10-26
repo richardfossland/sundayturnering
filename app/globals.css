@@ -2413,7 +2413,14 @@ button.brk-row:focus-visible {
   gap: var(--sp-3);
 }
 .mcard-primary {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  width: auto;
+  min-height: 52px;
+}
+/* Secondary "Før resultat" next to "Start kamp" — same row, content width. */
+.mcard-foot .btn-ghost {
+  flex: 0 0 auto;
+  width: auto;
   min-height: 52px;
 }
 .mcard-hint {
