@@ -169,7 +169,8 @@ html {
     var(--page) 80%
   );
   background-repeat: no-repeat;
-  transition: background-color 0.3s var(--ease);
+  /* No colour transitions on html/body: a theme switch must never leave text
+     and ground mid-way between themes (the "near-invisible headline" frames). */
 }
 body {
   font-family: var(--body);
@@ -179,7 +180,6 @@ body {
   min-height: 100dvh;
   position: relative;
   overflow-x: hidden;
-  transition: color 0.3s var(--ease);
 }
 :focus-visible {
   outline: 2px solid var(--gold);
