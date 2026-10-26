@@ -51,7 +51,7 @@ class Query implements PromiseLike<{ data: unknown; error: null | { message: str
 
   constructor(private table: string) {}
 
-  select(_cols?: string) {
+  select() {
     this.returning = true;
     return this;
   }

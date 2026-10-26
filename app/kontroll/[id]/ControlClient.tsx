@@ -449,6 +449,7 @@ export function ControlClient({ id }: { id: string }) {
           <OrganiserPanel
             tournament={tournament}
             matches={matches}
+            links={state.links}
             teams={teams}
             courts={courts}
             onChanged={refetch}

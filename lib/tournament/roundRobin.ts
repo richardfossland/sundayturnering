@@ -99,13 +99,13 @@ export function planRoundRobins(
 ): GroupRRPairing[] {
   const { double = false, courtCount = 0 } = opts;
   const all = groups.flatMap((ids, group) =>
-    generateRoundRobin(ids, { double }).map((p, i) => ({ ...p, group, i })),
+    generateRoundRobin(ids, { double }).map((p, i) => ({ p, group, i })),
   );
-  all.sort((a, b) => a.round - b.round || a.group - b.group || a.i - b.i);
+  all.sort((a, b) => a.p.round - b.p.round || a.group - b.group || a.i - b.i);
   let courtCursor = 0;
-  return all.map(({ i: _i, ...p }, queueOrder) => {
+  return all.map(({ p, group }, queueOrder) => {
     const takesCourt = p.awayId !== null && courtCount > 0;
-    return { ...p, queueOrder, courtIndex: takesCourt ? courtCursor++ % courtCount : null };
+    return { ...p, group, queueOrder, courtIndex: takesCourt ? courtCursor++ % courtCount : null };
   });
 }
 

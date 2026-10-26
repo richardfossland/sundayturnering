@@ -688,6 +688,19 @@ export const no = {
     shiftMinutes: "Minutter (− tidligere, + senere)",
     shiftPreview: (n: number) => `${n} ${n === 1 ? "kamp" : "kamper"} flyttes`,
     shiftConfirm: "Bekreft",
+    shiftNone: "Ingen kamper som kan spilles å flytte fra det tidspunktet.",
+    shiftWarnTitle: (n: number) =>
+      `Dette skaper ${n} ${n === 1 ? "konflikt" : "konflikter"} i tidsplanen`,
+    shiftWarnHint: "Flytter du bare én bane, eller tilbake i tid, kan kamper komme i feil rekkefølge.",
+    shiftConflict: (kind: "feeder" | "team_overlap" | "rest" | "court_overlap", a: string, b: string) =>
+      kind === "feeder"
+        ? `${a} starter før ${b} er ferdig`
+        : kind === "team_overlap"
+          ? `${a} og ${b} har samme lag og spilles samtidig`
+          : kind === "rest"
+            ? `${a} og ${b}: for kort hvile mellom kampene`
+            : `${a} og ${b} overlapper på samme bane`,
+    shiftAnyway: "Flytt likevel",
     shiftDone: (n: number) => `Tidsplanen er flyttet (${n} ${n === 1 ? "kamp" : "kamper"}).`,
 
     courtsTitle: "Baner",
