@@ -6,7 +6,9 @@ import { no } from "@/lib/locale/no";
 import { errorMessage } from "@/lib/locale/errors";
 import { NumberField } from "@/lib/client/NumberField";
 import { matchTime } from "@/lib/client/view";
-import { previewShift } from "@/lib/tournament/schedule";
+import { isPlayable } from "@/lib/tournament/courts";
+import { previewShift, shiftConflicts } from "@/lib/tournament/schedule";
+import type { Match } from "@/lib/types";
 import { matchLabeler, ToolSection, type ToolsCtx } from "./shared";
 
 /** Quick picks for the minutes field. */
@@ -20,6 +22,7 @@ const PREVIEW = 5;
 export function ShiftSection({
   tournament,
   matches,
+  links,
   teams,
   courts,
   code,
@@ -37,20 +40,30 @@ export function ShiftSection({
     return () => clearInterval(id);
   }, []);
 
+  // Kamper som ikke lenger kan spilles (seriekamper etter at sluttspillet startet)
+  // flyttes av databasen også, men hører ikke hjemme i forhåndsvisningen.
+  const playable = (m: Match) => isPlayable(m, tournament.status);
   const upcoming = matches
     .filter((m) => m.status !== "done" && m.status !== "bye" && m.status !== "live" && m.scheduled_at)
+    .filter(playable)
     .filter((m) => !courtId || m.court_id === courtId)
     .sort((a, b) => Date.parse(a.scheduled_at!) - Date.parse(b.scheduled_at!));
   const fromMatch = upcoming.find((m) => m.id === fromId);
   // Standard: alle uspilte kamper, også de som er forsinket (før «nå»).
   const fromIso = fromMatch?.scheduled_at ?? new Date(0).toISOString();
-  const { changes: unsorted, error } = previewShift(matches, {
+  const preview = previewShift(matches, {
     courtId: courtId || null,
     fromIso,
     minutes: mins,
     nowIso: new Date(now).toISOString(),
   });
   const byId = new Map(matches.map((m) => [m.id, m]));
+  const unsorted = preview.changes.filter((c) => {
+    const m = byId.get(c.matchId);
+    return !m || playable(m);
+  });
+  // Bare ukjente-tidspunkt-feil og «ingenting å flytte» er feil; alt annet kan bekreftes.
+  const error = preview.error ?? (unsorted.length === 0 ? "ingen_kamper" : null);
   const courtName = new Map(courts.map((c) => [c.id, c.name]));
   // Forhåndsvisningen følger klokka (tidligst først), og banen avgjør ved lik tid.
   const courtOrder = new Map(courts.map((c) => [c.id, c.sort_order]));
@@ -62,6 +75,35 @@ export function ShiftSection({
     return ca - cb;
   });
   const { label } = matchLabeler(teams);
+
+  // Konflikter forskyvningen skaper (databasen flytter rått): mater-kamp, samme lag
+  // to ganger, hvile, samme bane. Må bekreftes en gang til med «Flytt likevel».
+  const schedule = tournament.config?.schedule;
+  const conflicts =
+    schedule && !error
+      ? shiftConflicts(
+          matches,
+          (links ?? []).map(({ from_match_id, to_match_id }) => ({ from_match_id, to_match_id })),
+          unsorted,
+          schedule,
+          tournament.status,
+        )
+      : [];
+  const key = `${courtId}|${fromId}|${mins}`;
+  const [armedKey, setArmedKey] = useState<string | null>(null);
+  const armed = armedKey === key && conflicts.length > 0;
+
+  async function doShift() {
+    const r = await guard(() =>
+      api.shift(tournament.id, code, {
+        courtId: courtId || null,
+        from: fromIso,
+        minutes: mins,
+      }),
+    );
+    setArmedKey(null);
+    if (r) flash(no.control.shiftDone(r.count));
+  }
 
   return (
     <ToolSection id="shift" title={no.tools.scheduleTitle} intro={no.tools.scheduleIntro}>
@@ -130,7 +172,11 @@ export function ShiftSection({
       </div>
 
       {error ? (
-        <p className="hint" role="status">{errorMessage(new ApiError(400, error))}</p>
+        <p className="hint" role="status">
+          {error === "ingen_kamper" && !preview.error
+            ? no.control.shiftNone
+            : errorMessage(new ApiError(400, error))}
+        </p>
       ) : (
         <div className="shift-preview" role="status">
           <div className="label">{no.control.shiftPreview(changes.length)}</div>
@@ -158,23 +204,44 @@ export function ShiftSection({
         </div>
       )}
 
-      <button
-        type="button"
-        className="btn btn-gold"
-        disabled={busy || !code || !!error}
-        onClick={async () => {
-          const r = await guard(() =>
-            api.shift(tournament.id, code, {
-              courtId: courtId || null,
-              from: fromIso,
-              minutes: mins,
-            }),
-          );
-          if (r) flash(no.control.shiftDone(r.count));
-        }}
-      >
-        {no.control.shiftConfirm}
-      </button>
+      {conflicts.length > 0 && (
+        <div className="shift-warn" role="alert">
+          <strong>{no.control.shiftWarnTitle(conflicts.length)}</strong>
+          <ul className="shift-list">
+            {conflicts.slice(0, PREVIEW).map((c) => {
+              const a = byId.get(c.matchId);
+              const b = byId.get(c.otherId);
+              return (
+                <li key={`${c.kind}${c.matchId}${c.otherId}`}>
+                  {a && b ? no.control.shiftConflict(c.kind, label(a), label(b)) : c.kind}
+                </li>
+              );
+            })}
+          </ul>
+          {conflicts.length > PREVIEW && <p className="hint">{no.tools.more(conflicts.length - PREVIEW)}</p>}
+          <p className="hint">{no.control.shiftWarnHint}</p>
+        </div>
+      )}
+
+      {armed ? (
+        <div className="shift-actions">
+          <button type="button" className="btn btn-danger" disabled={busy || !code} onClick={doShift}>
+            {no.control.shiftAnyway}
+          </button>
+          <button type="button" className="btn" onClick={() => setArmedKey(null)}>
+            {no.common.cancel}
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-gold"
+          disabled={busy || !code || !!error}
+          onClick={() => (conflicts.length > 0 ? setArmedKey(key) : doShift())}
+        >
+          {no.control.shiftConfirm}
+        </button>
+      )}
     </ToolSection>
   );
 }

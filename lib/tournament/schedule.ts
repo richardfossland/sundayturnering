@@ -13,7 +13,8 @@
 // varer matchMinutes + breakMinutes. Kamper uten kjente lag (brakett-TBD) får
 // likevel slot. Uten baner (sekvensiell) er det én felles tidslinje.
 
-import type { Match, ScheduleConfig } from "@/lib/types";
+import { isPlayable } from "@/lib/tournament/courts";
+import type { Match, ScheduleConfig, TournamentStatus } from "@/lib/types";
 
 const MIN = 60_000;
 
@@ -35,6 +36,13 @@ export interface AssignOptions {
   notBefore?: Date;
   /** Mater-koblinger mellom kampene (brakett). */
   links?: SlotLink[];
+  /** Når lagene sist var ferdige med en kamp utenfor denne runden (lag → ms), så
+   * hviletiden også gjelder over fasegrenser (liga → sluttspill, sveitsisk runde
+   * etter runde). Kampene i batchen oppdaterer sin egen kopi; denne røres ikke. */
+  priorEnds?: Map<string, number>;
+  /** Fylles med hvert lags sluttidspunkt etter planleggingen (inkl. `priorEnds`),
+   * så neste fase kan arve det (veiviserens estimat). */
+  endsOut?: Map<string, number>;
 }
 
 /** Banepausene som tall (ms). `courtIndex` null = alle baner. */
@@ -95,7 +103,7 @@ export function planSlots(
 
   const lanes = courts.length > 0 ? courts.length : 1;
   const laneFree: number[] = Array(lanes).fill(origin);
-  const teamEnd = new Map<string, number>(); // lag → når siste kamp er slutt
+  const teamEnd = new Map<string, number>(opts.priorEnds ?? []); // lag → når siste kamp er slutt
   const endOf = new Map<string, number>(); // kamp → sluttidspunkt
 
   /** Første start ≥ `t` på bane `lane` som ikke overlapper en banepause. */
@@ -155,7 +163,50 @@ export function planSlots(
     for (const id of [m.home_team_id, m.away_team_id])
       if (id) teamEnd.set(id, start + dur);
   }
+  opts.endsOut?.clear();
+  for (const [id, e] of teamEnd) opts.endsOut?.set(id, e);
   return out;
+}
+
+const FIVE_MIN = 5 * MIN;
+
+/** Hva en ny fase (sluttspill, neste sveitsiske runde) må ta hensyn til fra det
+ * som allerede er spilt/planlagt. Bare kamper som fortsatt kan spilles teller
+ * (`isPlayable`, f.eks. ikke seriekamper som ble igjen da sluttspillet startet
+ * tidlig). Ferdige kamper regnes med FAKTISK slutt (`updated_at`, rundet opp til
+ * 5 min), ikke planlagt slutt; kamper som ikke er ferdige med planlagt slutt (en
+ * pågående kamp ikke tidligere enn nå).
+ *  - `notBefore`: tidligst start for hele fasen = nå rundet opp til 5 min, eller
+ *    senere hvis noen kamp fortsatt er i gang/planlagt.
+ *  - `teamEnds`: hvert lags siste sluttidspunkt, til `planSlots({ priorEnds })`. */
+export function phaseCarryOver(
+  matches: Pick<
+    Match,
+    "phase" | "status" | "scheduled_at" | "updated_at" | "home_team_id" | "away_team_id"
+  >[],
+  cfg: ScheduleConfig,
+  tournamentStatus: TournamentStatus,
+  nowMs: number,
+): { notBefore: number; teamEnds: Map<string, number> } {
+  const teamEnds = new Map<string, number>();
+  let notBefore = Math.ceil(nowMs / FIVE_MIN) * FIVE_MIN;
+  for (const m of matches) {
+    if (m.status === "bye") continue;
+    if (m.status !== "done" && !isPlayable(m, tournamentStatus)) continue;
+    let end: number | null;
+    if (m.status === "done") {
+      const t = Date.parse(m.updated_at);
+      end = Number.isFinite(t) ? Math.ceil(t / FIVE_MIN) * FIVE_MIN : null;
+    } else {
+      const planned = matchEnd(m.scheduled_at, cfg);
+      end = planned === null ? null : Math.max(planned, nowMs);
+      if (end !== null) notBefore = Math.max(notBefore, end);
+    }
+    if (end === null) continue;
+    for (const id of [m.home_team_id, m.away_team_id])
+      if (id) teamEnds.set(id, Math.max(teamEnds.get(id) ?? 0, end));
+  }
+  return { notBefore, teamEnds };
 }
 
 /** Når en planlagt kamp er slutt (ms), eller null uten klokkeslett. */
@@ -275,4 +326,96 @@ export function previewShift(
   if (req.minutes < 0 && changes.some((c) => Date.parse(c.after) < now - SHIFT_PAST_SLACK))
     return { changes, error: "skyv_for_tidlig" };
   return { changes, error: null };
+}
+
+// ---------- Konflikter ved «Forsink» (A4) ----------
+// RPC-en flytter kampene rått (den vet ikke om brakettkoblinger, lag eller
+// hvile), og `previewShift` speiler den. Kontrollsenteret bruker denne i tillegg
+// til å varsle om det en forskyvning ville ødelagt — særlig på én bane eller med
+// negative minutter — før arrangøren bekrefter.
+
+export type ShiftConflictKind =
+  | "feeder" // en kamp starter før en kamp som mater den er ferdig
+  | "team_overlap" // et lag får to kamper samtidig
+  | "rest" // et lag får mindre hvile enn minste hvile
+  | "court_overlap"; // to kamper på samme bane i samme slot
+
+export interface ShiftConflict {
+  kind: ShiftConflictKind;
+  /** Kampen som flyttes. */
+  matchId: string;
+  /** Den andre kampen i konflikten (mater-kamp, lagets andre kamp, banens andre kamp). */
+  otherId: string;
+}
+
+type ConflictMatch = Pick<
+  Match,
+  "id" | "court_id" | "status" | "scheduled_at" | "home_team_id" | "away_team_id"
+> & { phase?: Match["phase"] };
+
+/** Konflikter som forskyvningen `changes` NYLIG skaper (det som allerede var i
+ * strid før, f.eks. en forsinkelse, nevnes ikke). Ferdige/bye-kamper og kamper
+ * som ikke lenger kan spilles (`isPlayable`) inngår ikke. */
+export function shiftConflicts(
+  matches: ConflictMatch[],
+  links: SlotLink[],
+  changes: ShiftChange[],
+  cfg: ScheduleConfig,
+  tournamentStatus?: TournamentStatus,
+): ShiftConflict[] {
+  if (changes.length === 0) return [];
+  const dur = cfg.matchMinutes * MIN;
+  const slot = (cfg.matchMinutes + cfg.breakMinutes) * MIN;
+  const rest = cfg.minRestMinutes * MIN;
+  const moved = new Map(changes.map((c) => [c.matchId, Date.parse(c.after)]));
+  const live = matches.filter(
+    (m) =>
+      m.scheduled_at &&
+      Number.isFinite(Date.parse(m.scheduled_at)) &&
+      m.status !== "done" &&
+      m.status !== "bye" &&
+      isPlayable(m, tournamentStatus),
+  );
+  const byId = new Map(live.map((m) => [m.id, m]));
+
+  const scan = (startOf: (m: ConflictMatch) => number): Map<string, ShiftConflict> => {
+    const out = new Map<string, ShiftConflict>();
+    const add = (kind: ShiftConflictKind, a: string, b: string) => {
+      const key = `${kind}|${[a, b].sort().join("|")}`;
+      if (!out.has(key)) out.set(key, { kind, matchId: moved.has(a) ? a : b, otherId: moved.has(a) ? b : a });
+    };
+    for (const a of live) {
+      if (!moved.has(a.id)) continue;
+      const as = startOf(a);
+      for (const b of live) {
+        if (b.id === a.id) continue;
+        const bs = startOf(b);
+        const sharesTeam = [a.home_team_id, a.away_team_id].some(
+          (t) => t && (t === b.home_team_id || t === b.away_team_id),
+        );
+        if (sharesTeam) {
+          const [first, second] = as <= bs ? [as, bs] : [bs, as];
+          if (second < first + dur) add("team_overlap", a.id, b.id);
+          else if (second < first + dur + rest) add("rest", a.id, b.id);
+        }
+        if (a.court_id && a.court_id === b.court_id) {
+          const [first, second] = as <= bs ? [as, bs] : [bs, as];
+          if (second < first + slot) add("court_overlap", a.id, b.id);
+        }
+      }
+    }
+    for (const l of links) {
+      const from = byId.get(l.from_match_id);
+      const to = byId.get(l.to_match_id);
+      if (!from || !to || (!moved.has(from.id) && !moved.has(to.id))) continue;
+      // Vinneren/taperen av materen trenger også hvile før neste kamp.
+      if (startOf(to) < startOf(from) + dur) add("feeder", from.id, to.id);
+      else if (startOf(to) < startOf(from) + dur + rest) add("rest", from.id, to.id);
+    }
+    return out;
+  };
+
+  const before = scan((m) => Date.parse(m.scheduled_at!));
+  const after = scan((m) => moved.get(m.id) ?? Date.parse(m.scheduled_at!));
+  return [...after].filter(([key]) => !before.has(key)).map(([, c]) => c);
 }

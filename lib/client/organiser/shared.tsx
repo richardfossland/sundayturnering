@@ -5,7 +5,7 @@ import { identity } from "@/lib/client/identity";
 import { errorMessage } from "@/lib/locale/errors";
 import type { Flash } from "@/lib/client/useToast";
 import type { Court, Match, Team } from "@/lib/types";
-import type { TournamentDTO } from "@/lib/dto";
+import type { StateDTO, TournamentDTO } from "@/lib/dto";
 import { no } from "@/lib/locale/no";
 
 // Shared by Kontrollsenter (/arrangor/[id]) and the referee page's organiser
@@ -17,6 +17,8 @@ export type Guard = <T>(fn: () => Promise<T>) => Promise<T | null>;
 export interface ToolsCtx {
   tournament: TournamentDTO;
   matches: Match[];
+  /** Brakettkoblinger (hvem mater hvem), når tilstanden har dem. */
+  links?: StateDTO["links"];
   teams: Map<string, Team>;
   courts: Court[];
   /** Organiser code held by this device ("" = tools are locked). */

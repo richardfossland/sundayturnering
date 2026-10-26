@@ -7,7 +7,7 @@ import { seedKnockoutFromGroups } from "@/lib/tournament/groups";
 import { bSeedsFromGroups, bSeedsFromLeague, pendingFinals } from "@/lib/tournament/consolation";
 import { grandFinalAction } from "@/lib/tournament/doubleElim";
 import { planDownstreamReset } from "@/lib/tournament/downstream";
-import { matchEnd } from "@/lib/tournament/schedule";
+import { phaseCarryOver } from "@/lib/tournament/schedule";
 import type { Match, Tournament } from "@/lib/types";
 
 /** League/group → playoff transition (spec §7). Seed the knockout from the final
@@ -68,19 +68,23 @@ export async function advanceToPlayoff(t: Tournament): Promise<void> {
       .map((c) => c.id as string);
 
     // Med tidsplan: sluttspillet starter tidligst nå (rundet opp til 5 min) og
-    // etter at siste planlagte ligakamp er ferdig.
+    // etter kampene som fortsatt kan spilles. Seriekamper som ikke ble spilt (tidlig
+    // start) teller ikke, og ferdige kamper regnes med faktisk slutt. Lagenes siste
+    // sluttidspunkt gir hviletid også over fasegrensen. Kamper som venter på et
+    // mater-resultat (TBD) får hvilen per mater i planleggeren.
     const schedule = t.config?.schedule;
     let notBefore: Date | undefined;
+    let priorEnds: Map<string, number> | undefined;
     if (schedule) {
-      const FIVE = 5 * 60_000;
-      let from = Math.ceil(Date.now() / FIVE) * FIVE;
-      for (const m of matches) from = Math.max(from, matchEnd(m.scheduled_at, schedule) ?? 0);
-      notBefore = new Date(from);
+      const carry = phaseCarryOver(matches, schedule, "playoff", Date.now());
+      notBefore = new Date(carry.notBefore);
+      priorEnds = carry.teamEnds;
     }
     await buildCupMatches(t.id, seedIds, courtIds ?? [], {
       thirdPlace: t.config?.thirdPlace,
       schedule,
       notBefore,
+      priorEnds,
       bSeeds: bSeeds && bSeeds.length >= 2 ? bSeeds : undefined,
     });
     await bumpVersion(t.id);

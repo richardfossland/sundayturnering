@@ -5503,6 +5503,23 @@ label.check-row > input[type="checkbox"] {
   gap: var(--sp-1) var(--sp-3);
   font-size: var(--fs-sm);
 }
+.shift-warn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--warn-ink);
+  background: var(--s-025);
+}
+.shift-warn strong {
+  color: var(--warn-ink);
+}
+.shift-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
 .shift-time {
   color: var(--gold-ink);
   font-weight: 700;

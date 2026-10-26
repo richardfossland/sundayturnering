@@ -3,7 +3,7 @@ import { db, getTournament, bumpVersion } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
-import { computeTimer } from "@/lib/tournament/timer";
+import { computeTimer, isTimerAction } from "@/lib/tournament/timer";
 import { checkControlCode, prefetchBlocked } from "@/lib/server/auth";
 import type { TimerState } from "@/lib/types";
 
@@ -63,11 +63,13 @@ async function handlePOST(req: Request) {
   const body = await readJson<{
     tournamentId?: string;
     courtId?: string;
-    action?: "start" | "add" | "stop";
+    action?: unknown;
     durationSec?: number;
     controlCode?: string;
   }>(req);
   if (!body?.tournamentId) return fail(400, "mangler_felt");
+  // Unknown actions used to fall through to «start» (a 10-minute countdown).
+  if (body.action !== undefined && !isTimerAction(body.action)) return fail(400, "ugyldig_handling");
 
   const blocked =
     typeof body.tournamentId === "string" ? prefetchBlocked(req, body.tournamentId) : undefined;
@@ -78,7 +80,7 @@ async function handlePOST(req: Request) {
   if (!(await checkControlCode(req, t, body.controlCode, blocked))) return fail(403, "feil_kontrollkode");
   if (t.status === "finished") return fail(409, "turnering_avsluttet");
 
-  const action = body.action ?? "start";
+  const action = isTimerAction(body.action) ? body.action : "start";
 
   if (body.courtId) {
     // Parallel mode: verify the court belongs to this tournament (ungated route).

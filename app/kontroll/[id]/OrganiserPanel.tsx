@@ -11,7 +11,7 @@ import { TournamentSection } from "@/lib/client/organiser/TournamentSection";
 import { OrganiserCodeField, useGuard, useOrganiserCode, type ToolsCtx } from "@/lib/client/organiser/shared";
 import type { Flash } from "@/lib/client/useToast";
 import type { Court, Match, Team } from "@/lib/types";
-import type { TournamentDTO } from "@/lib/dto";
+import type { StateDTO, TournamentDTO } from "@/lib/dto";
 
 // The «Arrangør» tab of the referee page. The tools themselves live in
 // lib/client/organiser/ and are shared with Kontrollsenter (/arrangor/[id]);
@@ -20,6 +20,7 @@ import type { TournamentDTO } from "@/lib/dto";
 export function OrganiserPanel({
   tournament,
   matches,
+  links,
   teams,
   courts,
   onChanged,
@@ -27,6 +28,7 @@ export function OrganiserPanel({
 }: {
   tournament: TournamentDTO;
   matches: Match[];
+  links?: StateDTO["links"];
   teams: Map<string, Team>;
   courts: Court[];
   onChanged: () => void;
@@ -35,7 +37,7 @@ export function OrganiserPanel({
   const { code, setCode } = useOrganiserCode(tournament.id);
   const { busy, guard } = useGuard(onChanged, flash);
 
-  const ctx: ToolsCtx = { tournament, matches, teams, courts, code, busy, guard, flash, onChanged };
+  const ctx: ToolsCtx = { tournament, matches, links, teams, courts, code, busy, guard, flash, onChanged };
 
   return (
     <div className="stack org-panel">

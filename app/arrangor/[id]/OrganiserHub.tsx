@@ -99,6 +99,7 @@ export function OrganiserHub({ id }: { id: string }) {
   const ctx: ToolsCtx = {
     tournament,
     matches,
+    links: state.links,
     teams,
     courts,
     code,

@@ -2,6 +2,7 @@ import { ok, fail, readJson, rateLimit, ipKey, withApi } from "@/lib/server/http
 import type { Match } from "@/lib/types";
 import { db, getMatch, getTournament } from "@/lib/server/store";
 import { propagateAfterCommit } from "@/lib/server/propagate";
+import { clearTimerAfterDone } from "@/lib/server/timer";
 import { resultByFor } from "@/lib/server/pair";
 import { toMatchDTO } from "@/lib/dto";
 import { broadcast } from "@/lib/server/broadcast";
@@ -142,6 +143,9 @@ async function handlePOST(req: Request) {
   // One retry inside (the RPC is idempotent); still failing → the response says
   // so and the referee is told to alert the organiser.
   const propagated = await propagateAfterCommit(saved, "result");
+  // The match is over: its court's countdown (or the sequential one) must not
+  // carry over to the next match.
+  if (saved) await clearTimerAfterDone(t, saved);
 
   defer(() => broadcast(channels.tournament(m.tournament_id), events.matchUpdated, {
     matchId: m.id,

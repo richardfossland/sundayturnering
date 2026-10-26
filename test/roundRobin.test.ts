@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   generateRoundRobin,
+  planRoundRobins,
   roundRobinMatchCount,
   roundRobinRoundCount,
 } from "@/lib/tournament/roundRobin";
@@ -100,5 +101,46 @@ describe("generateRoundRobin", () => {
     const ps = generateRoundRobin(ids(6));
     const orders = ps.map((p) => p.queueOrder).sort((a, b) => a - b);
     expect(orders).toEqual(orders.map((_, i) => i));
+  });
+});
+
+describe("planRoundRobins (A1)", () => {
+  const grp = (n: number, tag: string) => Array.from({ length: n }, (_, i) => `${tag}${i}`);
+
+  it("én gruppe = generateRoundRobin", () => {
+    const a = planRoundRobins([grp(6, "a")], { courtCount: 2 });
+    const b = generateRoundRobin(grp(6, "a"), { courtCount: 2 });
+    expect(a.map((p) => ({ ...p, group: undefined }))).toEqual(b.map((p) => ({ ...p, group: undefined })));
+  });
+
+  it("gruppene flettes: runde 1 i alle grupper, så runde 2 …", () => {
+    const ps = planRoundRobins([grp(4, "a"), grp(4, "b"), grp(4, "c")]);
+    expect(ps.map((p) => p.round)).toEqual([...ps.map((p) => p.round)].sort((x, y) => x - y));
+    expect(ps.slice(0, 6).map((p) => p.group)).toEqual([0, 0, 1, 1, 2, 2]);
+    expect(ps.map((p) => p.queueOrder)).toEqual(ps.map((_, i) => i));
+  });
+
+  it("én løpende banetteller: 6 baner over 3 grupper à 2 kamper per runde", () => {
+    const ps = planRoundRobins([grp(4, "a"), grp(4, "b"), grp(4, "c")], { courtCount: 6 });
+    expect(ps.slice(0, 6).map((p) => p.courtIndex)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(new Set(ps.map((p) => p.courtIndex))).toEqual(new Set([0, 1, 2, 3, 4, 5]));
+  });
+
+  it("telleren nullstilles ikke mellom runder (9 lag, 3 baner): alle baner like mange kamper", () => {
+    const ps = planRoundRobins([grp(9, "t")], { courtCount: 3 });
+    const per = [0, 0, 0];
+    for (const p of ps) if (p.courtIndex !== null) per[p.courtIndex]++;
+    expect(per).toEqual([12, 12, 12]);
+  });
+
+  it("frirunder tar ingen bane og ingen teller", () => {
+    const ps = planRoundRobins([grp(3, "t")], { courtCount: 2 });
+    expect(ps.filter((p) => p.awayId === null).every((p) => p.courtIndex === null)).toBe(true);
+    expect(ps.filter((p) => p.awayId !== null).map((p) => p.courtIndex)).toEqual([0, 1, 0]);
+  });
+
+  it("grupper av ulik størrelse mister ikke kamper", () => {
+    const ps = planRoundRobins([grp(4, "a"), grp(3, "b")], { double: true });
+    expect(ps.filter((p) => p.awayId !== null)).toHaveLength(12 + 6);
   });
 });

@@ -4,7 +4,7 @@ import { db, bumpVersion } from "@/lib/server/store";
 import { broadcast } from "@/lib/server/broadcast";
 import { defer } from "@/lib/server/defer";
 import { channels, events } from "@/lib/realtime";
-import { computeTimer } from "@/lib/tournament/timer";
+import { computeTimer, isTimerAction } from "@/lib/tournament/timer";
 
 // POST /api/organiser/timer — board countdown. Authorised by EITHER the
 // organiser code OR a signed-in admin who owns it.
@@ -15,15 +15,17 @@ async function handlePOST(req: Request) {
   const body = await readJson<{
     tournamentId?: string;
     organiserCode?: string;
-    action?: "start" | "add" | "stop";
+    action?: unknown;
     durationSec?: number;
   }>(req);
   const t = await authOrganiserOrAdmin(body?.tournamentId, body?.organiserCode, req);
   if (!t) return fail(403, "feil_arrangorkode");
+  // Unknown actions used to fall through to «start» (a 10-minute countdown).
+  if (body?.action !== undefined && !isTimerAction(body.action)) return fail(400, "ugyldig_handling");
 
   const timer = computeTimer(
     t.timer,
-    body?.action ?? "start",
+    isTimerAction(body?.action) ? body.action : "start",
     Date.now(),
     body?.durationSec,
   );
