@@ -54,60 +54,77 @@ export default function HurtigPage() {
   return (
     <>
       <SiteHeader back={backToHome} />
-        <main className="center-screen">
-          <div className="card card-pad stack" style={{ maxWidth: 480, width: "100%" }}>
-            <div className="stack" style={{ gap: 4 }}>
-              <h1 style={{ fontSize: "1.5rem" }}>
-                <Icon name="quick" size={22} className="icon-title" />
-                {no.hurtig.title}
-              </h1>
-              <p className="faint" style={{ fontSize: ".9rem" }}>{no.hurtig.blurb}</p>
-            </div>
+      <main className="center-screen">
+        <div className="card card-pad stack hurtig-card">
+          <div className="stack stack-tight">
+            <h1 className="hurtig-title">
+              <Icon name="quick" size={22} className="icon-title" />
+              {no.hurtig.title}
+            </h1>
+            <p className="hint">{no.hurtig.blurb}</p>
+          </div>
 
+          <div className="stack">
             <div className="field">
-              <label className="sr-only" htmlFor="hurtig-home">{no.hurtig.home}</label>
+              <label className="label" htmlFor="hurtig-home">{no.hurtig.home}</label>
               <input
                 id="hurtig-home"
                 className="input"
                 value={home}
                 onChange={(e) => setHome(e.target.value)}
-                placeholder={no.hurtig.home}
+                placeholder={no.hurtig.homePlaceholder}
                 maxLength={40}
               />
             </div>
-            <div className="center faint" style={{ fontWeight: 700 }}>{no.common.vs}</div>
             <div className="field">
-              <label className="sr-only" htmlFor="hurtig-away">{no.hurtig.away}</label>
+              <label className="label" htmlFor="hurtig-away">{no.hurtig.away}</label>
               <input
                 id="hurtig-away"
                 className="input"
                 value={away}
                 onChange={(e) => setAway(e.target.value)}
-                placeholder={no.hurtig.away}
+                placeholder={no.hurtig.awayPlaceholder}
                 maxLength={40}
               />
             </div>
-
-            <div className="chips">
-              <button className="chip" data-on={profile === "simple"} onClick={() => setProfile("simple")}>
-                {no.hurtig.score}
-              </button>
-              <button className="chip" data-on={profile === "winner"} onClick={() => setProfile("winner")}>
-                {no.hurtig.winner}
-              </button>
-            </div>
-
-            {err && (
-              <div className="toast-danger" role="alert" style={{ fontSize: ".9rem" }}>
-                {err}
-              </div>
-            )}
-            <button className="btn btn-gold btn-lg btn-block" onClick={start} disabled={busy}>
-              {busy ? <span className="spin" /> : null}
-              {busy ? no.hurtig.starting : no.hurtig.start}
-            </button>
+            <p className="hint">{no.hurtig.namesHint}</p>
           </div>
-        </main>
+
+          <div className="field">
+            <span className="label" id="hurtig-scoring">{no.hurtig.scoringTitle}</span>
+            <div className="seg" role="radiogroup" aria-labelledby="hurtig-scoring">
+              {(
+                [
+                  ["simple", no.hurtig.score, no.hurtig.scoreHint],
+                  ["winner", no.hurtig.winner, no.hurtig.winnerHint],
+                ] as const
+              ).map(([key, title, hint]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={profile === key}
+                  className="seg-btn seg-choice"
+                  onClick={() => setProfile(key)}
+                >
+                  <span className="seg-title">{title}</span>
+                  <span className="seg-hint">{hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {err && (
+            <div className="toast-danger" role="alert">
+              {err}
+            </div>
+          )}
+          <button className="btn btn-gold btn-lg btn-block" onClick={start} disabled={busy}>
+            {busy ? <span className="spin" /> : null}
+            {busy ? no.hurtig.starting : no.hurtig.start}
+          </button>
+        </div>
+      </main>
     </>
   );
 }

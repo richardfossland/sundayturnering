@@ -41,11 +41,17 @@ export const no = {
   // quick 1v1 match
   hurtig: {
     title: "Enkeltkamp",
-    blurb: "Én kamp mellom to lag, i gang på sekunder. Ingen oppsett.",
+    blurb: "Én kamp mellom to lag, klar på sekunder og uten oppsett.",
     home: "Lag 1",
     away: "Lag 2",
+    homePlaceholder: "F.eks. Rød",
+    awayPlaceholder: "F.eks. Blå",
+    namesHint: "Lar du et felt stå tomt, heter laget «Lag 1» eller «Lag 2».",
+    scoringTitle: "Hvordan skal kampen telles?",
     score: "Med poeng",
+    scoreHint: "Dommeren fører inn poeng, for eksempel 3–1.",
     winner: "Bare vinner",
+    winnerHint: "Bare hvem som vant, uten poeng.",
     start: "Start kampen",
     starting: "Starter …",
   },

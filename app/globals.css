@@ -4737,13 +4737,44 @@ button.stepper-btn:hover .stepper-dot {
   cursor: pointer;
   transition: background 0.15s var(--ease);
 }
-.seg-btn:hover:not([aria-selected="true"]) {
+.seg-btn:hover:not([aria-selected="true"]):not([aria-checked="true"]) {
   background: var(--s-hover);
   color: var(--txt);
 }
-.seg-btn[aria-selected="true"] {
+.seg-btn[aria-selected="true"],
+.seg-btn[aria-checked="true"] {
   background: var(--gold-grad);
   color: var(--on-gold);
+}
+.seg-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+/* a choice with a one-line explanation under the title (radiogroup variant) */
+.seg-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+}
+.seg-title {
+  font-size: var(--fs-base);
+}
+.seg-hint {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.35;
+}
+/* ============ enkeltkamp (/hurtig) ============ */
+.hurtig-card {
+  width: 100%;
+  max-width: 520px;
+}
+.hurtig-title {
+  margin: 0;
+  font-size: var(--fs-xl);
 }
 
 /* team list: grows with the page, no inner scroll box */
