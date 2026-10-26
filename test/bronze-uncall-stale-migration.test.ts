@@ -143,6 +143,27 @@ describe("0020 på fersk database (0001…0020)", () => {
       expect(await tStatus(db, x.t)).toBe("finished");
     });
 
+    it("bronsedommeren kan rette resultatet etter at bronsen avsluttet turneringen (ny versjon, still finished)", async () => {
+      const x = await cupWithBronze(db);
+      await decide(db, x.s1, "home");
+      await decide(db, x.s2, "home");
+      await decide(db, x.fin, "home");
+      expect((await decide(db, x.bronze!, "home")).finished).toBe(true);
+      expect(await tStatus(db, x.t)).toBe("finished");
+      // Dommerens «Endre»: submit_match_result mot siste versjon, så videreføring.
+      const br = await row(db, x.bronze!);
+      await db.query("select turnering.submit_match_result($1, $2, $3::jsonb, $4, 'done', null, $5)", [
+        x.bronze,
+        br.result_version,
+        JSON.stringify({ home: 0, away: 1 }),
+        br.away_team_id,
+        await uid(db),
+      ]);
+      expect((await row(db, x.bronze!)).winner_team_id).toBe(br.away_team_id);
+      expect((await propagate(db, x.bronze!)).finished).toBe(true);
+      expect(await tStatus(db, x.t)).toBe("finished");
+    });
+
     it("uten bronsefinale: finalen avslutter som før", async () => {
       const x = await cupWithBronze(db, false);
       await decide(db, x.s1, "home");

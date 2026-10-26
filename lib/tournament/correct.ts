@@ -11,6 +11,7 @@
 // (identity.ownedResult → `Owned`) so the Endre button can show without the
 // server telling anything; the server re-checks with the secret.
 
+import { BRONZE_SLOT } from "@/lib/tournament/bracket";
 import type { BracketId, Match, Tournament } from "@/lib/types";
 
 /** How long after saving a result the saving device may still self-correct it. */
@@ -58,16 +59,20 @@ export function selfCorrectMsLeft(
   return Math.max(0, savedAt + graceMs - nowMs);
 }
 
-/** The deciding final of a bracket: playoff slot 0 in the bracket's last round
- * (a voided rematch, status `bye`, does not count as a round). Saving it is what
- * finishes the tournament, so it is the one match a referee may still correct
- * after the tournament status has flipped to `finished`. */
+/** A match whose save can finish the tournament: playoff slot 0 in the bracket's
+ * last round (a voided rematch, status `bye`, does not count as a round), or the
+ * bronze final (main bracket A, slot 1 in the last round; migration 0020: the
+ * tournament finishes when the LAST of final and bronze is decided). Its referee
+ * may still correct it after the tournament status has flipped to `finished`. */
 export function isDecidingFinal(
   match: Pick<Match, "phase" | "round" | "bracket_slot" | "bracket">,
   all: readonly Pick<Match, "phase" | "round" | "bracket" | "status">[],
 ): boolean {
-  if (match.phase !== "playoff" || match.bracket_slot !== 0) return false;
+  if (match.phase !== "playoff") return false;
   const bracket: BracketId = match.bracket ?? "A";
+  // The last round of bracket A holds only the final (0) and the bronze (1).
+  const bronze = match.bracket_slot === BRONZE_SLOT && bracket === "A";
+  if (match.bracket_slot !== 0 && !bronze) return false;
   let last = 0;
   for (const m of all)
     if (m.phase === "playoff" && (m.bracket ?? "A") === bracket && m.status !== "bye")
