@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildBracket } from "@/lib/tournament/bracket";
 import {
+  focusLayout,
   inferLinks,
   layoutBracket,
   layoutBrackets,
@@ -133,5 +134,46 @@ describe("layoutBracket", () => {
     expect(la.rounds).toHaveLength(3);
     expect(lb.rounds).toHaveLength(2);
     expect(lb.rounds[1].nodes[0].home?.label).toBe("Vinner av SF1");
+  });
+});
+
+describe("focusLayout (storskjerm)", () => {
+  const big = () => layoutBracket(fromBuilder(16));
+  const ids = (l: ReturnType<typeof big>) => new Set(l.rounds.flatMap((r) => r.nodes.map((n) => n.id)));
+
+  it("lar små braketter og braketter uten avgjort runde være", () => {
+    const l = big();
+    expect(focusLayout(l, () => true)).toBe(l);
+    const small = layoutBracket(fromBuilder(8));
+    expect(focusLayout(small, (id) => id === "r3s0")).toBe(small);
+  });
+
+  it("skjuler helt avgjorte første runder og regner om radene", () => {
+    const l = big();
+    expect(l.rounds).toHaveLength(4);
+    const round0 = new Set(l.rounds[0].nodes.map((n) => n.id));
+    const f = focusLayout(l, (id) => !round0.has(id));
+    expect(f.rounds).toHaveLength(3);
+    expect(f.rounds[0].col).toBe(0);
+    // første synlige runde: en enhet mellom kampene igjen, høyden krympet
+    const y = f.rounds[0].nodes.map((n) => n.y);
+    expect(y[1] - y[0]).toBeCloseTo(1);
+    expect(f.height).toBeLessThan(l.height);
+    expect(Math.max(...f.rounds.flatMap((r) => r.nodes.map((n) => n.y)))).toBeCloseTo(f.height - 0.5);
+    // koblinger kun innen de synlige kampene
+    const keep = ids(f);
+    for (const c of f.connectors) {
+      expect(keep.has(c.fromId) && keep.has(c.toId)).toBe(true);
+      expect(c.toCol).toBeGreaterThan(c.fromCol);
+    }
+    // finalen holdes midt mellom semifinalene
+    const [sf0, sf1] = f.rounds[1].nodes;
+    expect(f.rounds[2].nodes[0].y).toBeCloseTo((sf0.y + sf1.y) / 2);
+  });
+
+  it("beholder minst to runder", () => {
+    const l = big();
+    const onlyFinal = (id: string) => id === l.rounds[3].nodes[0].id;
+    expect(focusLayout(l, onlyFinal)).toBe(l);
   });
 });

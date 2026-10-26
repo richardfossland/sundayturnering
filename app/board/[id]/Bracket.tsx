@@ -10,6 +10,7 @@ import { matchTime } from "@/lib/client/view";
 import { resolve } from "@/lib/tournament/scoring";
 import {
   bracketInputs,
+  focusLayout,
   layoutBrackets,
   type BracketInput,
   type LayoutLink,
@@ -65,13 +66,20 @@ export function Bracket({
       ),
     [matches],
   );
+  const byId = useMemo(() => new Map(playoff.map((m) => [m.id, m])), [playoff]);
   const layouts = useMemo(() => {
     const all = layoutBrackets(
       brackets ?? bracketInputs(playoff, links, bracketLabels(consolation)),
     );
-    return only ? all.filter((l) => l.id === only) : all;
-  }, [brackets, playoff, links, consolation, only]);
-  const byId = useMemo(() => new Map(playoff.map((m) => [m.id, m])), [playoff]);
+    const shown = only ? all.filter((l) => l.id === only) : all;
+    // Storskjerm: en stor brakett viser bare runder som ikke er helt avgjort.
+    if (!fit) return shown;
+    const open = (id: string) => {
+      const m = byId.get(id);
+      return !!m && m.status !== "done" && m.status !== "bye";
+    };
+    return shown.map((l) => focusLayout(l, open));
+  }, [brackets, playoff, links, consolation, only, fit, byId]);
 
   const ownRef = useRef<HTMLDivElement>(null);
   const scroller = scrollRef ?? ownRef;
