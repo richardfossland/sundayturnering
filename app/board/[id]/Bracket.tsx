@@ -333,7 +333,7 @@ function Row({
   return (
     <button
       type="button"
-      className={`brk-row team-row${win ? " win" : ""}${focus === team.id ? " sel" : ""}`}
+      className={`brk-row brk-team${win ? " win" : ""}${focus === team.id ? " sel" : ""}`}
       aria-pressed={pinned === team.id}
       // Mus: hover. Touch: kun trykk (pointerType-sjekken hindrer at et trykk setter hover).
       onPointerEnter={(e) => e.pointerType === "mouse" && onHover(team.id)}
