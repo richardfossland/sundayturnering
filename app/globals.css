@@ -3400,8 +3400,15 @@ button.brk-row:focus-visible {
   padding: 5px 11px;
   border-radius: 999px;
 }
+/* Clips the scrolling text at the badge, so it never runs underneath it. */
+.speaker-ticker-view {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
 .speaker-ticker-track {
   display: flex;
+  width: max-content;
   gap: 30px;
   white-space: nowrap;
   animation: speaker-marquee 26s linear infinite;
@@ -4140,7 +4147,8 @@ label.print-option > input[type="checkbox"] {
 }
 .ps-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* To kolonner på papir og bred skjerm, én på telefon (ingen sidelengs rulling). */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 72mm), 1fr));
   gap: 6mm;
   align-content: start;
 }

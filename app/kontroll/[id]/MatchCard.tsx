@@ -23,7 +23,6 @@ export function MatchCard({
   unsent,
   timerEndsAt,
   flag,
-  closed,
   starting,
   onDismissUnsent,
   onEnterScore,
@@ -42,8 +41,6 @@ export function MatchCard({
   timerEndsAt: number | null;
   /** «Din neste kamp» (first planned match) or «Lagret» (just saved). */
   flag: "next" | "saved" | null;
-  /** The playoff has started (or the tournament is finished): this unplayed match can no longer be registered. */
-  closed: boolean;
   /** «Start kamp» has been sent and is waiting for the server. */
   starting: boolean;
   onDismissUnsent: (requestId: string) => void;
@@ -77,7 +74,7 @@ export function MatchCard({
   // The one primary action for this card (null = nothing to do right now).
   type Primary = { label: string; run: () => void; tone: "gold" | "plain" | "ghost" };
   let primary: Primary | null = null;
-  if (!blocked && ready && !(closed && m.status !== "done")) {
+  if (!blocked && ready) {
     if (unsent?.failed && m.status !== "done")
       primary = { label: no.control.enterScore, run: onEnterScore, tone: "gold" };
     else if (planned)
@@ -132,7 +129,6 @@ export function MatchCard({
       {lockName && <div className="mcard-note mcard-note-warn">{no.control.lockedBy(lockName)}</div>}
       {unsent?.failed && <div className="mcard-note mcard-note-warn">{no.control.unsentFailed}</div>}
       {!ready && planned && <div className="mcard-note">{no.control.waitingTeams}</div>}
-      {closed && ready && m.status !== "done" && <div className="mcard-note">{no.control.matchClosed}</div>}
     </>
   );
 

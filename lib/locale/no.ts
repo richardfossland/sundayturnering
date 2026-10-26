@@ -450,7 +450,7 @@ export const no = {
     viewsLabel: "Bytter mellom visninger automatisk",
     showView: (name: string) => `Vis ${name}`,
     lobbyFollowTitle: "Følg turneringen på mobilen",
-    lobbyFollowHint: "Skann QR-koden. Du ser kamper, tabell og sluttspill live.",
+    lobbyFollowHint: "Skann QR-koden. Da ser du kamper, tabell og sluttspill underveis.",
     lobbyRefTitle: "Er du dommer?",
     lobbyRefUrl: "turnering.sundaysuite.app/kontroll",
     lobbyRefHint: "og tast dommerkoden du har fått av arrangøren.",
@@ -633,7 +633,8 @@ export const no = {
     enterScore: "Før resultat",
     started: "Kampen er i gang.",
     waitingTeams: "Venter på lag",
-    matchClosed: "Kampen ble ikke spilt før sluttspillet startet, og kan ikke føres nå.",
+    matchesClosed: (n: number) =>
+      `${n} ${n === 1 ? "seriekamp ble" : "seriekamper ble"} ikke spilt før sluttspillet startet, og kan ikke føres lenger.`,
     savedMatch: (home: string, score: string, away: string) => `Lagret: ${home} ${score} ${away}`,
     savedBadge: "Lagret",
     resultLabel: "Resultat",

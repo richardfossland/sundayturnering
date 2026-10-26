@@ -191,10 +191,14 @@ export function ControlClient({ id }: { id: string }) {
   const isPlanned = (m: Match) => m.status === "scheduled" || m.status === "called";
   const byOrder = (a: Match, b: Match) => a.queue_order - b.queue_order;
   const counts = {
-    scheduled: matches.filter((m) => isPlanned(m) && onCourt(m)).length,
+    scheduled: matches.filter((m) => isPlanned(m) && isPlayable(m, tournament.status) && onCourt(m)).length,
     live: matches.filter((m) => m.status === "live" && onCourt(m)).length,
     done: matches.filter((m) => m.status === "done" && onCourt(m)).length,
   };
+
+  const closedCount = matches.filter(
+    (m) => isPlanned(m) && m.home_team_id && m.away_team_id && !isPlayable(m, tournament.status) && onCourt(m),
+  ).length;
 
   // Next match the referee should run (respects the pinned court).
   const nextMatch = matches
@@ -216,7 +220,8 @@ export function ControlClient({ id }: { id: string }) {
       if (m.status === "bye") return false;
       if (tab === "live") return m.status === "live";
       if (tab === "done") return m.status === "done";
-      return isPlanned(m);
+      // Seriekamper som ikke ble spilt før sluttspillet startet, kan ikke føres lenger.
+      return isPlanned(m) && isPlayable(m, tournament.status);
     })
     .filter(onCourt)
     .sort(byOrder);
@@ -444,6 +449,9 @@ export function ControlClient({ id }: { id: string }) {
               </select>
             </label>
           )}
+          {tab === "scheduled" && closedCount > 0 && (
+            <p className="hint" role="status">{no.control.matchesClosed(closedCount)}</p>
+          )}
           {listed.length === 0 ? (
             <div className="empty">{no.board.noMatches}</div>
           ) : (
@@ -458,7 +466,6 @@ export function ControlClient({ id }: { id: string }) {
                 unsent={unsentByMatch.get(m.id) ?? null}
                 timerEndsAt={m.status === "live" ? timerEndsAtFor(m) : null}
                 flag={flag}
-                closed={!isPlayable(m, tournament.status)}
                 starting={startingIds.has(m.id)}
                 onDismissUnsent={dismissOutbox}
                 onEnterScore={() => openMatch(m)}
