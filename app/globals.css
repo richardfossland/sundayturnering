@@ -5122,6 +5122,33 @@ label.check-row > input[type="checkbox"] {
   gap: var(--sp-4);
 }
 
+/* per-court scoreboard card (parallel format) */
+.vc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.vc-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.vc-name {
+  font-family: var(--display);
+  font-weight: 800;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vc-score {
+  font-family: var(--display);
+  font-weight: 900;
+  color: var(--gold-ink);
+  font-variant-numeric: tabular-nums;
+}
+
 /* auto-rotation indicator: two thin bars, the active one fills over 20 s */
 .board-views {
   position: absolute;
@@ -5685,56 +5712,79 @@ html[data-board-idle] .speaker-toggle {
     min-height: 0;
     min-width: 0;
     overflow: hidden;
-    padding: 6cqh 4cqw;
+    padding: 5cqh 3cqw;
     border-radius: calc(1.2 * var(--u));
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: center;
     gap: 3cqh;
   }
+  /* short and wide (1-2 courts): name + timer on the left, scoreboard right */
+  @container (min-aspect-ratio: 3/1) {
+    .board-fit .court-card {
+      grid-template-rows: none;
+      grid-template-columns: minmax(0, 0.28fr) minmax(0, 1fr);
+      align-items: center;
+      gap: 3cqw;
+    }
+    .board-fit .court-card .court-head {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .board-fit .court-card .court-name {
+      font-size: min(24cqh, 3cqw);
+    }
+    .board-fit .court-card .board-timer-sm {
+      font-size: min(24cqh, 3cqw);
+    }
+    .board-fit .court-card .vc-name {
+      font-size: min(27cqh, 3.4cqw);
+    }
+    .board-fit .court-card .vc-score {
+      font-size: min(32cqh, 4cqw);
+    }
+  }
   .board-fit .court-head {
-    flex: none;
     margin: 0;
   }
   .board-fit .court-name {
-    font-size: min(11cqh, 5cqw);
+    font-size: min(14cqh, 6cqw);
   }
   .board-fit .court-card .board-timer-sm {
-    font-size: min(13cqh, 6cqw);
+    font-size: min(14cqh, 6cqw);
   }
   .board-fit .court-card .versus-wrap {
-    flex: 1 1 0;
     min-height: 0;
     justify-content: center;
-  }
-  .board-fit .court-card .versus {
-    gap: 2cqw;
-    width: 100%;
-  }
-  .board-fit .court-card .versus-compact {
-    flex-direction: column;
-    gap: 3cqh;
-    text-align: center;
-    justify-content: center;
-  }
-  .board-fit .court-card .versus-name {
-    font-size: min(14cqh, 7cqw);
-    -webkit-line-clamp: 2;
-  }
-  .board-fit .court-card .versus-score {
-    font-size: min(24cqh, 12cqw);
-  }
-  .board-fit .court-card .versus-mid {
-    font-size: min(9cqh, 4.4cqw);
+    align-items: stretch;
   }
   .board-fit .court-card .match-time {
-    font-size: min(9cqh, 4cqw);
+    display: none;
   }
   .board-fit .court-card .pill {
-    font-size: min(9cqh, 4cqw);
-    padding: 0.2em 0.8em;
+    font-size: min(10cqh, 4cqw);
+    padding: 0.1em 0.8em;
   }
   .board-fit .court-called {
     gap: 2cqh;
+    align-items: stretch;
+  }
+  .board-fit .vc {
+    display: flex;
+    flex-direction: column;
+    gap: 1cqh;
+  }
+  .board-fit .vc-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1em;
+  }
+  .board-fit .vc-name {
+    font-size: min(19cqh, 9cqw);
+  }
+  .board-fit .vc-score {
+    font-size: min(23cqh, 11cqw);
   }
 
   /* Neste: whole rows only */
@@ -5856,9 +5906,25 @@ html[data-board-idle] .speaker-toggle {
     flex-wrap: nowrap;
     gap: calc(1 * var(--u));
   }
+  /* narrow lanes: time on one line, the two teams stacked below it */
+  .board-fit .court-next {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: calc(0.2 * var(--u));
+  }
   .board-fit .court-next .court-teams-inline {
+    flex-direction: column;
+    align-items: flex-start;
     flex-wrap: nowrap;
     min-width: 0;
+    width: 100%;
+    gap: calc(0.2 * var(--u));
+  }
+  .board-fit .court-next .next-vs {
+    display: none;
+  }
+  .board-fit .court-next .court-team {
+    max-width: 100%;
   }
   .board-fit .court-team .team-swatch {
     width: calc(1.6 * var(--u));
@@ -5965,7 +6031,7 @@ html[data-board-idle] .speaker-toggle {
     --brk-fs: min(
       calc(var(--brk-u) / 6.4),
       calc(var(--brk-col) / 11.5),
-      calc(3.2 * var(--u))
+      calc(4 * var(--u))
     );
     height: 100%;
     overflow: hidden;

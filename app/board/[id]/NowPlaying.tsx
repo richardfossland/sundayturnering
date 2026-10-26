@@ -131,12 +131,24 @@ function Versus({
     scoring.profile === "sets" && m.result && "sets" in m.result
       ? m.result.sets.map(([hs, as]) => `${hs}–${as}`).join("  ·  ")
       : null;
+  // Per-court cards: a small scoreboard (one line per team) instead of the big
+  // face-off, so a short card can still carry large type.
+  if (compact)
+    return (
+      <div className="stack versus-wrap">
+        <div className="vc">
+          <CompactRow team={h} score={r?.homeScore} />
+          <CompactRow team={a} score={r?.awayScore} />
+        </div>
+        {setLine && <div className="versus-sets versus-sets-sm">{setLine}</div>}
+      </div>
+    );
   return (
     <div className="stack versus-wrap">
       <div className="versus">
-        <Side team={h} score={r?.homeScore} compact={compact} />
+        <Side team={h} score={r?.homeScore} />
         <span className="versus-mid">{no.common.vs}</span>
-        <Side team={a} score={r?.awayScore} compact={compact} right />
+        <Side team={a} score={r?.awayScore} right />
       </div>
       {matchTime(m.scheduled_at) && (
         <div className="match-time">{no.board.plannedAt(matchTime(m.scheduled_at)!)}</div>
@@ -150,23 +162,29 @@ function Versus({
   );
 }
 
-function Side({
+function CompactRow({
   team,
   score,
-  compact,
 }: {
   team: Team | null | undefined;
   score: number | undefined;
-  compact?: boolean;
+}) {
+  return (
+    <div className="vc-row">
+      <span className="vc-name">{team?.name ?? no.board.tbd}</span>
+      {score != null && <span className="vc-score">{score}</span>}
+    </div>
+  );
+}
+
+function Side({
+  team,
+  score,
+}: {
+  team: Team | null | undefined;
+  score: number | undefined;
   right?: boolean;
 }) {
-  if (compact)
-    return (
-      <div className="team versus-compact">
-        <span className="versus-name">{team?.name ?? no.board.tbd}</span>
-        {score != null && <span className="versus-score">{score}</span>}
-      </div>
-    );
   return (
     <div className="versus-team">
       {team?.logo_url ? (
