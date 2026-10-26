@@ -31,7 +31,10 @@ export function ResultClient({ id }: { id: string }) {
   const finished = state.tournament.status === "finished";
   const ranked = finalRanking(state);
   const champ = championId(state);
-  const champTeam = ranked.find((t) => t.id === champ) ?? ranked[0];
+  const champTeam = champ ? ranked.find((t) => t.id === champ) : undefined;
+  // Avsluttet før finalen var spilt: ingen vinner å kåre, bare stillingen slik den sto.
+  const endedEarly =
+    finished && !champ && state.tournament.format !== "league" && state.tournament.format !== "swiss";
   const awards = computeAwards(
     state.teams,
     state.matches,
@@ -108,6 +111,15 @@ export function ResultClient({ id }: { id: string }) {
           </section>
         )}
 
+        {endedEarly && (
+          <section className="result-provisional" role="status">
+            <h2 className="result-provisional-title">
+              <Icon name="clock" size={20} />
+              {no.result.endedEarly}
+            </h2>
+          </section>
+        )}
+
         {bTeam && (
           <section className="result-champ">
             <div className="result-champ-eyebrow">
@@ -122,11 +134,13 @@ export function ResultClient({ id }: { id: string }) {
 
         {finished && (
           <section className="result-sec">
-            <h2 className="result-sec-title">{no.result.ranking}</h2>
+            <h2 className="result-sec-title">
+              {endedEarly ? no.result.rankingEarly : no.result.ranking}
+            </h2>
             <div className="result-podium">
               {ranked.map((t, i) => (
                 <div className="diploma" key={t.id}>
-                  <div className="diploma-place">{medal(i + 1)}</div>
+                  <div className="diploma-place">{endedEarly ? `${i + 1}.` : medal(i + 1)}</div>
                   <TeamCrest team={t} size="md" />
                   <div className="diploma-name">{t.name}</div>
                   {t.members.length > 0 && (

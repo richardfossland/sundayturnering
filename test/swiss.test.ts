@@ -3,6 +3,7 @@ import {
   defaultSwissRounds,
   pairSwissRound,
   sanitiseSwissRounds,
+  swissRoundsWarn,
   type SwissPlayed,
 } from "@/lib/tournament/swiss";
 
@@ -117,5 +118,13 @@ describe("antall runder", () => {
     expect(sanitiseSwissRounds(0, 8)).toBe("invalid");
     expect(sanitiseSwissRounds(2.5, 8)).toBe("invalid");
     expect(sanitiseSwissRounds("3", 8)).toBe("invalid");
+  });
+  it("B7: advarsel over ceil(log2 N) + 1 runder — serverens maks er uendret", () => {
+    // 8 lag: standard 3, anbefalt opptil 4 uten advarsel; 5 og over advarer.
+    expect([1, 3, 4].map((r) => swissRoundsWarn(8, r))).toEqual([false, false, false]);
+    expect([5, 6, 7].map((r) => swissRoundsWarn(8, r))).toEqual([true, true, true]);
+    // 3 lag: standard 2, opp til 3 uten advarsel (maks er 2).
+    expect(swissRoundsWarn(3, 2)).toBe(false);
+    expect(sanitiseSwissRounds(7, 8)).toBe(7);
   });
 });

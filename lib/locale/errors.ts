@@ -36,6 +36,7 @@ const MESSAGES: Record<string, string> = {
   konflikt: "Resultatet ble endret av en annen enhet.",
   kamp_ferdig: "Kampen er allerede ferdig.",
   kamp_ikke_klar: "Kampen mangler et lag ennå.",
+  kamp_utgatt: "Kampen er en frirunde eller en omkamp som ikke trengs, og kan ikke endres.",
   kamp_ikke_live: "Kampen er ikke i gang.",
   laast_av_annen: "En annen enhet registrerer denne kampen.",
   turnering_avsluttet: "Turneringen er avsluttet. Arrangøren kan gjenåpne den.",

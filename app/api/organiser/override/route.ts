@@ -47,6 +47,12 @@ async function handlePOST(req: Request) {
 
   const m = await getMatch(body.matchId);
   if (!m || m.tournament_id !== t.id) return fail(404, "finnes_ikke");
+  // Frirunder og den annullerte omkampen i dobbel utslag (finale 2 når W-laget vant storfinalen)
+  // er ikke kamper å føre resultat på — et resultat her kunne snudd vinneren.
+  if (m.status === "bye")
+    return fail(409, "kamp_utgatt", {
+      detail: "Denne kampen er en frirunde eller en omkamp som ikke trengs, og kan ikke endres.",
+    });
   if (!m.home_team_id || !m.away_team_id) return fail(409, "kamp_ikke_klar");
 
   const knockout = m.phase === "playoff";

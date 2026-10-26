@@ -46,6 +46,11 @@ export function defaultSwissRounds(n: number): number {
   return Math.max(1, Math.ceil(Math.log2(Math.max(2, n))));
 }
 
+/** Flere runder enn ceil(log2 N) + 1 gir omkamper og gjentatte frirunder (veiviseren advarer). */
+export function swissRoundsWarn(n: number, rounds: number): boolean {
+  return rounds > defaultSwissRounds(n) + 1;
+}
+
 /** Gyldig antall runder: 1..N−1 (flere ville gitt omkamper). */
 export function maxSwissRounds(n: number): number {
   return Math.max(1, n - 1);

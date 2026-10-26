@@ -19,17 +19,19 @@ export function Champion({ state }: { state: StateDTO }) {
   const winnerId = championId(state);
   const champ: Team | undefined = winnerId ? byId.get(winnerId) : undefined;
 
+  // Avsluttet før finalen var spilt: ingen vinner, så ingen fanfare.
+  const decided = !!champ;
   useEffect(() => {
-    playFanfare();
-  }, []);
+    if (decided) playFanfare();
+  }, [decided]);
 
   return (
     <main className="champion">
-      <Confetti />
+      {decided && <Confetti />}
       <div className="champion-inner">
         <div className="champion-eyebrow">
           <Icon name="trophy" size={22} />
-          {no.board.champion}
+          {decided ? no.board.champion : no.result.finished}
         </div>
         {champ?.logo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -42,7 +44,7 @@ export function Champion({ state }: { state: StateDTO }) {
             {champ ? initials(champ.name) : <Icon name="trophy" size={64} />}
           </div>
         )}
-        <h1 className="champion-name">{champ?.name ?? "—"}</h1>
+        <h1 className="champion-name">{champ?.name ?? no.result.endedEarly}</h1>
         <a
           className="btn"
           href={`/resultat/${state.tournament.id}`}

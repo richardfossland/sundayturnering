@@ -38,7 +38,7 @@ import type {
 import { myTournaments } from "@/lib/client/myTournaments";
 import { errorMessage } from "@/lib/locale/errors";
 import { clampGroupCount, clampPlayoffSize } from "@/lib/tournament/playoffSize";
-import { defaultSwissRounds, maxSwissRounds } from "@/lib/tournament/swiss";
+import { defaultSwissRounds, maxSwissRounds, swissRoundsWarn } from "@/lib/tournament/swiss";
 import { consolationOptions, cupConsolationFeasible } from "@/lib/tournament/consolation";
 import { estimateEnd } from "@/lib/tournament/estimate";
 import { Stepper } from "./Stepper";
@@ -1199,6 +1199,9 @@ function SwissRounds({
         <span className="hint">{no.wizard.swissRoundsLater}</span>
       )}
       {teams >= 3 && <span className="hint">{no.wizard.swissRoundsHint}</span>}
+      {teams >= 3 && swissRoundsWarn(teams, rounds) && (
+        <span className="org-warn" role="status">{no.wizard.swissRoundsMany}</span>
+      )}
     </div>
   );
 }
