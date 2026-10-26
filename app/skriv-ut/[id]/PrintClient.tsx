@@ -22,7 +22,7 @@ import { no } from "@/lib/locale/no";
 import type { StateDTO } from "@/lib/dto";
 import type { Match, Team } from "@/lib/types";
 
-// Utskrift for kampdagen: kampprogram, kampkort og banekort. Kontrollkoden til
+// Utskrift for kampdagen: kampprogram, kampkort og banekort. Dommerkoden til
 // QR-kodene er ikke i den offentlige tilstanden — den hentes fra denne enhetens
 // egen lagring (samme sted som /arrangor/[id]), så siden krever arrangørkoden
 // på enheten og ingenting ekstra forlater serveren.
@@ -145,7 +145,7 @@ export function PrintClient({ id }: { id: string }) {
       <div className="print-sheet">
         {byCourt.map((g) => (
           <section className="ps-block" key={g.court?.id ?? "none"}>
-            <h2>{tournament.title} — {g.court?.name ?? no.print.noCourt}</h2>
+            <h2>{tournament.title} – {g.court?.name ?? no.print.noCourt}</h2>
             <table className="ps-table">
               <thead>
                 <tr>
@@ -169,7 +169,7 @@ export function PrintClient({ id }: { id: string }) {
 
         {byTeam.length > 0 && (
           <section className="ps-block">
-            <h2>{tournament.title} — {no.print.programmeTeam}</h2>
+            <h2>{tournament.title} – {no.print.programmeTeam}</h2>
             {byTeam.map((g) => (
               <div className="ps-team" key={g.team.id}>
                 <h3><Swatch team={g.team} /> {g.team.name}</h3>

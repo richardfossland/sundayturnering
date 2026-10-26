@@ -28,7 +28,7 @@ export function SiteHeader({
             <span className="site-header-sep" aria-hidden="true" />
           </>
         )}
-        <Link href="/" className="brand site-brand" aria-label={`${no.brand} — ${no.header.home}`}>
+        <Link href="/" className="brand site-brand" aria-label={`${no.brand}. ${no.header.home}`}>
           <span className="brand-mark" aria-hidden="true">T</span>
           {no.brand}
         </Link>

@@ -132,16 +132,18 @@ export function Commentator({ state }: { state: StateDTO | null }) {
             <Icon name="mic" size={16} />
             {no.narrate.badge}
           </span>
-          <div className="speaker-ticker-track">
-            {ticker.map((l) => (
-              <span key={l.key} className="speaker-ticker-item">
-                <span className="speaker-ticker-icon">
-                  <Icon name={ICON[l.kind]} size={16} />
+          <div className="speaker-ticker-view">
+            <div className="speaker-ticker-track">
+              {ticker.map((l) => (
+                <span key={l.key} className="speaker-ticker-item">
+                  <span className="speaker-ticker-icon">
+                    <Icon name={ICON[l.kind]} size={16} />
+                  </span>
+                  {l.headline}
+                  {l.detail ? ` · ${l.detail}` : ""}
                 </span>
-                {l.headline}
-                {l.detail ? ` · ${l.detail}` : ""}
-              </span>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}

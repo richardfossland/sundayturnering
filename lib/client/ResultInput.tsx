@@ -131,7 +131,7 @@ export function ResultInput({
   function submit() {
     const r = build();
     if (!r) {
-      setErr(special ? no.control.pickTeam : "Velg hvem som vant.");
+      setErr(special ? no.control.pickTeam : no.control.pickWinner);
       return;
     }
     const v = validateResult(profile, r, scoring, { knockout });
@@ -226,7 +226,7 @@ export function ResultInput({
                 max={MAX_SCORE}
                 value={s[0]}
                 onChange={(n) => updateSet(sets, setSets, i, 0, n)}
-                aria-label={`${home.name} sett ${i + 1}`}
+                aria-label={no.control.teamSet(home.name, i + 1)}
               />
               <span className="versus-mid">–</span>
               <NumberField
@@ -236,12 +236,12 @@ export function ResultInput({
                 max={MAX_SCORE}
                 value={s[1]}
                 onChange={(n) => updateSet(sets, setSets, i, 1, n)}
-                aria-label={`${away.name} sett ${i + 1}`}
+                aria-label={no.control.teamSet(away.name, i + 1)}
               />
               {sets.length > 1 ? (
                 <button
                   className="btn-icon"
-                  aria-label={`Fjern sett ${i + 1}`}
+                  aria-label={no.control.removeSet(i + 1)}
                   onClick={() => setSets(sets.filter((_, j) => j !== i))}
                 >
                   <Icon name="close" />

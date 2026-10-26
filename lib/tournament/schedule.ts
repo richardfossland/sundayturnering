@@ -209,12 +209,12 @@ export function sanitiseSchedule(raw: unknown): ScheduleConfig | undefined | "in
   };
 }
 
-// ---------- Skyv tidsplanen (A2) ----------
+// ---------- Forsink eller framskynd kamper (A2) ----------
 // Samme regler som RPC `turnering.shift_schedule` (migrasjon 0013). Brukes til
-// forhåndsvisning i arrangørpanelet og til å gi pene feil i ruta; databasen
+// forhåndsvisning i Kontrollsenteret og til å gi pene feil i ruta; databasen
 // har siste ord.
 
-/** Maks skyv i minutter (begge retninger). */
+/** Maks forskyvning i minutter (begge retninger). */
 export const MAX_SHIFT_MINUTES = 240;
 /** Slingringsmonn mot «nå» (ms), som `now() - 1 minute` i RPC-en. */
 const SHIFT_PAST_SLACK = MIN;
@@ -234,7 +234,7 @@ export interface ShiftChange {
 export interface ShiftRequest {
   /** Bane-id, eller null for alle baner. */
   courtId: string | null;
-  /** Skyv kamper som starter på/etter dette tidspunktet (ISO). */
+  /** Flytt kamper som starter på/etter dette tidspunktet (ISO). */
   fromIso: string;
   /** Positivt = utsett, negativt = framskynd. */
   minutes: number;

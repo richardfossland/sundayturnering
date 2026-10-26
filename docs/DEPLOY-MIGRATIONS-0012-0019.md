@@ -7,7 +7,7 @@ triggere.
 
 > **Appen må IKKE deployes før alle åtte er kjørt.** Rutene har ingen fallback
 > for de nye RPC-ene, kolonnene eller formatene (tidsplan, oppkalling, idempotent
-> resultat, braketter, dobbel utslag, Swiss, `precall_court_id`).
+> resultat, braketter, dobbel utslag, sveitsisk system, `precall_court_id`).
 
 ## Rekkefølge
 

@@ -20,7 +20,7 @@ import {
 } from "@/lib/tournament/bracketLayout";
 import type { BracketId, Consolation, Match, ScoringConfig, Team } from "@/lib/types";
 
-/** Navn på brakettene i tavla: «A-sluttspill» og «B-sluttspill» (cup: «Trøsterunde»). */
+/** Navn på brakettene på storskjermen: «A-sluttspill» og «B-sluttspill» (cup: «Trøsterunde»). */
 export function bracketLabels(consolation?: Consolation): Record<string, string> {
   return {
     A: no.board.bracketA,
@@ -51,9 +51,9 @@ export function Bracket({
   links?: LayoutLink[];
   /** Bare for navngivning av B-braketten. */
   consolation?: Consolation;
-  /** Vis kun denne braketten (tavla bytter mellom A og B når begge ikke får plass). */
+  /** Vis kun denne braketten (storskjermen bytter mellom A og B når begge ikke får plass). */
   only?: BracketId;
-  /** Gir forelderen (tavlas auto-panorering) tilgang til den horisontale scrolleren. */
+  /** Gir forelderen (storskjermens auto-panorering) tilgang til den horisontale scrolleren. */
   scrollRef?: RefObject<HTMLDivElement | null>;
   /** Storskjerm: brakettens størrelse skaleres (CSS) til boksen den står i i stedet for å scrolle. */
   fit?: boolean;

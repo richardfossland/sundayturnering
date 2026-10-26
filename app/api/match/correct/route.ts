@@ -72,7 +72,7 @@ async function handlePOST(req: Request) {
     (await resetDownstream(t, m.id, { dryRun: true })) > 0
   )
     return fail(409, "neste_kamp_spilt", {
-      detail: "Neste sluttspillkamp har allerede startet — be arrangøren endre resultatet.",
+      detail: "Neste sluttspillkamp har allerede startet. Be arrangøren endre resultatet.",
     });
 
   const resultBy = body.deviceName

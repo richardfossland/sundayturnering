@@ -1,5 +1,7 @@
 "use client";
 
+import { no } from "@/lib/locale/no";
+
 /** Shown once two fetches in a row have failed. The last good state stays on
  * screen underneath — a projector must never go blank on flaky wifi. */
 export function OfflineBanner({
@@ -15,7 +17,7 @@ export function OfflineBanner({
     : null;
   return (
     <div className="offline-banner" role="status" aria-live="polite">
-      {t ? `Frakoblet \u2013 sist oppdatert ${t}` : "Frakoblet \u2013 pr\u00f8ver \u00e5 koble til igjen"}
+      {t ? no.common.offlineSince(t) : no.common.offlineRetrying}
     </div>
   );
 }

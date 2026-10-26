@@ -71,7 +71,7 @@ export function validateResult(
   if ("special" in r) {
     const kind = r.special;
     if (kind !== "walkover" && kind !== "disqualification" && kind !== "abandoned")
-      return "Ukjent spesialresultat.";
+      return "Ukjent type resultat.";
     if (kind === "abandoned") {
       if (r.winner != null) return "En avbrutt kamp har ingen vinner.";
       return null;
@@ -86,11 +86,11 @@ export function validateResult(
     if ((r.home as number) < 0 || (r.away as number) < 0)
       return "Tall kan ikke være negative.";
     if ((r.home as number) > MAX_SCORE || (r.away as number) > MAX_SCORE)
-      return "Urimelig høy score.";
+      return "Tallet er urimelig høyt.";
     if (r.home === r.away) {
       if (ctx.knockout) {
         if (r.decider !== "home" && r.decider !== "away")
-          return "Lik stilling i en utslagskamp — velg hvem som gikk videre (straffer/forlengning).";
+          return "Lik stilling i en utslagskamp. Velg hvem som gikk videre etter straffer eller forlengning.";
         return null;
       }
       if (!cfg.allowDraw) return "Uavgjort er ikke tillatt i denne turneringen.";
@@ -142,11 +142,11 @@ export function validateLiveResult(
 ): string | null {
   if (result == null || typeof result !== "object") return "Mangler resultat.";
   const r = result as Record<string, unknown>;
-  if ("special" in r) return "Spesialresultat kan ikke vises live.";
+  if ("special" in r) return "Walkover, avbrutt og diskvalifisert kan ikke vises underveis.";
   if (profile === "simple") {
     if (!isInt(r.home) || !isInt(r.away)) return "Begge lag må ha et tall.";
     if ((r.home as number) < 0 || (r.away as number) < 0) return "Tall kan ikke være negative.";
-    if ((r.home as number) > 999 || (r.away as number) > 999) return "Urimelig høy score.";
+    if ((r.home as number) > 999 || (r.away as number) > 999) return "Tallet er urimelig høyt.";
     return null;
   }
   if (profile === "sets") {
@@ -159,7 +159,7 @@ export function validateLiveResult(
     }
     return null;
   }
-  return "Denne poengprofilen har ingen live-score.";
+  return "Denne poengtellingen har ingen resultat underveis.";
 }
 
 /** Canonical stored shape for a live score (sets tally recomputed, a set that

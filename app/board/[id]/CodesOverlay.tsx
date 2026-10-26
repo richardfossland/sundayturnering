@@ -14,7 +14,7 @@ import { no } from "@/lib/locale/no";
 // for reopening this screen elsewhere.
 //
 // The codes are NOT in the public tournament state (anyone with a follow link
-// can read that). They come from this device: stored at creation, by /tavle,
+// can read that). They come from this device: stored at creation, by /tavle (code entry),
 // or by the admin dashboard. A screen without them asks for the board code
 // once. organiser_code is never shown here — it must not reach a projector.
 export function CodesOverlay({
@@ -69,7 +69,7 @@ export function CodesOverlay({
             <section className="codes-card">
               <div className="board-code-label">{no.board.codesControl}</div>
               <div className="board-code">{codes.control}</div>
-              <QRCode value={`${baseUrl}/kontroll?code=${codes.control}`} size={150} />
+              <QRCode value={`${baseUrl}/kontroll?code=${codes.control}`} size={150} alt={no.board.qrControlAlt} />
               <p className="faint codes-hint">{no.board.codesControlHint}</p>
               <CopyBtn value={`${baseUrl}/kontroll?code=${codes.control}`} />
             </section>
@@ -83,7 +83,7 @@ export function CodesOverlay({
           <section className="codes-card">
             <div className="board-code-label">{no.board.codesFollow}</div>
             <div className="codes-url">{followUrl.replace(/^https?:\/\//, "")}</div>
-            <QRCode value={followUrl} size={150} />
+            <QRCode value={followUrl} size={150} alt={no.board.qrFollowAlt} />
             <p className="faint codes-hint">{no.board.codesFollowHint}</p>
             <CopyBtn value={followUrl} />
           </section>
@@ -92,7 +92,7 @@ export function CodesOverlay({
             <section className="codes-card">
               <div className="board-code-label">{no.board.codesBoard}</div>
               <div className="board-code">{codes.board}</div>
-              <QRCode value={boardUrl} size={150} />
+              <QRCode value={boardUrl} size={150} alt={no.board.qrBoardAlt} />
               <p className="faint codes-hint">{no.board.codesBoardHint}</p>
               <CopyBtn value={boardUrl} />
             </section>

@@ -131,7 +131,7 @@ export async function getState(t: Tournament): Promise<StateDTO> {
   };
 }
 
-/** Brakettkoblinger til tavla (hvem mater hvem); tom liste uten sluttspill. */
+/** Brakettkoblinger til storskjermen (hvem mater hvem); tom liste uten sluttspill. */
 async function getLinks(tournamentId: string): Promise<NonNullable<StateDTO["links"]>> {
   const { data, error } = await db()
     .from("bracket_links")

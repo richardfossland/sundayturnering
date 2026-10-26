@@ -209,7 +209,7 @@ function TeamLine({ team, win = false }: { team: Team | null | undefined; win?: 
       <span className="team-swatch" style={{ background: team?.colour ?? "#555" }} />
       <span className="team-name">{team?.name ?? no.board.tbd}</span>
       {win && (
-        <span className="win-mark" role="img" aria-label="Vinner" title="Vinner">
+        <span className="win-mark" role="img" aria-label={no.common.winner} title={no.common.winner}>
           <Icon name="check" size={18} strokeWidth={2.5} />
         </span>
       )}

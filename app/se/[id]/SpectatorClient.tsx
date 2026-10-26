@@ -55,7 +55,7 @@ export function SpectatorClient({ id }: { id: string }) {
   const { tournament, matches, standings, groupStandings, courts } = state;
   const showDraw = tournament.scoring.profile === "simple" && tournament.scoring.allowDraw;
   const live = liveMatches(matches);
-  const next = upcoming(matches, 5);
+  const next = upcoming(matches, 5, tournament.status);
   const finished = tournament.status === "finished";
   const started = matches.some((m) => m.status === "live" || m.status === "called" || m.status === "done");
   const hasBracket = matches.some((m) => m.phase === "playoff");

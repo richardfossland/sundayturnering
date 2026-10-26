@@ -134,12 +134,12 @@ describe("code attempt limiter", () => {
 describe("client: 429 has its own message", () => {
   const e429 = new ApiError(429, "for_mange_forsok");
   it("pairing screens do not say «feil kode»", () => {
-    expect(pairErrorMessage(e429)).toBe("For mange forsøk – vent litt og prøv igjen.");
-    expect(pairErrorMessage(e429, true)).toBe("For mange forsøk – vent litt og prøv igjen.");
+    expect(pairErrorMessage(e429)).toBe("For mange forsøk. Vent litt og prøv igjen.");
+    expect(pairErrorMessage(e429, true)).toBe("For mange forsøk. Vent litt og prøv igjen.");
     expect(pairErrorMessage(new ApiError(404, "finnes_ikke"))).toContain("Fant ingen turnering");
   });
   it("errorMessage maps it too", () => {
-    expect(errorMessage(e429)).toBe("For mange forsøk – vent litt og prøv igjen.");
+    expect(errorMessage(e429)).toBe("For mange forsøk. Vent litt og prøv igjen.");
   });
 });
 

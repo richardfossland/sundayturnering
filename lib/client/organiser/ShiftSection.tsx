@@ -44,7 +44,7 @@ export function ShiftSection({
   const fromMatch = upcoming.find((m) => m.id === fromId);
   // Standard: alle uspilte kamper, også de som er forsinket (før «nå»).
   const fromIso = fromMatch?.scheduled_at ?? new Date(0).toISOString();
-  const { changes, error } = previewShift(matches, {
+  const { changes: unsorted, error } = previewShift(matches, {
     courtId: courtId || null,
     fromIso,
     minutes: mins,
@@ -52,6 +52,15 @@ export function ShiftSection({
   });
   const byId = new Map(matches.map((m) => [m.id, m]));
   const courtName = new Map(courts.map((c) => [c.id, c.name]));
+  // Forhåndsvisningen følger klokka (tidligst først), og banen avgjør ved lik tid.
+  const courtOrder = new Map(courts.map((c) => [c.id, c.sort_order]));
+  const changes = [...unsorted].sort((a, b) => {
+    const dt = Date.parse(a.before) - Date.parse(b.before);
+    if (dt !== 0) return dt;
+    const ca = courtOrder.get(byId.get(a.matchId)?.court_id ?? "") ?? Infinity;
+    const cb = courtOrder.get(byId.get(b.matchId)?.court_id ?? "") ?? Infinity;
+    return ca - cb;
+  });
   const { label } = matchLabeler(teams);
 
   return (

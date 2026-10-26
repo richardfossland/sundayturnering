@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import QR from "qrcode";
+import { no } from "@/lib/locale/no";
 
 /** Renders a QR code for `value` as an <img>. Generated client-side. */
 export function QRCode({
   value,
   size = 200,
-  alt = "QR-kode for å bli med",
+  alt = no.common.qrAlt,
 }: {
   value: string;
   size?: number;
