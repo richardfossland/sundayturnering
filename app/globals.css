@@ -5292,6 +5292,19 @@ label.check-row > input[type="checkbox"] {
 .bstand-legend b {
   color: var(--txt);
 }
+.bstand-legend span + span::before {
+  content: " · ";
+}
+.bstand-legend .bstand-legend-note {
+  color: var(--txt-faint);
+}
+.bstand-legend .bstand-legend-note::before {
+  content: " (";
+}
+.bstand-legend .bstand-legend-note::after {
+  content: ")";
+}
+
 .bstand .th-f {
   display: none;
 }
@@ -5899,6 +5912,12 @@ html[data-board-idle] .speaker-toggle {
     display: flex;
     align-items: center;
   }
+  /* a narrow table (the three-column layout) drops Seier/Uavgjort/Tap */
+  @container (max-width: 44vh) {
+    .board-fit .bstand .c-x {
+      display: none;
+    }
+  }
   @container (min-width: 105vh) {
     .board-fit .bstand .th-s,
     .board-fit .bstand .bstand-legend {
@@ -6075,5 +6094,23 @@ html[data-board-idle] .speaker-toggle {
   }
   .reaction-tally-emoji {
     font-size: calc(2.8 * var(--u, 1vh));
+  }
+}
+
+/* wide screens, league table + bracket: three full-height columns */
+@media (min-width: 900px) and (min-aspect-ratio: 3/2) {
+  .board-fit.board-tri .board-body {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 0.8fr) minmax(0, 1.35fr);
+  }
+  .board-fit.board-tri .board-right {
+    display: contents;
+  }
+  .board-fit.board-tri .board-standings-region {
+    align-self: start;
+    max-height: 100%;
+    height: min(calc(var(--lines, 8) * 4.4 * var(--u) + 9.5 * var(--u)), 100%);
+  }
+  .board-fit.board-tri .board-bracket-region {
+    height: 100%;
   }
 }

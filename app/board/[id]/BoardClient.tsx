@@ -113,6 +113,9 @@ export function BoardClient({
     !spectator &&
     !matches.some((m) => m.status === "live" || m.status === "called" || m.status === "done");
   const hasBracket = matches.some((m) => m.phase === "playoff");
+  // League table AND bracket (not double elimination): on a wide screen they
+  // become two full-height columns beside "Nå spiller" so neither is squeezed.
+  const tri = hasBracket && tournament.format !== "double_elim";
 
   // Commentator stays mounted in a stable tree position across the league →
   // finished transition, so its previous-snapshot ref survives and the
@@ -127,7 +130,7 @@ export function BoardClient({
     <main
       className={`board board-fit${flash ? " board-flash" : ""}${lobby ? " board-lobby" : ""}${
         hasBracket ? " board-has-bracket" : ""
-      }`}
+      }${tri ? " board-tri" : ""}`}
     >
       <BoardControls spectator={spectator} onCodes={() => setShowCodes(true)} />
       {wall}

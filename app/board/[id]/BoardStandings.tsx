@@ -129,9 +129,19 @@ interface Cols {
   buchholz: boolean;
 }
 
-function Th({ short, full, title }: { short: string; full: string; title?: string }) {
+function Th({
+  short,
+  full,
+  title,
+  cls,
+}: {
+  short: string;
+  full: string;
+  title?: string;
+  cls?: string;
+}) {
   return (
-    <th title={title ?? full}>
+    <th title={title ?? full} className={cls}>
       <span className="th-s">{short}</span>
       <span className="th-f">{full}</span>
     </th>
@@ -159,9 +169,9 @@ function Table({
             <th className="rank">{th.rank}</th>
             <th className="l">{th.team}</th>
             <Th short={th.p} full={f.p} />
-            {cols.wdl && <Th short={th.w} full={f.w} />}
-            {cols.draw && <Th short={th.d} full={f.d} />}
-            {cols.wdl && <Th short={th.l} full={f.l} />}
+            {cols.wdl && <Th short={th.w} full={f.w} cls="c-x" />}
+            {cols.draw && <Th short={th.d} full={f.d} cls="c-x" />}
+            {cols.wdl && <Th short={th.l} full={f.l} cls="c-x" />}
             <Th short={th.diff} full={f.diff} />
             <Th short={th.pts} full={f.pts} />
             {cols.buchholz && <Th short={th.buchholz} full={f.buchholz} title={no.board.buchholzTitle} />}
@@ -188,9 +198,9 @@ function Table({
                     </span>
                   </td>
                   <td>{r.played}</td>
-                  {cols.wdl && <td>{r.won}</td>}
-                  {cols.draw && <td>{r.drawn}</td>}
-                  {cols.wdl && <td>{r.lost}</td>}
+                  {cols.wdl && <td className="c-x">{r.won}</td>}
+                  {cols.draw && <td className="c-x">{r.drawn}</td>}
+                  {cols.wdl && <td className="c-x">{r.lost}</td>}
                   <td>{r.diff > 0 ? `+${r.diff}` : r.diff}</td>
                   <td className="pts">{r.points}</td>
                   {cols.buchholz && <td>{r.buchholz ?? 0}</td>}
@@ -231,21 +241,21 @@ function RowFragment({
 function Legend({ cols }: { cols: Cols }) {
   const th = no.board.th;
   const f = no.board.thFull;
-  const items: [string, string][] = [[th.p, f.p]];
-  if (cols.wdl) items.push([th.w, f.w]);
-  if (cols.draw) items.push([th.d, f.d]);
-  if (cols.wdl) items.push([th.l, f.l]);
-  items.push([th.diff, f.diff], [th.pts, f.pts]);
-  if (cols.buchholz) items.push([th.buchholz, f.buchholz]);
+  // `c-x` items vanish together with their columns when the table is narrow.
+  const items: [string, string, boolean][] = [[th.p, f.p, false]];
+  if (cols.wdl) items.push([th.w, f.w, true]);
+  if (cols.draw) items.push([th.d, f.d, true]);
+  if (cols.wdl) items.push([th.l, f.l, true]);
+  items.push([th.diff, f.diff, false], [th.pts, f.pts, false]);
+  if (cols.buchholz) items.push([th.buchholz, f.buchholz, false]);
   return (
     <p className="bstand-legend">
-      {items.map(([s, w], i) => (
-        <span key={s}>
+      {items.map(([s, w, x]) => (
+        <span key={s} className={x ? "c-x" : undefined}>
           <b>{s}</b> {w.toLowerCase()}
-          {i < items.length - 1 ? " · " : ""}
         </span>
       ))}
-      {cols.buchholz && <span> ({no.board.buchholzTitle.split(": ")[1]})</span>}
+      {cols.buchholz && <span className="bstand-legend-note">{no.board.buchholzTitle.split(": ")[1]}</span>}
     </p>
   );
 }
