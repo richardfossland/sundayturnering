@@ -349,6 +349,14 @@ describe("0020 på fersk database (0001…0020)", () => {
     });
   });
 
+  it("etterkontrollen i docs/DEPLOY-MIGRATION-0020.md er gyldig og helt grønn", async () => {
+    const md = readFileSync(join(__dirname, "..", "docs", "DEPLOY-MIGRATION-0020.md"), "utf8");
+    const sql = /```sql\n([\s\S]*?)```/.exec(md)![1];
+    const r = await db.query<{ sjekk: string; ok: boolean | null }>(sql);
+    expect(r.rows).toHaveLength(4);
+    expect(r.rows.filter((x) => x.ok !== true)).toEqual([]);
+  });
+
   it("trigger-funksjonen er låst (ingen execute for anon/authenticated)", async () => {
     const r = await db.query<{ anon: boolean; pub: boolean; cfg: string[] | null }>(
       `select has_function_privilege('anon', p.oid, 'execute') as anon,

@@ -105,6 +105,12 @@ Forventet: 7 funksjonsrader + 4 kolonner + 4 øvrige = 15 rader, alle `ok = true
 Er noen `false`/`null`, kjør filen for raden på nytt (eller `0019` hvis det gjelder
 funksjoner/format-CHECK) og kjør spørringen igjen.
 
+## Etter 0019
+
+`0020_bronze_uncall_stale_queue.sql` (bronsefinale, angre oppkalling, utdatert kø) kjøres
+etter 0019: se `docs/DEPLOY-MIGRATION-0020.md`. Kjør 0019 aldri om igjen etter 0020
+uten å kjøre 0020 på nytt.
+
 ## Deploy
 
 Først når sjekken er helt grønn: deploy appen (se `docs/DEPLOY.md`).
