@@ -935,6 +935,9 @@ button.pill[aria-selected="true"]:hover {
 .modal {
   width: 100%;
   max-width: 460px;
+  /* taller than the screen (result entry on a short window): scroll inside */
+  max-height: calc(100dvh - var(--sp-5));
+  overflow-y: auto;
   animation: modal-in 0.25s var(--spring);
 }
 @keyframes modal-in {
