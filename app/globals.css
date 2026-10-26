@@ -5210,6 +5210,7 @@ label.check-row > input[type="checkbox"] {
 }
 .bstand table {
   width: 100%;
+  table-layout: fixed; /* long names ellipsize instead of widening the table */
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
@@ -5232,6 +5233,12 @@ label.check-row > input[type="checkbox"] {
   text-align: right;
   padding: 0 0.5em;
   border-bottom: 1px solid var(--ink-line);
+}
+.bstand th:not(.l):not(.rank) {
+  width: 2.9em;
+}
+.bstand th.full-w {
+  width: auto;
 }
 .bstand .rank {
   width: 2em;
@@ -5621,15 +5628,15 @@ html[data-board-idle] .speaker-toggle {
   }
   .board-fit .versus-logo,
   .board-fit .versus-badge {
-    width: min(17cqh, 12cqw);
-    height: min(17cqh, 12cqw);
+    width: min(21cqh, 14cqw);
+    height: min(21cqh, 14cqw);
     border-radius: 3cqh;
   }
   .board-fit .versus-badge {
-    font-size: min(7cqh, 5cqw);
+    font-size: min(8.5cqh, 5.6cqw);
   }
   .board-fit .versus-name {
-    font-size: min(8.5cqh, 4.6cqw);
+    font-size: min(10.5cqh, 5.4cqw);
     line-height: 1.1;
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -5638,7 +5645,7 @@ html[data-board-idle] .speaker-toggle {
     overflow-wrap: anywhere;
   }
   .board-fit .versus-score {
-    font-size: min(22cqh, 11cqw);
+    font-size: min(26cqh, 13cqw);
     font-variant-numeric: tabular-nums;
   }
   .board-fit .versus-mid {
@@ -5935,6 +5942,9 @@ html[data-board-idle] .speaker-toggle {
     }
     .board-fit .bstand .th-f {
       display: inline;
+    }
+    .board-fit .bstand th:not(.l):not(.rank) {
+      width: 7em;
     }
   }
 
