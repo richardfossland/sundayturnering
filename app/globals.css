@@ -2906,6 +2906,15 @@ button.brk-row:focus-visible {
     display: none;
   }
 }
+/* On phones a floating button covers content while scrolling, so the switch
+   sits at the end of the page instead (the board keeps its own controls). */
+@media (max-width: 900px) {
+  .theme-toggle {
+    position: static;
+    margin: var(--sp-6) auto var(--sp-4);
+    opacity: 1;
+  }
+}
 
 /* team roster under a team on the board */
 .versus-roster {
@@ -5058,10 +5067,6 @@ label.check-row > input[type="checkbox"] {
   opacity: 1;
 }
 @media (max-width: 900px) {
-  /* the wizard's sticky footer owns the bottom edge; lift the floating theme switch above it */
-  body:has(.wiz-foot) .theme-toggle {
-    bottom: calc(var(--tap) + var(--sp-6) + var(--sp-4));
-  }
   .wiz .panel {
     padding: var(--sp-4);
   }
@@ -6483,6 +6488,24 @@ html[data-board-idle] .speaker-toggle {
   }
   .board-fit .bstand-col {
     gap: calc(var(--rh) * 0.5);
+  }
+  /* Auto layout here: with table-layout:fixed Chrome still reserves width
+     for the S/U/T columns hidden by the container query below, which squeezed
+     the team names to nothing in the narrow three-column layout. The team
+     column takes whatever is left and ellipsizes. */
+  .board-fit .bstand table {
+    table-layout: auto;
+  }
+  .board-fit .bstand th.l,
+  .board-fit .bstand td.l {
+    width: 100%;
+    max-width: 0;
+  }
+  .board-fit .bstand td.l .team-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .board-fit .bstand tbody tr {
     height: var(--rh);

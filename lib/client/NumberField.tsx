@@ -68,6 +68,9 @@ export function NumberField({
     setDraft(null);
     // A blank field left blank stays blank: leaving it must not invent a value.
     if (value === null && text === "") return null;
+    // Cleared (or just "-") and left: keep the old value rather than jumping to
+    // `min` — for «Forsink» that would silently mean −240 minutes.
+    if (value !== null && parseDraft(text) === null && !/^\d+$/.test(text)) return value;
     const n = commitDraft(text, min, max);
     if (n !== value) onChange(n);
     return n;

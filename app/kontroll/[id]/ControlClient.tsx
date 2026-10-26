@@ -450,7 +450,9 @@ export function ControlClient({ id }: { id: string }) {
             </label>
           )}
           {tab === "scheduled" && closedCount > 0 && (
-            <p className="hint" role="status">{no.control.matchesClosed(closedCount)}</p>
+            <p className="hint" role="status">
+              {tournament.status === "finished" ? no.control.matchesFinished : no.control.matchesClosed(closedCount)}
+            </p>
           )}
           {listed.length === 0 ? (
             <div className="empty">{no.board.noMatches}</div>

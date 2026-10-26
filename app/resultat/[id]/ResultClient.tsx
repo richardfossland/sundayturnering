@@ -11,6 +11,7 @@ import { Icon } from "@/lib/client/Icon";
 import type { StateDTO } from "@/lib/dto";
 import type { StandingRow, Team } from "@/lib/types";
 import { groupLabel, StandingsLegend } from "@/app/board/[id]/Standings";
+import { hasStandingsTable } from "@/app/board/[id]/BoardStandingsPanel";
 
 // Printable results + diplomas. "Skriv ut / lagre PDF" uses the browser's
 // print-to-PDF (print CSS forces a clean white sheet).
@@ -164,29 +165,31 @@ export function ResultClient({ id }: { id: string }) {
           </section>
         )}
 
-        <section className="result-sec">
-          <h2 className="result-sec-title">{no.board.standings}</h2>
-          {!played ? (
-            <div className="empty">{no.board.noMatches}</div>
-          ) : (
-            <>
-              {state.groupStandings && state.groupStandings.length > 0 ? (
-                // Gruppespill: one table per group. The flat `standings` ranks
-                // teams that never met against each other (the board and /se
-                // already show per-group tables).
-                state.groupStandings.map((g) => (
-                  <div key={g.group_no} className="result-group">
-                    <h3 className="group-head">{groupLabel(g.group_no)}</h3>
-                    <RecordsTable rows={g.rows} byId={byId} />
-                  </div>
-                ))
-              ) : (
-                <RecordsTable rows={state.standings} byId={byId} />
-              )}
-              <StandingsLegend standings={state.standings} showDraw />
-            </>
-          )}
-        </section>
+        {hasStandingsTable(state.tournament.format) && (
+          <section className="result-sec">
+            <h2 className="result-sec-title">{no.board.standings}</h2>
+            {!played ? (
+              <div className="empty">{no.board.noMatches}</div>
+            ) : (
+              <>
+                {state.groupStandings && state.groupStandings.length > 0 ? (
+                  // Gruppespill: one table per group. The flat `standings` ranks
+                  // teams that never met against each other (the board and /se
+                  // already show per-group tables).
+                  state.groupStandings.map((g) => (
+                    <div key={g.group_no} className="result-group">
+                      <h3 className="group-head">{groupLabel(g.group_no)}</h3>
+                      <RecordsTable rows={g.rows} byId={byId} />
+                    </div>
+                  ))
+                ) : (
+                  <RecordsTable rows={state.standings} byId={byId} />
+                )}
+                <StandingsLegend standings={state.standings} showDraw />
+              </>
+            )}
+          </section>
+        )}
 
         <footer className="result-foot">
           turnering.sundaysuite.app
