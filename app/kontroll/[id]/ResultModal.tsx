@@ -9,8 +9,9 @@ import { Icon } from "@/lib/client/Icon";
 import { errorMessage } from "@/lib/locale/errors";
 import { useEscape } from "@/lib/client/useEscape";
 import { useFocusTrap } from "@/lib/client/useFocusTrap";
-import type { Match, MatchResult, Team } from "@/lib/types";
+import type { Match, MatchResult, Team, TimerState } from "@/lib/types";
 import type { TournamentDTO } from "@/lib/dto";
+import { MatchTimer } from "./MatchTimer";
 
 export function ResultModal({
   match,
@@ -25,6 +26,8 @@ export function ResultModal({
   onQueued,
   onConflict,
   onAuthError,
+  subtitle,
+  timer,
 }: {
   match: Match;
   tournament: TournamentDTO;
@@ -35,13 +38,23 @@ export function ResultModal({
   controlCode: string;
   mode?: "new" | "correct";
   onClose: () => void;
-  onDone: () => void;
+  /** Saved on the server (not queued): the parent confirms with a toast. */
+  onDone: (result: MatchResult) => void;
   /** The result could not be sent (no network) and sits in the phone's outbox. */
   onQueued?: () => void;
   onConflict: () => void;
   /** The server rejected the control code. Return true when handled (the
    * parent re-prompts), so the modal does not also report a conflict. */
   onAuthError?: (e: unknown) => boolean;
+  /** «07:15 · Bane 1» under the title. */
+  subtitle?: string;
+  /** The referee countdown for this match's court (new results only). */
+  timer?: {
+    state: TimerState | null;
+    perCourt: boolean;
+    busy: boolean;
+    onAction: (action: "start" | "add" | "stop", durationSec?: number) => void;
+  };
 }) {
   const [version, setVersion] = useState(match.result_version);
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +63,7 @@ export function ResultModal({
   // 422 detail or "tournament finished" never reached the referee).
   const [err, setErr] = useState<string | null>(null);
   useEscape(onClose);
-  const dialogRef = useFocusTrap<HTMLDivElement>();
+  const dialogRef = useFocusTrap<HTMLDivElement>("dialog");
   // Live score: debounce the referee's taps, skip unchanged pushes, and stop
   // once the final result is being saved. Only for a fresh entry on a live
   // match — a self-correct of a finished match must not flip it back.
@@ -170,7 +183,7 @@ export function ResultModal({
           return;
         }
       }
-      onDone();
+      onDone(result);
     } catch (e) {
       if (onAuthError?.(e)) return;
       // Someone else changed/finished it → the parent refetches and warns.
@@ -192,55 +205,71 @@ export function ResultModal({
   return (
     // No close on a backdrop tap: a stray tap on a phone used to throw away
     // the score being typed. The close button or Escape closes.
-    <div className="scrim">
+    <div className="scrim scrim-sheet">
       <div
         ref={dialogRef}
-        className="card card-pad modal stack"
+        tabIndex={-1}
+        className="card sheet score-sheet"
         role="dialog"
         aria-modal="true"
         aria-labelledby="result-modal-title"
       >
-        <div className="spread">
-          <h2 id="result-modal-title" style={{ fontSize: "1.3rem" }}>
-            {correcting ? no.control.edit : no.control.enterResult}
-          </h2>
+        <div className="sheet-head">
+          <div className="sheet-heading">
+            <h2 id="result-modal-title" className="sheet-title">
+              {correcting ? no.control.edit : no.control.enterResult}
+            </h2>
+            {subtitle && <span className="sheet-sub">{subtitle}</span>}
+          </div>
           <button className="btn btn-ghost" onClick={onClose} aria-label={no.common.close}>
             <Icon name="close" />
           </button>
         </div>
-        {err && (
-          <div className="toast-danger" role="alert" style={{ fontSize: ".9rem" }}>
-            {err}
-          </div>
-        )}
-        {liveEnabled && liveState !== "off" && (
-          <div className="live-hint" data-sent={liveState === "sent"}>
-            <span className="dot" />
-            {no.control.liveOnBoard}
-          </div>
-        )}
-
-        {lockedByOther && (
-          <div className="panel" style={{ borderColor: "rgba(224,137,74,.4)" }}>
-            <div className="spread">
-              <span className="muted">{no.control.lockedBy(lockedByOther)}</span>
-              <button className="btn btn-ghost" onClick={forceTake}>
-                {no.control.forceTake}
-              </button>
+        <div className="sheet-body stack stack-tight">
+          {err && (
+            <div className="toast-danger" role="alert">
+              {err}
             </div>
-          </div>
-        )}
+          )}
+          {liveEnabled && liveState !== "off" && (
+            <div className="live-hint" data-sent={liveState === "sent"}>
+              <span className="dot" />
+              {no.control.liveOnBoard}
+            </div>
+          )}
 
-        <ResultInput
-          scoring={tournament.scoring}
-          home={h}
-          away={a}
-          initial={match.result}
-          knockout={match.phase === "playoff"}
-          onSubmit={submit}
-          submitting={submitting}
-          onLive={liveEnabled ? pushLive : undefined}
-        />
+          {lockedByOther && (
+            <div className="panel lock-panel">
+              <div className="spread">
+                <span className="muted">{no.control.lockedBy(lockedByOther)}</span>
+                <button className="btn btn-ghost" onClick={forceTake}>
+                  {no.control.forceTake}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <ResultInput
+            scoring={tournament.scoring}
+            home={h}
+            away={a}
+            initial={match.result}
+            knockout={match.phase === "playoff"}
+            onSubmit={submit}
+            submitting={submitting}
+            onLive={liveEnabled ? pushLive : undefined}
+            aside={
+              timer && !correcting ? (
+                <MatchTimer
+                  timer={timer.state}
+                  perCourt={timer.perCourt}
+                  busy={timer.busy}
+                  onAction={timer.onAction}
+                />
+              ) : undefined
+            }
+          />
+        </div>
       </div>
     </div>
   );

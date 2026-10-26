@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   MatchResult,
   ScoringConfig,
   SpecialKind,
   Team,
 } from "@/lib/types";
-import { validateResult } from "@/lib/tournament/scoring";
+import { MAX_SCORE, validateResult } from "@/lib/tournament/scoring";
 import { no } from "@/lib/locale/no";
 import { Icon } from "@/lib/client/Icon";
 import { NumberField } from "@/lib/client/NumberField";
@@ -31,18 +31,24 @@ interface Props {
   /** Knockout (playoff/cup) match: a level score is not a draw — the referee
    * picks who went through (penalties / extra time). */
   knockout?: boolean;
+  /** Extra controls placed between the result fields and the Save button
+   * (the referee sheet puts its countdown here). */
+  aside?: ReactNode;
 }
 
-// Generous ceiling for one set (tennis tiebreaks, table tennis to 21 …).
-const MAX_SET_SCORE = 999;
-
-// A few common scorelines offered as one-tap chips (simple profile).
-const QUICK_SCORES: [number, number][] = [
+// A few common scorelines offered as one-tap chips (simple profile). Each is
+// offered both ways round, so "the second team won" is as quick as the first:
+// the first number is always the team listed first.
+const QUICK_WINS: [number, number][] = [
   [1, 0],
   [2, 0],
   [2, 1],
   [3, 0],
   [3, 1],
+];
+const QUICK_DRAWS: [number, number][] = [
+  [0, 0],
+  [1, 1],
 ];
 
 export function ResultInput({
@@ -54,6 +60,7 @@ export function ResultInput({
   submitting,
   onLive,
   knockout = false,
+  aside,
 }: Props) {
   const profile = scoring.profile;
   const initSpecial =
@@ -145,37 +152,44 @@ export function ResultInput({
   return (
     <div className="stack">
       {!special && profile === "simple" && (
-        <div className="stack" style={{ gap: 14 }}>
-          <div className="scoreboard">
-            <ScoreColumn team={home} value={hs} onChange={setHs} />
-            <span className="sb-sep">{no.common.vs}</span>
-            <ScoreColumn team={away} value={as} onChange={setAs} />
+        <div className="stack stack-tight">
+          <div className="score-card">
+            <div className="score-head">
+              <span className="label">{no.control.resultLabel}</span>
+              <button
+                type="button"
+                className="score-reset"
+                onClick={() => {
+                  setHs(0);
+                  setAs(0);
+                }}
+              >
+                {no.control.reset}
+              </button>
+            </div>
+            <ScoreRow team={home} value={hs} onChange={setHs} />
+            <ScoreRow team={away} value={as} onChange={setAs} />
           </div>
-          <div className="quick-row">
-            <button
-              className="quick-chip"
-              onClick={() => {
-                setHs(0);
-                setAs(0);
-              }}
-            >
-              {no.control.reset}
-            </button>
-            {scoring.allowDraw && !knockout && (
-              <QuickChip h={0} a={0} hs={hs} as={as} onPick={pickScore} />
-            )}
-            {QUICK_SCORES.map(([h, a]) => (
-              <QuickChip key={`${h}-${a}`} h={h} a={a} hs={hs} as={as} onPick={pickScore} />
-            ))}
+          <div className="quick">
+            <span className="label">{no.control.suggestions}</span>
+            <div className="quick-grid">
+              {QUICK_WINS.map(([h, a]) => (
+                <QuickChip key={`${h}-${a}`} h={h} a={a} hs={hs} as={as} onPick={pickScore} />
+              ))}
+              {QUICK_WINS.map(([h, a]) => (
+                <QuickChip key={`${a}-${h}`} h={a} a={h} hs={hs} as={as} onPick={pickScore} />
+              ))}
+              {scoring.allowDraw &&
+                !knockout &&
+                QUICK_DRAWS.map(([h, a]) => (
+                  <QuickChip key={`${h}-${a}`} h={h} a={a} hs={hs} as={as} onPick={pickScore} />
+                ))}
+            </div>
           </div>
           {knockout && level && (
-            <div className="stack" style={{ gap: 8 }} role="group" aria-label={no.control.deciderTitle}>
-              <span className="label" style={{ margin: 0 }}>
-                {no.control.deciderTitle}
-              </span>
-              <span className="faint" style={{ fontSize: ".85rem", marginTop: -4 }}>
-                {no.control.deciderHint}
-              </span>
+            <div className="stack stack-tight" role="group" aria-label={no.control.deciderTitle}>
+              <span className="label">{no.control.deciderTitle}</span>
+              <span className="hint">{no.control.deciderHint}</span>
               <div className="bigchoice">
                 <button data-on={decider === "home"} aria-pressed={decider === "home"} onClick={() => setDecider("home")}>
                   <TeamLabel team={home} />
@@ -190,16 +204,18 @@ export function ResultInput({
       )}
 
       {!special && profile === "sets" && (
-        <div className="stack">
-          <div className="spread" style={{ alignItems: "center" }}>
-            <strong style={{ fontVariantNumeric: "tabular-nums" }}>
-              {no.control.setsTally(setTally[0], setTally[1])}
-            </strong>
+        <div className="stack stack-tight">
+          <div className="spread">
+            <strong className="sets-tally">{no.control.setsTally(setTally[0], setTally[1])}</strong>
             {scoring.setsBestOf ? (
-              <span className="faint" style={{ fontSize: ".85rem" }}>
-                {no.control.bestOf(scoring.setsBestOf)}
-              </span>
+              <span className="hint">{no.control.bestOf(scoring.setsBestOf)}</span>
             ) : null}
+          </div>
+          <div className="set-row set-head">
+            <TeamTag team={home} />
+            <span />
+            <TeamTag team={away} />
+            <span className="set-gap" />
           </div>
           {sets.map((s, i) => (
             <div className="set-row" key={i}>
@@ -207,7 +223,7 @@ export function ResultInput({
                 compact
                 className="set-input"
                 min={0}
-                max={MAX_SET_SCORE}
+                max={MAX_SCORE}
                 value={s[0]}
                 onChange={(n) => updateSet(sets, setSets, i, 0, n)}
                 aria-label={`${home.name} sett ${i + 1}`}
@@ -217,25 +233,26 @@ export function ResultInput({
                 compact
                 className="set-input"
                 min={0}
-                max={MAX_SET_SCORE}
+                max={MAX_SCORE}
                 value={s[1]}
                 onChange={(n) => updateSet(sets, setSets, i, 1, n)}
                 aria-label={`${away.name} sett ${i + 1}`}
               />
               {sets.length > 1 ? (
                 <button
-                  className="btn btn-ghost"
+                  className="btn-icon"
                   aria-label={`Fjern sett ${i + 1}`}
                   onClick={() => setSets(sets.filter((_, j) => j !== i))}
                 >
                   <Icon name="close" />
                 </button>
               ) : (
-                <span style={{ width: 44 }} />
+                <span className="set-gap" />
               )}
             </div>
           ))}
           <button className="btn btn-ghost" onClick={() => setSets([...sets, [0, 0]])}>
+            <Icon name="more" size={16} />
             {no.control.addSet}
           </button>
         </div>
@@ -255,17 +272,16 @@ export function ResultInput({
       {/* Special-result affordance (all profiles). */}
       <div className="special-box">
         {!showSpecial ? (
-          <button className="special-toggle" onClick={() => setShowSpecial(true)}>
-            {no.control.special}
+          <button type="button" className="disclosure-sum special-toggle" onClick={() => setShowSpecial(true)}>
+            <span className="disclosure-title">{no.control.special}</span>
             <Icon name="chevronDown" size={16} />
           </button>
         ) : (
-          <div className="stack" style={{ gap: 10 }}>
+          <div className="stack stack-tight">
             <div className="spread">
-              <span className="label" style={{ margin: 0 }}>
-                {no.control.special}
-              </span>
+              <span className="label">{no.control.special}</span>
               <button
+                type="button"
                 className="special-toggle"
                 onClick={() => {
                   setShowSpecial(false);
@@ -277,7 +293,7 @@ export function ResultInput({
                 {no.control.specialBack}
               </button>
             </div>
-            <div className="quick-row" style={{ justifyContent: "flex-start" }}>
+            <div className="quick-row">
               {(
                 [
                   ["walkover", no.control.specialWalkover],
@@ -287,8 +303,10 @@ export function ResultInput({
               ).map(([kind, label]) => (
                 <button
                   key={kind}
+                  type="button"
                   className="quick-chip"
                   data-on={special === kind}
+                  aria-pressed={special === kind}
                   onClick={() => {
                     setSpecial(kind);
                     if (kind === "abandoned") setSpecialWinner(null);
@@ -299,19 +317,19 @@ export function ResultInput({
               ))}
             </div>
             {special && special !== "abandoned" && (
-              <div className="stack" style={{ gap: 8 }}>
-                <span className="faint" style={{ fontSize: ".85rem" }}>
-                  {no.control.specialPickWinner}
-                </span>
+              <div className="stack stack-tight">
+                <span className="hint">{no.control.specialPickWinner}</span>
                 <div className="bigchoice">
                   <button
                     data-on={specialWinner === "home"}
+                    aria-pressed={specialWinner === "home"}
                     onClick={() => setSpecialWinner("home")}
                   >
                     <TeamLabel team={home} />
                   </button>
                   <button
                     data-on={specialWinner === "away"}
+                    aria-pressed={specialWinner === "away"}
                     onClick={() => setSpecialWinner("away")}
                   >
                     <TeamLabel team={away} />
@@ -319,25 +337,24 @@ export function ResultInput({
                 </div>
               </div>
             )}
-            {special === "abandoned" && (
-              <span className="faint" style={{ fontSize: ".85rem" }}>
-                {no.control.specialAbandonedHint}
-              </span>
-            )}
+            {special === "abandoned" && <span className="hint">{no.control.specialAbandonedHint}</span>}
           </div>
         )}
       </div>
 
-      {err && <div className="toast-danger" style={{ fontSize: ".9rem" }}>{err}</div>}
+      {aside}
 
-      <button
-        className="btn btn-gold btn-block btn-lg"
-        onClick={submit}
-        disabled={submitting || (showSpecial && !special)}
-      >
-        {submitting ? <span className="spin" /> : null}
-        {submitting ? no.control.saving : no.control.save}
-      </button>
+      <div className="result-foot">
+        {err && <div className="toast-danger" role="alert">{err}</div>}
+        <button
+          className="btn btn-gold btn-block btn-lg"
+          onClick={submit}
+          disabled={submitting || (showSpecial && !special)}
+        >
+          {submitting ? <span className="spin" /> : null}
+          {submitting ? no.control.saving : no.control.save}
+        </button>
+      </div>
     </div>
   );
 
@@ -362,8 +379,10 @@ function QuickChip({
 }) {
   return (
     <button
+      type="button"
       className="quick-chip"
       data-on={hs === h && as === a}
+      aria-pressed={hs === h && as === a}
       onClick={() => onPick(h, a)}
     >
       {h}–{a}
@@ -384,7 +403,9 @@ function updateSet(
   setSets(next);
 }
 
-function ScoreColumn({
+/** One team's score: colour + name on top, then [−] [score] [+] across the
+ * full width. The score itself is a number field — tap it and type. */
+function ScoreRow({
   team,
   value,
   onChange,
@@ -394,30 +415,33 @@ function ScoreColumn({
   onChange: (n: number) => void;
 }) {
   return (
-    <div className="sb-team">
-      <span className="team">
-        <span className="team-swatch" style={{ background: team.colour }} />
-        <span className="team-name">{team.name}</span>
-      </span>
-      <div className="sb-stepper">
-        <button
-          onClick={() => onChange(Math.max(0, value - 1))}
-          aria-label={`${team.name} minus`}
-        >
-          −
-        </button>
-        <span className="sb-score">{value}</span>
-        <button onClick={() => onChange(value + 1)} aria-label={`${team.name} pluss`}>
-          +
-        </button>
-      </div>
+    <div className="score-row">
+      <TeamTag team={team} />
+      <NumberField
+        className="score-field"
+        min={0}
+        max={MAX_SCORE}
+        value={value}
+        onChange={onChange}
+        aria-label={team.name}
+      />
     </div>
+  );
+}
+
+/** Team colour + name (data colour stays inline: it is not a design token). */
+function TeamTag({ team }: { team: Team }) {
+  return (
+    <span className="team score-team">
+      <span className="team-swatch" style={{ background: team.colour }} />
+      <span className="team-name">{team.name}</span>
+    </span>
   );
 }
 
 function TeamLabel({ team }: { team: Team }) {
   return (
-    <span className="team" style={{ justifyContent: "center" }}>
+    <span className="team team-centered">
       <span className="team-swatch" style={{ background: team.colour }} />
       <span className="team-name">{team.name}</span>
     </span>
