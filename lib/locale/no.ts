@@ -681,7 +681,7 @@ export const no = {
     finish: "Avslutt turnering",
     finishConfirm: "Avslutte turneringen? Storskjermen viser da vinneren.",
     finishBOpen: (n: number) =>
-      `B-sluttspillet er ikke ferdig (${n} ${n === 1 ? "kamp" : "kamper"} igjen). Avslutte turneringen likevel?`,
+      `B-sluttspillet eller bronsefinalen er ikke ferdig (${n} ${n === 1 ? "kamp" : "kamper"} igjen). Avslutte turneringen likevel?`,
     wrongOrganiserCode: "Feil arrangørkode.",
 
     shiftCourt: "Bane",
