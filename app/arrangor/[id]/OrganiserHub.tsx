@@ -108,6 +108,25 @@ export function OrganiserHub({ id }: { id: string }) {
     onChanged: refetch,
   };
 
+  const codes = (
+    <>
+      <CodesSection
+        controlCode={heldControl}
+        boardCode={heldBoard}
+        organiserCode={code}
+        organiserRemovable={!mine}
+        onOrganiserCode={setCode}
+        onCopiedControl={() => setCodeCopied(true)}
+      />
+      {!mine && !code && (
+        <div className="panel stack stack-tight" role="note">
+          <strong>{no.hub.missingTitle}</strong>
+          <span className="hint">{no.hub.missingBody}</span>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <main className="org-hub">
       <div className="org-hub-in">
@@ -136,20 +155,7 @@ export function OrganiserHub({ id }: { id: string }) {
           />
         )}
 
-        <CodesSection
-          controlCode={heldControl}
-          boardCode={heldBoard}
-          organiserCode={code}
-          organiserRemovable={!mine}
-          onOrganiserCode={setCode}
-          onCopiedControl={() => setCodeCopied(true)}
-        />
-        {!mine && !code && (
-          <div className="panel stack stack-tight" role="note">
-            <strong>{no.hub.missingTitle}</strong>
-            <span className="hint">{no.hub.missingBody}</span>
-          </div>
-        )}
+        {doneCount === 0 && codes}
 
         <h2 className="hub-tools-title">{no.hub.toolsTitle}</h2>
         {!code && <p className="hint">{no.hub.toolsLocked}</p>}
@@ -162,6 +168,10 @@ export function OrganiserHub({ id }: { id: string }) {
             <OverrideSection {...ctx} />
           </div>
         </div>
+
+        {/* Once matches are being played the tools matter more than the
+            codes, so the codes move below them. */}
+        {doneCount > 0 && codes}
 
         <section className="org-card" aria-labelledby="links-title">
           <header className="org-section-head">
