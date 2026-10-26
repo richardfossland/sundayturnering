@@ -41,8 +41,9 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
-        <ThemeToggle />
         {children}
+        {/* After the page: on phones it sits at the end of the flow (CSS). */}
+        <ThemeToggle />
       </body>
     </html>
   );
