@@ -83,6 +83,36 @@ describe("estimateEnd", () => {
     expect(r.matchCount).toBe(12 + 3);
   });
 
+  it("groups play side by side: 12 teams / 3 groups / 6 courts = three rounds, then the knockout", () => {
+    const r = est({
+      format: "group_playoff",
+      teamCount: 12,
+      courtCount: 6,
+      groupCount: 3,
+      advancePerGroup: 1,
+      schedule: sched({ matchMinutes: 10 }),
+    });
+    // 18 group matches on 6 courts = 3 slots (30 min), then a 3-team knockout:
+    // the top seed's bye, one semifinal and the final (20 min).
+    expect(r.matchCount).toBe(18 + 2);
+    expect(minutes(r.endsAt)).toBe(50);
+  });
+
+  it("league 9 teams on 3 courts: every court is used (12 slots)", () => {
+    const r = est({ format: "league", teamCount: 9, courtCount: 3, schedule: sched({ matchMinutes: 10 }) });
+    expect(minutes(r.endsAt)).toBe(120);
+  });
+
+  it("rest carries from the series into the knockout", () => {
+    const loose = est({ format: "league_playoff", teamCount: 4, courtCount: 2, playoffSize: 4, schedule: sched({ matchMinutes: 10 }) });
+    const rested = est({
+      format: "league_playoff", teamCount: 4, courtCount: 2, playoffSize: 4,
+      schedule: sched({ matchMinutes: 10, minRestMinutes: 30 }),
+    });
+    // The semifinals cannot start until 30 min after each team's last series match.
+    expect(minutes(rested.endsAt)! - minutes(loose.endsAt)!).toBeGreaterThanOrEqual(30);
+  });
+
   it("double elimination plays more matches than a cup of the same size", () => {
     const cup = est({ format: "cup", teamCount: 8, courtCount: 2 });
     const dbl = est({ format: "double_elim", teamCount: 8, courtCount: 2, grandFinalReset: true });

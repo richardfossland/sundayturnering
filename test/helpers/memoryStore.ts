@@ -159,6 +159,11 @@ export const storeMock = {
 
 // ---------- Uthenting for testene ----------
 
+/** Legg rader rett inn i en tabell (id må følge med). */
+export function seed(table: string, rows: Row[]): void {
+  tbl(table).push(...rows);
+}
+
 export const storedTournament = (id: string) => tbl("tournaments").find((t) => t.id === id) as unknown as Tournament;
 export const storedMatches = (id: string) => storeMock.getMatches(id);
 export const storedCourts = (id: string) => storeMock.getCourts(id);
