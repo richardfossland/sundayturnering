@@ -84,6 +84,10 @@ export function MatchCard({
     else if (m.status === "done" && correctMsLeft != null)
       primary = { label: `${no.control.edit} (${fmtClock(correctMsLeft)})`, run: onCorrect, tone: "ghost" };
   }
+  // Tapping the body of a planned card only opens the result sheet (a lock that
+  // is released on close). Starting a match makes it live on the storskjerm and
+  // restarts that court's countdown, so that needs the explicit button.
+  const bodyRun = primary && planned && !unsent ? onEnterScore : primary?.run;
   // A finished card nobody here can edit explains itself instead of staying silent.
   const needsOrganiser = m.status === "done" && now > 0 && correctMsLeft == null && !unsent;
 
@@ -150,11 +154,11 @@ export function MatchCard({
           className="mcard-body mcard-body-action"
           role="button"
           tabIndex={0}
-          onClick={primary.run}
+          onClick={bodyRun}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              primary.run();
+              bodyRun?.();
             }
           }}
         >

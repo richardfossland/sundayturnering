@@ -816,10 +816,11 @@ export function Wizard() {
                       <label className="label" htmlFor="w-courts">{no.wizard.courtCount}</label>
                       <NumberField id="w-courts" aria-label={no.wizard.courtCount} min={1} max={12} value={courtCount}
                         onChange={(n) => {
-                          // Only committed (in-range) values reach here, so the
-                          // name list is never resized by a half-typed number.
+                          // In-range drafts arrive while typing (2 → "1" → "10"), so
+                          // the name list only grows; the POST uses the first n.
                           setCourtCount(n);
-                          setCourtNames((prev) => Array.from({ length: n }, (_, i) => prev[i] ?? `Bane ${i + 1}`));
+                          setCourtNames((prev) =>
+                            Array.from({ length: Math.max(n, prev.length) }, (_, i) => prev[i] ?? `Bane ${i + 1}`));
                         }} />
                     </div>
                     <div>
@@ -997,7 +998,7 @@ export function Wizard() {
                   title={title} sport={sport} format={format} scoring={scoring} swissRounds={effectiveSwissRounds}
                   parallelism={parallelism} courtCount={courtCount}
                   teamCount={validTeams.length} playoff={showPlayoff && !isGroup ? effectivePlayoff : 0}
-                  groupCount={effectiveGroups} advancePerGroup={advancePerGroup} thirdPlace={thirdPlace}
+                  groupCount={effectiveGroups} advancePerGroup={advancePerGroup} thirdPlace={bronze}
                   grandFinalReset={isDouble ? grandFinalReset : undefined}
                   consolation={effectiveConsolation}
                   showStep6={showStep6}

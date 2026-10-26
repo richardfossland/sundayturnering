@@ -633,6 +633,7 @@ export const no = {
     enterScore: "Før resultat",
     started: "Kampen er i gang.",
     waitingTeams: "Venter på lag",
+    matchesFinished: "Turneringen er avsluttet. Kamper som ikke ble spilt, kan ikke føres lenger.",
     matchesClosed: (n: number) =>
       `${n} ${n === 1 ? "seriekamp ble" : "seriekamper ble"} ikke spilt før sluttspillet startet, og kan ikke føres lenger.`,
     savedMatch: (home: string, score: string, away: string) => `Lagret: ${home} ${score} ${away}`,
