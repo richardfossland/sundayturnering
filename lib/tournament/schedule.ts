@@ -58,6 +58,18 @@ export function assignSlots(
   opts: AssignOptions = {},
 ): Map<string, string> {
   const out = new Map<string, string>();
+  for (const [id, p] of planSlots(matches, courts, cfg, opts)) out.set(id, p.at);
+  return out;
+}
+
+/** Som `assignSlots`, men oppgir også banen kampen havnet på (null uten baner). */
+export function planSlots(
+  matches: SlotMatch[],
+  courts: string[],
+  cfg: ScheduleConfig,
+  opts: AssignOptions = {},
+): Map<string, { at: string; courtId: string | null }> {
+  const out = new Map<string, { at: string; courtId: string | null }>();
   const dur = cfg.matchMinutes * MIN;
   const slot = (cfg.matchMinutes + cfg.breakMinutes) * MIN;
   const rest = cfg.minRestMinutes * MIN;
@@ -137,7 +149,7 @@ export function assignSlots(
       }
     }
 
-    out.set(m.id, new Date(start).toISOString());
+    out.set(m.id, { at: new Date(start).toISOString(), courtId: courts[lane] ?? null });
     laneFree[lane] = start + slot;
     endOf.set(m.id, start + dur);
     for (const id of [m.home_team_id, m.away_team_id])

@@ -18,7 +18,7 @@ import { defaultScoringConfig } from "@/lib/tournament/scoring";
 import { sanitiseTiebreak } from "@/lib/tournament/standings";
 import { defaultSwissRounds, sanitiseSwissRounds } from "@/lib/tournament/swiss";
 import { insertSwissRound } from "@/lib/server/swiss";
-import { assignSlots, sanitiseSchedule, type SlotLink } from "@/lib/tournament/schedule";
+import { planSlots, sanitiseSchedule, type SlotLink } from "@/lib/tournament/schedule";
 import type {
   Format,
   Parallelism,
@@ -246,7 +246,8 @@ async function buildRest(
 }
 
 /** Sett `scheduled_at` på radene (ingen tidsplan ⇒ null, som før). `key` gir
- * hver rad en stabil nøkkel; `links` er brakettkoblinger over de samme nøklene. */
+ * hver rad en stabil nøkkel; `links` er brakettkoblinger over de samme nøklene.
+ * Rader uten låst bane får banen planleggeren velger (tidligste ledige). */
 function withSchedule<R extends {
   court_id: string | null;
   queue_order: number;
@@ -262,14 +263,17 @@ function withSchedule<R extends {
   notBefore?: Date,
 ): (R & { scheduled_at: string | null })[] {
   const slots = cfg
-    ? assignSlots(
+    ? planSlots(
         rows.map((r, i) => ({ ...r, id: key(r, i), status: r.status as "scheduled" })),
         courtIds,
         cfg,
         { links, notBefore },
       )
-    : new Map<string, string>();
-  return rows.map((r, i) => ({ ...r, scheduled_at: slots.get(key(r, i)) ?? null }));
+    : new Map<string, { at: string; courtId: string | null }>();
+  return rows.map((r, i) => {
+    const p = slots.get(key(r, i));
+    return { ...r, court_id: r.court_id ?? p?.courtId ?? null, scheduled_at: p?.at ?? null };
+  });
 }
 
 function clampInt(v: unknown, lo: number, hi: number, dflt: number): number {
@@ -443,11 +447,17 @@ async function persistBracketSet(
   flat.sort((x, y) => at(x.id, x.m.round) - at(y.id, y.m.round) || x.bi - y.bi || x.m.slot - y.m.slot);
 
   let queue = 0;
+  const perRound = new Map<number, number>();
   const plain = flat.map(({ id, m }) => {
-    const courtId =
-      courtIds.length > 0 && m.status !== "bye"
-        ? courtIds[m.slot % courtIds.length]
-        : null;
+    // Bane settes av tidsplanen (tidligste ledige). Uten tidsplan fordeles
+    // kampene jevnt over banene innen hver runde, i spillerekkefølge.
+    let courtId: string | null = null;
+    if (!opts?.schedule && courtIds.length > 0 && m.status !== "bye") {
+      const o = at(id, m.round);
+      const n = perRound.get(o) ?? 0;
+      perRound.set(o, n + 1);
+      courtId = courtIds[n % courtIds.length];
+    }
     return {
       tournament_id: tournamentId,
       phase: "playoff" as const,
