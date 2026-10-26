@@ -22,7 +22,9 @@ export function Stepper({
   skipped: number[];
   onGo: (n: number) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  // The phone list is open for the step it was opened on; moving on closes it.
+  const [openAt, setOpenAt] = useState<number | null>(null);
+  const open = openAt === step;
   const names = no.wizard.stepNames;
   const total = names.length;
   const stateOf = (n: number): State =>
@@ -61,7 +63,7 @@ export function Stepper({
           className="stepper-compact-btn"
           aria-expanded={open}
           aria-controls="stepper-list"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => setOpenAt(open ? null : step)}
         >
           <span>{no.wizard.stepCompact(step, total, names[step - 1])}</span>
           <Icon name="chevronDown" size={18} />
@@ -82,7 +84,7 @@ export function Stepper({
                     <button
                       type="button"
                       onClick={() => {
-                        setOpen(false);
+                        setOpenAt(null);
                         onGo(n);
                       }}
                     >

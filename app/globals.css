@@ -3679,8 +3679,8 @@ button.brk-row:focus-visible {
 }
 .wiz-pair {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: var(--sp-5) var(--sp-5);
+  grid-template-columns: repeat(auto-fit, minmax(192px, 1fr));
+  gap: var(--sp-5) var(--sp-4);
   align-items: start;
 }
 .wiz-pair .numfield {
@@ -3954,6 +3954,9 @@ button.stepper-btn:hover .stepper-dot {
   .wiz .opt-grid.opt-grid-2 {
     grid-template-columns: 1fr 1fr;
   }
+  .wiz .opt-grid.opt-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 .wiz .opt {
   display: flex;
@@ -3966,8 +3969,11 @@ button.stepper-btn:hover .stepper-dot {
   font-size: var(--fs-md);
   margin: 0;
 }
+.wiz .opt p {
+  margin-bottom: var(--sp-2);
+}
 .opt-practice {
-  margin-top: var(--sp-2);
+  margin-top: auto;
   padding-top: var(--sp-2);
   border-top: 1px solid var(--ink-line);
   font-size: var(--fs-sm);
@@ -4030,7 +4036,7 @@ button.stepper-btn:hover .stepper-dot {
   color: var(--txt-faint);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding: 0 var(--sp-3);
+  padding: 0 calc(var(--sp-3) + 1px);
 }
 .team-head span:nth-child(2),
 .team-head span:nth-child(4) {
@@ -4282,4 +4288,36 @@ label.check-row > input[type="checkbox"] {
 }
 .chip-split .chip-btn:hover {
   opacity: 1;
+}
+@media (max-width: 900px) {
+  /* the wizard's sticky footer owns the bottom edge; lift the floating theme switch above it */
+  body:has(.wiz-foot) .theme-toggle {
+    bottom: calc(var(--tap) + var(--sp-6) + var(--sp-4));
+  }
+  .wiz .panel {
+    padding: var(--sp-4);
+  }
+}
+@media (max-width: 699px) {
+  /* phone: the card runs to the bottom edge so its footer never floats mid-page */
+  .wiz {
+    padding-bottom: 0;
+    min-height: calc(100dvh - var(--header-h));
+  }
+  .wiz-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    box-shadow: none;
+  }
+  .wiz-step {
+    flex: 1;
+  }
+  .wiz-foot .btn {
+    padding-inline: var(--sp-4);
+    white-space: nowrap;
+  }
 }

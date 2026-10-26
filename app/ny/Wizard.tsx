@@ -570,7 +570,7 @@ export function Wizard() {
 
             {step === 3 && (
               <>
-                <div className="opt-grid">
+                <div className="opt-grid opt-grid-3">
                   {(["simple", "sets", "winner"] as ScoringProfileKey[]).map((p) => (
                     <button key={p} type="button" className="opt" data-on={scoring.profile === p} aria-pressed={scoring.profile === p} onClick={() => setProfile(p)}>
                       <h3>{no.wizard.profiles[p].name}</h3>
@@ -1168,7 +1168,8 @@ function formatPractice(
   teamCount: number,
   o: { groupCount: number; grandFinalReset: boolean; swissRounds: number },
 ): string {
-  const known = teamCount >= 3;
+  // Groups need 4+; with fewer teams a worked example says more than a degenerate count.
+  const known = teamCount >= 4;
   const n = known ? teamCount : 8;
   const groups = clampGroupCount(o.groupCount, n);
   const rounds = known ? o.swissRounds : defaultSwissRounds(n);
@@ -1335,8 +1336,8 @@ function Summary(props: {
     [no.wizard.s1Sport, props.sport || "—", undefined, 1],
     [no.wizard.summaryFormat, no.wizard.formats[props.format].name, undefined, 2],
     [no.wizard.summaryScoring, no.wizard.profiles[props.scoring.profile].name, pointsLine, 3],
-    [no.wizard.summaryTeams, String(props.teamCount), undefined, 4],
-    [no.wizard.summaryCourts, props.parallelism === "parallel" ? String(props.courtCount) : no.wizard.sequential, undefined, 5],
+    [no.wizard.summaryTeams, no.wizard.s4Count(props.teamCount), undefined, 4],
+    [no.wizard.summaryCourts, props.parallelism === "parallel" ? no.wizard.summaryCourtCount(props.courtCount) : no.wizard.sequential, undefined, 5],
   ];
   if (props.schedule) {
     const s = props.schedule;
@@ -1356,7 +1357,12 @@ function Summary(props: {
   } else {
     rows.push([no.wizard.summarySchedule, no.wizard.summaryScheduleOff, undefined, 5]);
   }
-  rows.push([no.wizard.summaryMatches, `${matchCount}${rounds ? ` · ${no.wizard.summaryRounds(rounds)}` : ""}`, undefined, null]);
+  rows.push([
+    no.wizard.summaryMatches,
+    `${matchCount}${rounds ? ` · ${no.wizard.summaryRounds(rounds)}` : ""}`,
+    isGroup || props.playoff ? no.wizard.summaryPlusKnockout : undefined,
+    null,
+  ]);
   if (props.format === "swiss") rows.push([no.wizard.swissRounds, String(props.swissRounds ?? ""), undefined, 4]);
   if (isGroup)
     rows.push([

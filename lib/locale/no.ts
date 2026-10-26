@@ -132,7 +132,7 @@ export const no = {
     stepSkipped: "Ikke nødvendig",
     stepDone: "Ferdig",
     stepGoTo: (name: string) => `Gå til steget ${name}`,
-    backToSummary: "Tilbake til oppsummering",
+    backToSummary: "Til oppsummering",
     change: "Endre",
 
     s1Title: "Hva slags turnering?",
@@ -331,6 +331,8 @@ export const no = {
     summaryTeams: "Lag",
     summaryCourts: "Baner",
     summaryMatches: "Kamper",
+    summaryPlusKnockout: "I tillegg kommer sluttspillet.",
+    summaryCourtCount: (n: number) => `${n} ${n === 1 ? "bane" : "baner"}`,
     summaryRounds: (n: number) => `${n} runder`,
     summarySchedule: "Tidsplan",
     summaryScheduleOff: "Ingen klokkeslett",
