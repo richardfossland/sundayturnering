@@ -93,7 +93,8 @@ export function knockoutPodium(playoff: Match[]): string[] {
  *   1000, 999, … = avgjort pallplass (mester, taper av finalen, bronse-vinner/-taper)
  *   500 + runde  = lag som ikke har tapt (turneringen ble avsluttet midt i), lengst kommet først
  *   runde        = runden laget røk ut i (senere = bedre)
- * Bronsefinalen teller ikke som en runde: begge lagene røk ut i semifinalen. Laget som
+ * Bronsefinalen teller ikke som en runde: begge lagene røk ut i semifinalen. Er den
+ * spilt før finalen (tidlig avslutning), rangeres vinneren likevel over taperen. Laget som
  * ikke er med i braketten er ikke med i kartet. */
 function bracketProgress(ms: Match[]): Map<string, number> {
   const out = new Map<string, number>();
@@ -107,6 +108,10 @@ function bracketProgress(ms: Match[]): Map<string, number> {
     if (isBronze(m)) {
       // Å spille bronsefinale betyr å ha tapt semifinalen.
       for (const tid of sides) lost.set(tid, Math.max(lost.get(tid) ?? 0, finalRound - 1));
+      // Spilt bronsefinale før finalen (tidlig avslutning): vinneren over taperen,
+      // begge fortsatt under finalistene (500+) og over kvartfinaletaperne.
+      if (m.status === "done" && m.winner_team_id)
+        lost.set(m.winner_team_id, Math.max(lost.get(m.winner_team_id) ?? 0, finalRound - 0.5));
       continue;
     }
     for (const tid of sides) reach.set(tid, Math.max(reach.get(tid) ?? 0, m.round));
