@@ -1,0 +1,88 @@
+/* Storskjerm: veiviser + tavlevisning. Bruker bare suite-tokens fra appen
+ * (--ink-*, --accent via color-mix) så mappa kan kopieres til andre apper. */
+
+.storskjerm-knapp {
+  padding: 8px 14px;
+}
+
+.storskjerm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.6);
+}
+.storskjerm-panel {
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.storskjerm-kort {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--ink-line-strong);
+  border-radius: 12px;
+}
+.storskjerm-kort h4 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.storskjerm-kort p,
+.storskjerm-kort ol {
+  margin: 0;
+}
+.storskjerm-kort ol {
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+.storskjerm-anbefalt {
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.storskjerm-merke {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.storskjerm-melding-ok {
+  font-weight: 600;
+}
+.storskjerm-melding-feil {
+  font-weight: 600;
+  color: var(--danger, #e5484d);
+}
+
+/* ---- Tavlevisning (?visning=tavle) ---- */
+.hide-cursor,
+.hide-cursor * {
+  cursor: none !important;
+}
+/* Storskjermen (BoardClient) har egen skalering og luft (--u, .board-fit), så
+ * `.presentasjon` på <html> brukes bare til å skjule ting som er for hånden og
+ * ikke for publikum: tema-bryteren og opplesningsknappen. */
+html.presentasjon .theme-toggle,
+html.presentasjon .speaker-toggle {
+  display: none;
+}
+.presentasjon-avslutt {
+  position: fixed;
+  bottom: 16px;
+  left: 20px;
+  z-index: 90;
+  padding: 6px 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.presentasjon-avslutt:hover,
+.presentasjon-avslutt:focus-visible {
+  opacity: 1;
+}

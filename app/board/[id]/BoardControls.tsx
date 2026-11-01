@@ -6,6 +6,9 @@ import { setSoundEnabled, unlockAudio } from "@/lib/client/sound";
 import { useFullscreen } from "@/lib/client/useFullscreen";
 import { no } from "@/lib/locale/no";
 import { Icon } from "@/lib/client/Icon";
+import { StorskjermPanel } from "@/lib/client/storskjerm/StorskjermPanel";
+import { tekst as storskjermTekst } from "@/lib/client/storskjerm/tekst";
+import "@/lib/client/storskjerm/storskjerm.css";
 
 const SOUND_KEY = "turnering:sound";
 
@@ -15,19 +18,27 @@ const IDLE_MS = 4000;
 
 /**
  * Icon buttons in the bottom corner of the board (home, fullscreen, referee
- * card in the lobby, codes, sound). They fade out after a few seconds without activity and come back on
+ * card in the lobby, «Vis på storskjerm», codes, sound). They fade out after a few seconds without activity and come back on
  * any mouse move, touch or key press (F still toggles fullscreen). The global
  * theme switch and the read-aloud toggle hide with them via `data-board-idle`
  * on <html>.
+ *
+ * In presentation view (`?visning=tavle`, `presentasjon`) the dock is not
+ * rendered at all — only the F shortcut and the audio unlock stay.
  *
  * `onCodes` opens the existing CodesOverlay (codes are managed by the parent so
  * the overlay keeps living at the board root). Sound state + the one-time "turn on sound" hint are folded in
  * here so audio is still unlocked on the first interaction with the page.
  */
 export function BoardControls({
+  tournamentId,
+  presentasjon,
   onCodes,
   refCard,
 }: {
+  tournamentId: string;
+  /** `?visning=tavle`: a clean public board — no dock, nothing to press. */
+  presentasjon: boolean;
   onCodes: () => void;
   /** Only passed while the lobby is up: shows/hides the «Er du dommer?» card. */
   refCard?: { shown: boolean; toggle: () => void };
@@ -35,6 +46,7 @@ export function BoardControls({
   const [idle, setIdle] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [unlocked, setUnlocked] = useState(true);
+  const [showScreenPanel, setShowScreenPanel] = useState(false);
   const fullscreen = useFullscreen();
 
   // Auto-hide: any activity shows the dock and restarts the countdown. Focus
@@ -108,7 +120,9 @@ export function BoardControls({
   }
 
   const fsLabel = fullscreen.active ? no.board.exitFullscreen : no.board.fullscreen;
+  if (presentasjon) return null;
   return (
+    <>
     <div className="board-dock" data-idle={idle || undefined} role="toolbar" aria-label={no.board.controlsLabel}>
       {soundOn && !unlocked && (
         <button className="board-sound-hint" onClick={() => setUnlocked(true)}>
@@ -143,6 +157,15 @@ export function BoardControls({
       )}
       <button
         className="board-ctl-btn"
+        onClick={() => setShowScreenPanel(true)}
+        aria-haspopup="dialog"
+        aria-label={storskjermTekst.knapp}
+        title={storskjermTekst.knapp}
+      >
+        <Icon name="screen" size="1.2em" />
+      </button>
+      <button
+        className="board-ctl-btn"
         onClick={onCodes}
         aria-label={no.board.codesBtn}
         title={no.board.codesBtn}
@@ -159,5 +182,10 @@ export function BoardControls({
         <Icon name={soundOn ? "soundOn" : "soundOff"} size="1.2em" />
       </button>
     </div>
+    {/* Outside the dock: the dock fades out (and ignores the pointer) when idle. */}
+    {showScreenPanel && (
+      <StorskjermPanel tournamentId={tournamentId} onClose={() => setShowScreenPanel(false)} />
+    )}
+    </>
   );
 }
