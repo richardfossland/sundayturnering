@@ -23,6 +23,10 @@ import { BoardStandingsPanel, hasStandingsTable } from "./BoardStandingsPanel";
 import { useReactionWall } from "./ReactionWall";
 import { channels, events } from "@/lib/realtime";
 import { useChannel } from "@/lib/client/useChannel";
+import { settPresentasjon, usePresentasjon } from "@/lib/client/storskjerm/usePresentasjon";
+import { useHideCursor } from "@/lib/client/storskjerm/useHideCursor";
+import { tekst as storskjermTekst } from "@/lib/client/storskjerm/tekst";
+import "@/lib/client/storskjerm/storskjerm.css";
 import { playDing } from "@/lib/client/sound";
 import type { Court, Match, ScoringConfig, Team, TournamentStatus } from "@/lib/types";
 
@@ -35,6 +39,17 @@ export function BoardClient({ id }: { id: string }) {
   const [wallRef, wall] = useReactionWall();
   // A projector that dims or sleeps mid-tournament is the classic failure.
   useWakeLock();
+  // `?visning=tavle`: clean public board for projector/TV/cast — no organiser
+  // controls, no codes, nothing that changes state. F still toggles fullscreen
+  // (BoardControls).
+  const presentasjon = usePresentasjon();
+  useHideCursor(presentasjon);
+  useEffect(() => {
+    if (!presentasjon) return;
+    const root = document.documentElement;
+    root.classList.add("presentasjon");
+    return () => root.classList.remove("presentasjon");
+  }, [presentasjon]);
   // The organiser's own board wants the result the moment it lands (no jitter).
   const { state, error, failures, lastOkAt } = useTournament(id, { jitterMs: 0 });
   // Spectator cheers arrive on their own topic → float emoji (no refetch).
@@ -130,8 +145,20 @@ export function BoardClient({ id }: { id: string }) {
     <>
       <OfflineBanner failures={failures} lastOkAt={lastOkAt} />
       <Commentator state={state} />
+      {presentasjon && (
+        <button
+          type="button"
+          className="btn btn-ghost presentasjon-avslutt"
+          onClick={() => {
+            if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+            settPresentasjon(false);
+          }}
+        >
+          {storskjermTekst.tavle.avslutt}
+        </button>
+      )}
       {finished ? (
-        <Champion state={state} />
+        <Champion state={state} presentasjon={presentasjon} />
       ) : (
     <main
       className={`board board-fit${flash ? " board-flash" : ""}${lobby ? " board-lobby" : ""}${
@@ -139,11 +166,13 @@ export function BoardClient({ id }: { id: string }) {
       }${tri ? " board-tri" : ""}`}
     >
       <BoardControls
+        tournamentId={tournament.id}
+        presentasjon={presentasjon}
         onCodes={() => setShowCodes(true)}
         refCard={lobby ? { shown: showRef, toggle: toggleRef } : undefined}
       />
       {wall}
-      {showCodes && (
+      {showCodes && !presentasjon && (
         <CodesOverlay
           tournamentId={tournament.id}
           baseUrl={baseUrl}
@@ -168,17 +197,12 @@ export function BoardClient({ id }: { id: string }) {
           // The control code is NOT on the projector by default — anyone in the
           // room could read it and enter results. The header keeps just the
           // read-only follow QR; the codes live behind the codes button (CodesOverlay).
-          <button
-            className="board-code-chip"
-            onClick={() => setShowCodes(true)}
-            title={no.board.codesBtn}
-            aria-label={no.board.codesBtn}
-          >
+          <ChipWrap presentasjon={presentasjon} onClick={() => setShowCodes(true)}>
             <div className="board-qr">
               <QRCode value={followUrl} size={240} alt={no.board.qrFollowAlt} />
               <div className="board-qr-label">{no.board.follow}</div>
             </div>
-          </button>
+          </ChipWrap>
         )}
       </header>
 
@@ -210,6 +234,35 @@ export function BoardClient({ id }: { id: string }) {
     </main>
       )}
     </>
+  );
+}
+
+/** The header QR. For the organiser it is a button that opens the codes
+ * overlay; in presentation view it is just the picture (nothing to press). */
+function ChipWrap({
+  presentasjon,
+  onClick,
+  children,
+}: {
+  presentasjon: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  if (presentasjon)
+    return (
+      <div className="board-code-chip" style={{ cursor: "default" }}>
+        {children}
+      </div>
+    );
+  return (
+    <button
+      className="board-code-chip"
+      onClick={onClick}
+      title={no.board.codesBtn}
+      aria-label={no.board.codesBtn}
+    >
+      {children}
+    </button>
   );
 }
 

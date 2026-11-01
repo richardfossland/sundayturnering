@@ -13,7 +13,14 @@ import type { StateDTO } from "@/lib/dto";
 // slot 0 — the bronze final shares the last round and must never crown), else
 // the rank-1 league standing. One rule, shared with the results page via
 // championId() so the board and the diploma can never disagree.
-export function Champion({ state }: { state: StateDTO }) {
+export function Champion({
+  state,
+  presentasjon = false,
+}: {
+  state: StateDTO;
+  /** `?visning=tavle`: no links to press on the public screen. */
+  presentasjon?: boolean;
+}) {
   const { teams } = state;
   const byId = new Map(teams.map((t) => [t.id, t]));
   const winnerId = championId(state);
@@ -45,6 +52,7 @@ export function Champion({ state }: { state: StateDTO }) {
           </div>
         )}
         <h1 className="champion-name">{champ?.name ?? no.result.endedEarly}</h1>
+        {!presentasjon && (
         <a
           className="btn"
           href={`/resultat/${state.tournament.id}`}
@@ -55,6 +63,7 @@ export function Champion({ state }: { state: StateDTO }) {
           <Icon name="award" />
           Resultater &amp; diplom
         </a>
+        )}
       </div>
     </main>
   );
